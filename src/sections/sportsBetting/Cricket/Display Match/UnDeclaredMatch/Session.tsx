@@ -62,10 +62,10 @@ const Session = () => {
   });
 
   // TanStack Query for fetching bet history
-  const { 
-    data: betHistoryData, 
-    isLoading: betHistoryLoading, 
-    error: betHistoryError 
+  const {
+    data: betHistoryData,
+    isLoading: betHistoryLoading,
+    error: betHistoryError
   } = useQuery({
     queryKey: ['betHistory', matchData?.match?._id],
     queryFn: () => fetchBetUndlecarHistory(matchData!.match._id),
@@ -74,9 +74,14 @@ const Session = () => {
 
   // Extract teams from bet history
   const teams = useMemo(() => {
-    if (!betHistoryData?.data) return [];
-    return [...new Set(betHistoryData.data.map((b: any) => b.runner_name).filter(Boolean))] as string[];
-  }, [betHistoryData]);
+    const fancyOdds = matchData?.match?.fancyOdds;
+    if (!fancyOdds) return [];
+
+    return fancyOdds
+      .filter((fancy: any) => fancy.isDeclared === false) 
+      .map((fancy: any) => fancy.rname);
+  }, [matchData]);
+
 
   // Delete bet mutation
   const deleteBetMutation = useMutation({
@@ -91,30 +96,30 @@ const Session = () => {
     }
   });
 
-// Delete multiple bets mutation (Sequential)
-const deleteMultipleBetsMutation = useMutation({
-  mutationFn: async (betIds: string[]) => {
-    await betIds.reduce(
-      (promise, id) => promise.then(() => deleteBetHistory(id)),
-      Promise.resolve()
-    );
-  },
-  onSuccess: () => {
-    queryClient.invalidateQueries({ queryKey: ['betHistory'] });
-    setSelectedBets([]);
-    toast.success('Bets deleted successfully');
-  },
-  onError: (error: any) => {
-    console.error('Error deleting bets:', error);
-    toast.error(error?.response?.data?.message || 'Failed to delete bets');
-  }
-});
+  // Delete multiple bets mutation (Sequential)
+  const deleteMultipleBetsMutation = useMutation({
+    mutationFn: async (betIds: string[]) => {
+      await betIds.reduce(
+        (promise, id) => promise.then(() => deleteBetHistory(id)),
+        Promise.resolve()
+      );
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['betHistory'] });
+      setSelectedBets([]);
+      toast.success('Bets deleted successfully');
+    },
+    onError: (error: any) => {
+      console.error('Error deleting bets:', error);
+      toast.error(error?.response?.data?.message || 'Failed to delete bets');
+    }
+  });
 
 
 
   const filteredData = useMemo(() => {
     if (!betHistoryData?.data) return [];
-    
+
     return betHistoryData.data.filter((row: any) => {
       // Skip if match is declared or not a FANCY bet
       if (row.match?.declared === true || row.bet_type !== 'FANCY') return false;
@@ -174,7 +179,7 @@ const deleteMultipleBetsMutation = useMutation({
     // Don't allow selection of deleted bets
     const bet = filteredData.find((b: any) => b.id === betId);
     if (bet && bet.status === "DELETED") return;
-    
+
     if (selectedBets.includes(betId)) {
       setSelectedBets(selectedBets.filter((id) => id !== betId));
     } else {
@@ -251,7 +256,7 @@ const deleteMultipleBetsMutation = useMutation({
 
               <Grid item xs={12} md={3}>
                 <TimePicker
-                 format="HH:mm:ss"
+                  format="HH:mm:ss"
                   label="From Time"
                   views={['hours', 'minutes', 'seconds']}
                   value={fromTime1}
@@ -318,8 +323,8 @@ const deleteMultipleBetsMutation = useMutation({
                   <TableCell padding="checkbox">
                     <Checkbox
                       indeterminate={selectedBets.length > 0 && selectedBets.length < filteredData.filter((bet: any) => bet.status !== "DELETED").length}
-                      checked={filteredData.filter((bet: any) => bet.status !== "DELETED").length > 0 && 
-                              selectedBets.length === filteredData.filter((bet: any) => bet.status !== "DELETED").length}
+                      checked={filteredData.filter((bet: any) => bet.status !== "DELETED").length > 0 &&
+                        selectedBets.length === filteredData.filter((bet: any) => bet.status !== "DELETED").length}
                       onChange={handleSelectAll}
                     />
                   </TableCell>
@@ -422,7 +427,7 @@ const deleteMultipleBetsMutation = useMutation({
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setDeleteModalOpen(false)}
             disabled={deleteBetMutation.isPending}
           >
@@ -455,7 +460,7 @@ const deleteMultipleBetsMutation = useMutation({
           </DialogContentText>
         </DialogContent>
         <DialogActions>
-          <Button 
+          <Button
             onClick={() => setDeleteAllModalOpen(false)}
             disabled={deleteMultipleBetsMutation.isPending}
           >
