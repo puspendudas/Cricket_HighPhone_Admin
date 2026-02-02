@@ -442,7 +442,7 @@ const buildNetByMatch = React.useCallback(
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-        <MenuItem
+        {/* <MenuItem
           onClick={() => {
             if (selectedMatch) {
               navigate(`/deleted-bets/${selectedMatch.gameId}`);
@@ -452,7 +452,7 @@ const buildNetByMatch = React.useCallback(
         >
           <Iconify icon="material-symbols:delete" sx={{ mr: 1 }} />
           Deleted Bet
-        </MenuItem>
+        </MenuItem> */}
 
         {userType === 'super_admin' && (
           <MenuItem
