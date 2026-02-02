@@ -78,7 +78,7 @@ export default function DeletedBets() {
     const {
         data: matchData,
         isLoading: matchLoading,
-        error: matchError,
+        isError: isMatchError,
     } = useQuery({
         queryKey: ['matchData', gameId],
         queryFn: () =>
@@ -86,13 +86,14 @@ export default function DeletedBets() {
                 ? FatchUpdateMatchData(gameId)
                 : Promise.reject(new Error('No gameId')),
         enabled: !!gameId,
-        refetchInterval: 1000,
+        // refetchInterval: 1000,
     });
 
     // Bet History
     const {
         data: betHistoryData,
         isLoading: betHistoryLoading,
+        isError: isBetHistoryError,
     } = useQuery({
         queryKey: ['betHistory', matchData?.match._id, userId],
         queryFn: () =>
@@ -100,7 +101,7 @@ export default function DeletedBets() {
                 ? fetchBetHistory(matchData.match._id, userId)
                 : Promise.reject(new Error('No match id or user id')),
         enabled: !!matchData?.match._id && !!userId,
-        refetchInterval: 1000,
+        // refetchInterval: 1000,
     });
 
     const toggleSection = (runnerName: string) => {
@@ -110,31 +111,19 @@ export default function DeletedBets() {
         }));
     };
 
-    if (matchLoading || betHistoryLoading) {
-        return (
-            <Box p={2}>
-                <Typography>Loading match data...</Typography>
-            </Box>
-        );
-    }
+    // Loading states
+    const isLoading = matchLoading || betHistoryLoading;
+    const hasError = isMatchError || isBetHistoryError || !matchData;
+    
+    const { eventName, eventTime, wonby, teams = [] as string[] } = matchData?.match || {};
 
-    if (matchError || !matchData) {
-        return (
-            <Box p={2}>
-                <Typography>No match data available</Typography>
-            </Box>
-        );
-    }
-
-    const { eventName, eventTime, wonby, teams = [] as string[] } = matchData.match;
-
-    const formattedDate = new Date(eventTime).toLocaleString('en-US', {
+    const formattedDate = eventTime ? new Date(eventTime).toLocaleString('en-US', {
         year: 'numeric',
         month: 'long',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    });
+    }) : '';
 
     // Match transactions formatting
     const matchBetsRaw = (betHistoryData?.data || []).filter(
@@ -209,7 +198,19 @@ export default function DeletedBets() {
                             </TableRow>
                         </TableHead>
                         <TableBody>
-                            {paginated.length > 0 ? (
+                            {isLoading ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} align="center">
+                                        Loading data...
+                                    </TableCell>
+                                </TableRow>
+                            ) : hasError ? (
+                                <TableRow>
+                                    <TableCell colSpan={5} align="center">
+                                        No data available
+                                    </TableCell>
+                                </TableRow>
+                            ) : paginated.length > 0 ? (
                                 paginated.map((row: any, index: any) => (
                                     <TableRow key={`${row.client}-${index}`} hover>
                                         <TableCell>
@@ -269,18 +270,20 @@ export default function DeletedBets() {
                     </Table>
                 </TableContainer>
 
-                <TablePagination
-                    component="div"
-                    count={formattedBetHistory.length}
-                    page={page}
-                    onPageChange={(_, newPage) => setPage(newPage)}
-                    rowsPerPage={rowsPerPage}
-                    onRowsPerPageChange={(e) => {
-                        setRowsPerPage(parseInt(e.target.value, 10));
-                        setPage(0);
-                    }}
-                    rowsPerPageOptions={[10, 25, 50]}
-                />
+                {!isLoading && !hasError && formattedBetHistory.length > 0 && (
+                    <TablePagination
+                        component="div"
+                        count={formattedBetHistory.length}
+                        page={page}
+                        onPageChange={(_, newPage) => setPage(newPage)}
+                        rowsPerPage={rowsPerPage}
+                        onRowsPerPageChange={(e) => {
+                            setRowsPerPage(parseInt(e.target.value, 10));
+                            setPage(0);
+                        }}
+                        rowsPerPageOptions={[10, 25, 50]}
+                    />
+                )}
             </>
         );
     };
@@ -302,11 +305,13 @@ export default function DeletedBets() {
                         }}
                     >
                         <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
-                            {eventName}
+                            {eventName || 'Match Details'}
                         </Typography>
-                        <Typography variant="subtitle1" sx={{ mb: 3 }}>
-                            ({formattedDate})
-                        </Typography>
+                        {formattedDate && (
+                            <Typography variant="subtitle1" sx={{ mb: 3 }}>
+                                ({formattedDate})
+                            </Typography>
+                        )}
                         {wonby && (
                             <Chip
                                 avatar={
@@ -357,7 +362,11 @@ export default function DeletedBets() {
                         </Typography>
                     </AccordionSummary>
                     <AccordionDetails sx={{ padding: '0px' }}>
-                        {Object.entries(groupedFancyBets).length === 0 ? (
+                        {isLoading ? (
+                            <Typography>Loading...</Typography>
+                        ) : hasError ? (
+                            <Typography>No data available</Typography>
+                        ) : Object.entries(groupedFancyBets).length === 0 ? (
                             <Typography>No fancy bets available</Typography>
                         ) : (
                             Object.entries(groupedFancyBets).map(([runnerName, bets]) => (
@@ -532,11 +541,13 @@ export default function DeletedBets() {
                     }}
                 >
                     <Typography variant="h5" sx={{ mb: 2, fontWeight: 'bold' }}>
-                        {eventName}
+                        {eventName || 'Match Details'}
                     </Typography>
-                    <Typography variant="subtitle1" sx={{ mb: 3 }}>
-                        ({formattedDate})
-                    </Typography>
+                    {formattedDate && (
+                        <Typography variant="subtitle1" sx={{ mb: 3 }}>
+                            ({formattedDate})
+                        </Typography>
+                    )}
                     {wonby && (
                         <Chip
                             avatar={
@@ -573,176 +584,184 @@ export default function DeletedBets() {
                 </Grid>
 
                 <Grid item xs={12} md={6}>
-                    {Object.entries(groupedFancyBets).map(([runnerName, bets]) => (
-                        <TableContainer
-                            key={runnerName}
-                            component={Paper}
-                            sx={{ mt: 2, boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)' }}
-                        >
-                            <Table>
-                                <TableHead>
-                                    <TableRow>
-                                        <TableCell sx={{ backgroundColor: '#26B8A4' }}>
-                                            <Box
-                                                display="flex"
-                                                alignItems="center"
-                                                justifyContent="space-between"
-                                            >
-                                                <Typography color="#FFFFFF" variant="subtitle1" fontWeight="bold">
-                                                    {runnerName}
-                                                </Typography>
-                                                {(wonby === runnerName ||
-                                                    bets.some((b) => b.status === 'WON' || b.result)) && (
-                                                        <Box
-                                                            display="flex"
-                                                            alignItems="center"
-                                                            padding="5px 18px"
-                                                            borderRadius="20px"
-                                                            bgcolor="#FFC107"
-                                                        >
-                                                            <img
-                                                                src={win}
-                                                                alt="win"
-                                                                style={{ width: '30px', marginRight: '8px' }}
-                                                            />
-                                                            <Typography
-                                                                color="#000000"
-                                                                variant="subtitle1"
-                                                                fontWeight="bold"
-                                                            >
-                                                                {bets.find((b) => b.result)?.result ?? wonby}
-                                                            </Typography>
-                                                        </Box>
-                                                    )}
-                                                <IconButton
-                                                    size="small"
-                                                    onClick={() => toggleSection(runnerName)}
-                                                    sx={{ color: '#FFFFFF' }}
+                    {isLoading ? (
+                        <Typography>Loading fancy bets...</Typography>
+                    ) : hasError ? (
+                        <Typography>No fancy bets data available</Typography>
+                    ) : Object.entries(groupedFancyBets).length === 0 ? (
+                        <Typography>No fancy bets available</Typography>
+                    ) : (
+                        Object.entries(groupedFancyBets).map(([runnerName, bets]) => (
+                            <TableContainer
+                                key={runnerName}
+                                component={Paper}
+                                sx={{ mt: 2, boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)' }}
+                            >
+                                <Table>
+                                    <TableHead>
+                                        <TableRow>
+                                            <TableCell sx={{ backgroundColor: '#26B8A4' }}>
+                                                <Box
+                                                    display="flex"
+                                                    alignItems="center"
+                                                    justifyContent="space-between"
                                                 >
-                                                    <Iconify
-                                                        icon={
-                                                            openSections[runnerName]
-                                                                ? 'eva:arrow-ios-upward-fill'
-                                                                : 'eva:arrow-ios-downward-fill'
-                                                        }
-                                                        width={20}
-                                                        height={20}
-                                                    />
-                                                </IconButton>
-                                            </Box>
-                                        </TableCell>
-                                    </TableRow>
-                                </TableHead>
+                                                    <Typography color="#FFFFFF" variant="subtitle1" fontWeight="bold">
+                                                        {runnerName}
+                                                    </Typography>
+                                                    {(wonby === runnerName ||
+                                                        bets.some((b) => b.status === 'WON' || b.result)) && (
+                                                            <Box
+                                                                display="flex"
+                                                                alignItems="center"
+                                                                padding="5px 18px"
+                                                                borderRadius="20px"
+                                                                bgcolor="#FFC107"
+                                                            >
+                                                                <img
+                                                                    src={win}
+                                                                    alt="win"
+                                                                    style={{ width: '30px', marginRight: '8px' }}
+                                                                />
+                                                                <Typography
+                                                                    color="#000000"
+                                                                    variant="subtitle1"
+                                                                    fontWeight="bold"
+                                                                >
+                                                                    {bets.find((b) => b.result)?.result ?? wonby}
+                                                                </Typography>
+                                                            </Box>
+                                                        )}
+                                                    <IconButton
+                                                        size="small"
+                                                        onClick={() => toggleSection(runnerName)}
+                                                        sx={{ color: '#FFFFFF' }}
+                                                    >
+                                                        <Iconify
+                                                            icon={
+                                                                openSections[runnerName]
+                                                                    ? 'eva:arrow-ios-upward-fill'
+                                                                    : 'eva:arrow-ios-downward-fill'
+                                                            }
+                                                            width={20}
+                                                            height={20}
+                                                        />
+                                                    </IconButton>
+                                                </Box>
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableHead>
 
-                                <TableBody>
-                                    <TableRow>
-                                        <TableCell sx={{ p: 0 }}>
-                                            <Collapse
-                                                in={openSections[runnerName]}
-                                                timeout="auto"
-                                                unmountOnExit
-                                            >
-                                                <Box p={1}>
-                                                    <TableContainer>
-                                                        <Table size="small" sx={{ minWidth: 600 }}>
-                                                            <TableHead>
-                                                                <TableRow>
-                                                                    <TableCell sx={{ fontWeight: 'bold' }}>Client</TableCell>
-                                                                    <TableCell sx={{ fontWeight: 'bold' }}>Run</TableCell>
-                                                                    <TableCell sx={{ fontWeight: 'bold' }}>
-                                                                        YES/NOT
-                                                                    </TableCell>
-                                                                    <TableCell sx={{ fontWeight: 'bold' }}>Amount</TableCell>
-                                                                    <TableCell sx={{ fontWeight: 'bold' }}>
-                                                                        Created
-                                                                    </TableCell>
-                                                                </TableRow>
-                                                            </TableHead>
-                                                            <TableBody>
-                                                                {bets.map((bet) => (
-                                                                    <TableRow key={bet.id}>
-                                                                        <TableCell>
-                                                                            {bet.user.name} ({bet.user.user_name})
+                                    <TableBody>
+                                        <TableRow>
+                                            <TableCell sx={{ p: 0 }}>
+                                                <Collapse
+                                                    in={openSections[runnerName]}
+                                                    timeout="auto"
+                                                    unmountOnExit
+                                                >
+                                                    <Box p={1}>
+                                                        <TableContainer>
+                                                            <Table size="small" sx={{ minWidth: 600 }}>
+                                                                <TableHead>
+                                                                    <TableRow>
+                                                                        <TableCell sx={{ fontWeight: 'bold' }}>Client</TableCell>
+                                                                        <TableCell sx={{ fontWeight: 'bold' }}>Run</TableCell>
+                                                                        <TableCell sx={{ fontWeight: 'bold' }}>
+                                                                            YES/NOT
                                                                         </TableCell>
-                                                                        <TableCell>
-                                                                            {parseInt(bet.odds_value || bet.odds_rate, 10)}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            <Box
-                                                                                sx={{
-                                                                                    display: 'inline-flex',
-                                                                                    alignItems: 'center',
-                                                                                    px: 2,
-                                                                                    py: 0.5,
-                                                                                    borderRadius: '20px',
-                                                                                    fontWeight: 'bold',
-                                                                                    color: '#fff',
-                                                                                    backgroundColor:
-                                                                                        bet.selection === 'Yes'
-                                                                                            ? '#83c2fc'
-                                                                                            : '#fda4b4',
-                                                                                }}
-                                                                            >
-                                                                                <Typography
-                                                                                    variant="body2"
-                                                                                    sx={{
-                                                                                        fontWeight: 'bold',
-                                                                                        mr: 0.5,
-                                                                                        color: '#000',
-                                                                                    }}
-                                                                                >
-                                                                                    {bet.selection}
-                                                                                </Typography>
-                                                                                <Typography
-                                                                                    variant="body2"
-                                                                                    sx={{
-                                                                                        fontWeight: 'bold',
-                                                                                        background: '#fff',
-                                                                                        borderRadius: '20px',
-                                                                                        color: '#000',
-                                                                                        padding: '1px 8px',
-                                                                                    }}
-                                                                                >
-                                                                                    {Number(bet.odds_rate).toFixed(0)}
-                                                                                </Typography>
-                                                                            </Box>
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            ₹{bet.stake_amount.toLocaleString()}
-                                                                        </TableCell>
-                                                                        <TableCell>
-                                                                            {(() => {
-                                                                                const date = new Date(bet.createdAt);
-                                                                                const day = String(date.getDate()).padStart(2, '0');
-                                                                                const month = String(
-                                                                                    date.getMonth() + 1
-                                                                                ).padStart(2, '0');
-                                                                                const year = String(
-                                                                                    date.getFullYear()
-                                                                                ).slice(-2);
-                                                                                const hours = String(
-                                                                                    date.getHours()
-                                                                                ).padStart(2, '0');
-                                                                                const minutes = String(
-                                                                                    date.getMinutes()
-                                                                                ).padStart(2, '0');
-                                                                                const seconds = String(date.getSeconds()).padStart(2, '0');
-                                                                                return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
-                                                                            })()}
+                                                                        <TableCell sx={{ fontWeight: 'bold' }}>Amount</TableCell>
+                                                                        <TableCell sx={{ fontWeight: 'bold' }}>
+                                                                            Created
                                                                         </TableCell>
                                                                     </TableRow>
-                                                                ))}
-                                                            </TableBody>
-                                                        </Table>
-                                                    </TableContainer>
-                                                </Box>
-                                            </Collapse>
-                                        </TableCell>
-                                    </TableRow>
-                                </TableBody>
-                            </Table>
-                        </TableContainer>
-                    ))}
+                                                                </TableHead>
+                                                                <TableBody>
+                                                                    {bets.map((bet) => (
+                                                                        <TableRow key={bet.id}>
+                                                                            <TableCell>
+                                                                                {bet.user.name} ({bet.user.user_name})
+                                                                            </TableCell>
+                                                                            <TableCell>
+                                                                                {parseInt(bet.odds_value || bet.odds_rate, 10)}
+                                                                            </TableCell>
+                                                                            <TableCell>
+                                                                                <Box
+                                                                                    sx={{
+                                                                                        display: 'inline-flex',
+                                                                                        alignItems: 'center',
+                                                                                        px: 2,
+                                                                                        py: 0.5,
+                                                                                        borderRadius: '20px',
+                                                                                        fontWeight: 'bold',
+                                                                                        color: '#fff',
+                                                                                        backgroundColor:
+                                                                                            bet.selection === 'Yes'
+                                                                                                ? '#83c2fc'
+                                                                                                : '#fda4b4',
+                                                                                    }}
+                                                                                >
+                                                                                    <Typography
+                                                                                        variant="body2"
+                                                                                        sx={{
+                                                                                            fontWeight: 'bold',
+                                                                                            mr: 0.5,
+                                                                                            color: '#000',
+                                                                                        }}
+                                                                                    >
+                                                                                        {bet.selection}
+                                                                                    </Typography>
+                                                                                    <Typography
+                                                                                        variant="body2"
+                                                                                        sx={{
+                                                                                            fontWeight: 'bold',
+                                                                                            background: '#fff',
+                                                                                            borderRadius: '20px',
+                                                                                            color: '#000',
+                                                                                            padding: '1px 8px',
+                                                                                        }}
+                                                                                    >
+                                                                                        {Number(bet.odds_rate).toFixed(0)}
+                                                                                    </Typography>
+                                                                                </Box>
+                                                                            </TableCell>
+                                                                            <TableCell>
+                                                                                ₹{bet.stake_amount.toLocaleString()}
+                                                                            </TableCell>
+                                                                            <TableCell>
+                                                                                {(() => {
+                                                                                    const date = new Date(bet.createdAt);
+                                                                                    const day = String(date.getDate()).padStart(2, '0');
+                                                                                    const month = String(
+                                                                                        date.getMonth() + 1
+                                                                                    ).padStart(2, '0');
+                                                                                    const year = String(
+                                                                                        date.getFullYear()
+                                                                                    ).slice(-2);
+                                                                                    const hours = String(
+                                                                                        date.getHours()
+                                                                                    ).padStart(2, '0');
+                                                                                    const minutes = String(
+                                                                                        date.getMinutes()
+                                                                                    ).padStart(2, '0');
+                                                                                    const seconds = String(date.getSeconds()).padStart(2, '0');
+                                                                                    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+                                                                                })()}
+                                                                            </TableCell>
+                                                                        </TableRow>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </Table>
+                                                        </TableContainer>
+                                                    </Box>
+                                                </Collapse>
+                                            </TableCell>
+                                        </TableRow>
+                                    </TableBody>
+                                </Table>
+                            </TableContainer>
+                        ))
+                    )}
                 </Grid>
             </Grid>
         </Box>
