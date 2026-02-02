@@ -9,6 +9,7 @@ export function useMockedUser() {
   const [user, setUser] = useState({
     id: '',
     name: '',
+    user_name: '',
     email: '',
     photoURL: _mock.image.avatar(24),
     phoneNumber: '',
@@ -25,7 +26,7 @@ export function useMockedUser() {
     session_commission: 0,
     casino_commission: 0,
     wallet: 0,
-    password: '', 
+    password: '',
   });
 
   const [loading, setLoading] = useState(true);
@@ -39,6 +40,7 @@ export function useMockedUser() {
           const apiUser = response.data;
           setUser({
             id: apiUser._id || '',
+            user_name: apiUser.user_name || '',
             name: apiUser.name || 'Guest User',
             email: '',
             photoURL: _mock.image.avatar(24),
@@ -56,7 +58,7 @@ export function useMockedUser() {
             session_commission: apiUser.session_commission || 0,
             casino_commission: apiUser.casino_commission || 0,
             wallet: apiUser.wallet || 0,
-            password: apiUser.password || '', 
+            password: apiUser.password || '',
           });
         }
       } catch (err) {

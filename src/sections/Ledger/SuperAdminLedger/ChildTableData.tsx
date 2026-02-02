@@ -84,12 +84,21 @@ export function ChildTableData() {
   const { fetchTotalData, fetchSettlement } = useMatchApi();
   const { fetchMe } = useMeApi();
 
+
+
+
   const { data: userData } = useQuery({
     queryKey: ['userData'],
     queryFn: fetchMe,
   });
 
   const userId = userData?.data?._id;
+
+
+  const extractUserName = (value: string) => {
+    const match = value.match(/\(([^)]+)\)$/);
+    return match ? match[1] : value;
+  };
 
   const {
     data: tableData,
@@ -112,22 +121,26 @@ export function ChildTableData() {
 
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
 
-  const getClientOptions = (matches: MatchSummary[]): string[] => {
-    if (!matches || matches.length === 0) return [];
-    const clientSet = new Set<string>();
-    matches.forEach((match) => {
-      match.matchBets.forEach((bet) => {
-        const immediateAdmin = bet.immediate_child_admin;
-        if (immediateAdmin && immediateAdmin._id) {
-          const adminName = (immediateAdmin.user_name || immediateAdmin.name || '').toString();
-          if (adminName) {
-            clientSet.add(adminName);
-          }
-        }
-      });
+const getClientOptions = (matches: MatchSummary[]): string[] => {
+  if (!matches || matches.length === 0) return [];
+
+  const clientSet = new Set<string>();
+
+  matches.forEach((match) => {
+    match.matchBets.forEach((bet) => {
+      const immediateAdmin = bet.immediate_child_admin;
+      if (immediateAdmin && immediateAdmin._id) {
+        const name = immediateAdmin.name || '';
+        const userName = immediateAdmin.user_name || '';
+
+        clientSet.add(`${name} (${userName})`);
+      }
     });
-    return Array.from(clientSet).sort();
-  };
+  });
+
+  return Array.from(clientSet).sort();
+};
+
   const clientOptions = tableData?.matches ? getClientOptions(tableData.matches) : [];
 
   // --------------------------------------------------
@@ -430,7 +443,12 @@ export function ChildTableData() {
     });
   };
 
-  const ledgerData = tableData?.matches ? processLedgerData(tableData.matches, selectedClient || '') : [];
+  const ledgerData = tableData?.matches
+    ? processLedgerData(
+      tableData.matches,
+      selectedClient ? extractUserName(selectedClient) : ''
+    )
+    : [];
 
   const processSettlementData = (settlements: SettlementData[], clientFilter = '') => {
     if (!settlements || settlements.length === 0) return [];
@@ -471,7 +489,10 @@ export function ChildTableData() {
     });
   };
 
-  const settlementEntries = processSettlementData(settlementData?.data || [], selectedClient || '');
+  const settlementEntries = processSettlementData(
+    settlementData?.data || [],
+    selectedClient ? extractUserName(selectedClient) : ''
+  );
 
   // Compute balances
   const ledgerBalance = ledgerData.length > 0 ? ledgerData[ledgerData.length - 1].balance : 0;

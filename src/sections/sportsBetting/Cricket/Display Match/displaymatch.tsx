@@ -110,6 +110,10 @@ type MatchSummary = {
     user?: { user_name?: string; match_commission?: number; session_commission?: number };
     matchBets: (MatchBet | FancyBet)[];
 };
+const normalizeTeam = (name = '') =>
+    name.replace(/\./g, '').trim().toLowerCase();
+
+
 
 const DisplayMatch: React.FC = () => {
     const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
@@ -228,22 +232,26 @@ const DisplayMatch: React.FC = () => {
 
         exposureData.matches.forEach((admin: any) => {
             const adminShare = admin.share || 0;
-            const shareDiff = userShare - adminShare; // 100 - 80 = 20%, 100 - 95 = 5%
+            const shareDiff = userShare - adminShare;
 
-            Object.entries(admin.potential_profitloss || {}).forEach(([teamName, teamPL]: [string, any]) => {
-                if (!teamWisePL[teamName]) {
-                    teamWisePL[teamName] = 0;
+            Object.entries(admin.potential_profitloss || {}).forEach(
+                ([teamName, teamPL]: [string, any]) => {
+
+                    const normalizedTeam = normalizeTeam(teamName);
+
+                    if (!teamWisePL[normalizedTeam]) {
+                        teamWisePL[normalizedTeam] = 0;
+                    }
+
+                    const shareAmount = (shareDiff / 100) * Number(teamPL);
+                    teamWisePL[normalizedTeam] += shareAmount * -1;
                 }
-
-                // Apply share percentage to each team's P/L and INVERT SIGN
-                const shareAmount = (shareDiff / 100) * teamPL;
-                const invertedShareAmount = shareAmount * -1; // SIGN INVERT (- becomes +, + becomes -)
-                teamWisePL[teamName] += invertedShareAmount;
-            });
+            );
         });
 
         return teamWisePL;
     };
+
 
     // VARIABLES DECLARE
     const userShare = userData?.data?.share || 100; // SUPERADMIN ka share (100)
@@ -541,8 +549,7 @@ const DisplayMatch: React.FC = () => {
     });
 
     // Process bet history data
-    const normalizeTeam = (name = '') =>
-        name.replace(/\./g, '').trim().toLowerCase();
+
 
     const betHistory = betHistoryData?.data || [];
     const bookmakerBets = betHistory.filter((bet: BetData) => bet.bet_type !== 'FANCY');
@@ -851,7 +858,8 @@ const DisplayMatch: React.FC = () => {
                                         Amount
                                     </Typography>
                                     {teams.map((team, index) => {
-                                        const teamPL = teamWisePotentialPL[team] || 0;
+                                        const teamPL =
+                                            teamWisePotentialPL[normalizeTeam(team)] ?? 0;
                                         return (
                                             <Typography
                                                 key={index}
