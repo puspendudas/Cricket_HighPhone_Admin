@@ -10,6 +10,7 @@ import {
   Paper,
   Button,
   Dialog,
+  Switch,
   TableRow,
   Checkbox,
   TextField,
@@ -82,6 +83,7 @@ export default function SessionUpdate() {
   const [selectedSessionForRollback, setSelectedSessionForRollback] = useState<any>(null);
   const [rowMinMax, setRowMinMax] = useState<Record<string, { min: number; max: number }>>({});
   const [isEditing, setIsEditing] = useState(false);
+  const [toggleValue, setToggleValue] = useState(false)
 
   type FancyRow = {
     matchId: string;
@@ -444,15 +446,51 @@ export default function SessionUpdate() {
   const handleFetchNewSession = () => {
     queryClient.invalidateQueries({ queryKey: ['match', id] });
   };
+  const handleRefreshSessions = () => {
 
+  }
   return (
     <Box p={1}>
       {/* Declare Session */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-          <Typography variant="h6" mb={2}>
-            Declare Session
-          </Typography>
+
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'initial', mb: 2 }}>
+
+            {/* Left Side Text */}
+            <Typography variant="h6" >
+              Declare Session
+            </Typography>
+
+            {/* Right Side Controls */}
+            <Box sx={{ display: 'flex', alignItems: 'right', gap: 8, ml: '72px' }}>
+
+              {/* Refresh Icon Button */}
+              <Button
+                variant="outlined"
+                color="primary"
+                size="small"
+                onClick={handleRefreshSessions}
+                startIcon={<Iconify icon="mdi:refresh" width={20} />}
+              >
+                Refresh
+              </Button>
+
+
+              {/* Toggle Switch */}
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={toggleValue}
+                    onChange={(e) => setToggleValue(e.target.checked)}
+                    color="primary"
+                  />
+                }
+                label="Auto Declare"
+              />
+            </Box>
+
+          </Box>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} md={3}>
               <Autocomplete
