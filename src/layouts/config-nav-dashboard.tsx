@@ -34,6 +34,8 @@ const ICONS = {
   data: <Iconify icon="material-symbols:database" />,
   setting: <Iconify icon="solar:settings-bold-duotone" />,
   notification: <Iconify icon="mdi:bell-notification" />,
+    autoSetting: <Iconify icon="mdi:auto-fix" />, 
+
 };
 
 // ----------------------------------------------------------------------
@@ -201,7 +203,19 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
         },
       ],
     });
+
+    // ✅ NEW AutoSetting menu
+    navData.push({
+      items: [
+        {
+          title: 'Auto Setting',
+          path: paths.dashboard.autosetting, 
+          icon: ICONS.autoSetting,
+        },
+      ],
+    });
   }
+
 
   // Locked Casino (visible to all)
   navData.push({

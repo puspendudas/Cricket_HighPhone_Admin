@@ -29,6 +29,8 @@ export const Endpoints = {
     BetLock: `${BASE_URL}/admin/users`,
     Matchdelay: `${BASE_URL}/match/delay`,
     updateStatusMInMax: `${BASE_URL}/match/session/limit`,
+    AutoDeclare: `${BASE_URL}/auto-declare`,
+
 
 
 

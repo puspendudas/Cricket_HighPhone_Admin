@@ -10,7 +10,6 @@ import {
   Paper,
   Button,
   Dialog,
-  Switch,
   TableRow,
   Checkbox,
   TextField,
@@ -70,7 +69,7 @@ function RollbackConfirmModal({ open, onClose, onConfirm }: RollbackConfirmModal
 
 export default function SessionUpdate() {
   const queryClient = useQueryClient();
-  const { FatchUpdateMatch, updateStatusSession, DeclarefancyMatch, CancelfancyMatch, fancyRollBack, updateStatusMInMax } = useMatchApi();
+  const { FatchUpdateMatch, updateStatusSession, DeclarefancyMatch, CancelfancyMatch, fancyRollBack, updateStatusMInMax, AutoDeclareRun } = useMatchApi();
   const { id } = useParams();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -83,7 +82,6 @@ export default function SessionUpdate() {
   const [selectedSessionForRollback, setSelectedSessionForRollback] = useState<any>(null);
   const [rowMinMax, setRowMinMax] = useState<Record<string, { min: number; max: number }>>({});
   const [isEditing, setIsEditing] = useState(false);
-  const [toggleValue, setToggleValue] = useState(false)
 
   type FancyRow = {
     matchId: string;
@@ -130,6 +128,17 @@ export default function SessionUpdate() {
     enabled: !!id && !isEditing,
     refetchInterval: 1000,
 
+  });
+  const autoDeclareMutation = useMutation({
+    mutationFn: () => AutoDeclareRun(), // no payload
+    onSuccess: () => {
+      toast.success("Auto declare run executed successfully");
+      queryClient.invalidateQueries({ queryKey: ['match', id] });
+    },
+    onError: (errors: any) => {
+      console.error("AutoDeclareRun failed:", errors);
+      toast.error("Failed to auto declare run");
+    }
   });
 
   // Process fancy sessions data
@@ -446,9 +455,11 @@ export default function SessionUpdate() {
   const handleFetchNewSession = () => {
     queryClient.invalidateQueries({ queryKey: ['match', id] });
   };
-  const handleRefreshSessions = () => {
 
-  }
+  const handleRefreshSessions = () => {
+    autoDeclareMutation.mutate();
+  };
+
   return (
     <Box p={1}>
       {/* Declare Session */}
@@ -471,23 +482,20 @@ export default function SessionUpdate() {
                 color="primary"
                 size="small"
                 onClick={handleRefreshSessions}
-                startIcon={<Iconify icon="mdi:refresh" width={20} />}
+                startIcon={
+                  autoDeclareMutation.isPending ? (
+                    <CircularProgress size={16} color="inherit" />
+                  ) : (
+                    <Iconify icon="mdi:refresh" width={20} />
+                  )
+                }
               >
                 Refresh
               </Button>
 
 
               {/* Toggle Switch */}
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={toggleValue}
-                    onChange={(e) => setToggleValue(e.target.checked)}
-                    color="primary"
-                  />
-                }
-                label="Auto Declare"
-              />
+
             </Box>
 
           </Box>

@@ -310,6 +310,27 @@ const useMatchApi = () => {
     [patch]
   );
 
+  const AutoDeclareRun = useCallback(
+    async (payload: any = {}) => {  
+      try {
+        const response = await post(`${Endpoints.AutoDeclare}/run`, payload);
+
+        toast.success(response?.status || "Auto Declare Success");
+
+        return response;
+      } catch (error: any) {
+        console.error('Error Auto Declare:', error);
+
+        const errorMessage =
+          error?.response?.data?.message || 'Failed to Auto Declare';
+
+        toast.error(errorMessage);
+
+        throw error;
+      }
+    },
+    [post]
+  );
 
   return {
     updateStatusSession,
@@ -333,7 +354,8 @@ const useMatchApi = () => {
     AddSettlement,
     Exposure,
     fetchMySettlement,
-    updateStatusMInMax
+    updateStatusMInMax,
+    AutoDeclareRun
   };
 };
 

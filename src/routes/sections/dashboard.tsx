@@ -47,6 +47,7 @@ const MatchManuallyUpdate = lazy(() => import('src/sections/matchmanagement/Matc
 const SessionUpdate = lazy(() => import('src/sections/matchmanagement/SessionUpdate'));
 
 const Lockedcasino = lazy(() => import('src/pages/lockedcasino/lockedcasino'));
+const Autosetting = lazy(() => import('src/pages/Autosetting/Autosetting'));
 
 type Props = {
   children: React.ReactNode;
@@ -233,6 +234,8 @@ export const dashboardRoutes = [
           },
         ],
       },
+      { path: 'auto-setting', element: <Autosetting /> },
+
 
       // ---------------- Match Management (Only Super Admin) ----------------
       {

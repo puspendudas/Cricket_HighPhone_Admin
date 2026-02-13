@@ -99,7 +99,7 @@ export const paths = {
     matchupdate: `/match-manuall-update/:id`,
     sessionupdate: `/session-update/:id`,
     lockedcasino: `/locked-casino`,
-
+    autosetting: `/auto-setting`,
     // FIX: removed duplicate/invalid cricketlivematch at root level
   },
 };
