@@ -29,6 +29,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
     const toggleLiveTv = () => {
         setIsLiveTvExpanded(!isLiveTvExpanded);
     };
+    const marketId = matchData?.data?.[0]?.match?.marketId;
 
     // Get current admin ID and check lock status
     const [adminId, setAdminId] = useState<string | null>(null);
@@ -46,6 +47,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 setAdminId(currentAdminId);
 
                 const match = matchData?.data?.[0]?.match;
+                console.log('Match Data:', match); // Debug log to check match data structure
 
                 if (currentAdminId && match) {
                     const betLocked = match.bm_lock?.includes(currentAdminId) || false;
@@ -72,12 +74,15 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 return;
             }
 
-            if (!matchId) {
-                console.error('Match ID not found');
+            if (!marketId) {
+                console.error('Market ID not found');
                 return;
             }
 
-            await MatchOddsBetLock(adminId, matchId);
+            await MatchOddsBetLock(adminId, marketId);
+
+
+            await MatchOddsBetLock(adminId, marketId);
 
             // Update local state after API call
             setIsBetLockedByAdmin(!isBetLockedByAdmin);
@@ -94,12 +99,12 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 return;
             }
 
-            if (!matchId) {
-                console.error('Match ID not found');
+            if (!marketId) {
+                console.error('Market ID not found');
                 return;
             }
 
-            await FancyBetLock(adminId, matchId);
+            await FancyBetLock(adminId, marketId);
 
             // Update local state after API call
             setIsFancyLockedByAdmin(!isFancyLockedByAdmin);
@@ -129,7 +134,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 <Button
                     color="error"
                     variant="contained"
-                    onClick={() => navigate(`/deleted-bets/${matchId}`)}
+                    onClick={() => navigate(`/deleted-bets/${marketId}`)}
                     sx={{
                         borderRadius: '20px',
                         textTransform: 'none',
@@ -258,9 +263,9 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                             overflow: 'hidden',
                         }}
                     >
-                        <iframe 
+                        <iframe
                             src={`https://apis.professorji.in/api/tv?eventId=${matchId}&sport=cricket`}
-                            
+
                             style={{
                                 width: '100%',
                                 height: '100%',

@@ -35,10 +35,10 @@ const useBatApi = () => {
       throw error;
     }
   };
-  const MatchOddsBetLock = async (adminId: string, matchId: string,) => {
+  const MatchOddsBetLock = async (adminId: string, marketId: string,) => {
     try {
       const url = `${Endpoints.BetLock}/bmlockall`;
-      const payload = { adminId ,matchId};
+      const payload = { adminId ,marketId};
       const response = await post(url, payload);
       toast.success('Match Odds Lock updated successfully');
       return response.data;
@@ -50,10 +50,10 @@ const useBatApi = () => {
   };
 
   // Fancy Lock
-  const FancyBetLock = async (adminId: string, matchId: string,) => {
+  const FancyBetLock = async (adminId: string, marketId: string,) => {
     try {
       const url = `${Endpoints.BetLock}/fancylockall`;
-      const payload = { adminId, matchId };
+      const payload = { adminId, marketId };
       const response = await post(url, payload);
       toast.success('Fancy Lock updated successfully');
       return response.data;
