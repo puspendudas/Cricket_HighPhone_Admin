@@ -81,9 +81,6 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
 
             await MatchOddsBetLock(adminId, marketId);
 
-
-            await MatchOddsBetLock(adminId, marketId);
-
             // Update local state after API call
             setIsBetLockedByAdmin(!isBetLockedByAdmin);
         } catch (error) {
