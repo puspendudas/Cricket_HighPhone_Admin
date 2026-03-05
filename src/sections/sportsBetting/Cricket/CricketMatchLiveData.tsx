@@ -886,7 +886,7 @@ export default function CricketMatchLiveData() {
                             />
                         )}
                     </CardContent>
-                    <LiveTv matchId={gameId} matchData={betHistoryData} />
+                    <LiveTv matchId={gameId} matchData={matchData} />
                 </Card>
 
                 {/* Bookmaker Odds */}
@@ -1152,7 +1152,7 @@ export default function CricketMatchLiveData() {
                         />
                     )}
                 </CardContent>
-                <LiveTv matchId={gameId} matchData={betHistoryData} />
+                <LiveTv matchId={gameId} matchData={matchData} />
             </Card>
 
             <Grid container spacing={2}>
