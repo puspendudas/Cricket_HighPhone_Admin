@@ -130,7 +130,7 @@ export default function SessionUpdate() {
 
   });
   const autoDeclareMutation = useMutation({
-    mutationFn: () => AutoDeclareRun(), // no payload
+    mutationFn: (idParam: string) => AutoDeclareRun(idParam),
     onSuccess: () => {
       toast.success("Auto declare run executed successfully");
       queryClient.invalidateQueries({ queryKey: ['match', id] });
@@ -457,9 +457,10 @@ export default function SessionUpdate() {
   };
 
   const handleRefreshSessions = () => {
-    autoDeclareMutation.mutate();
-  };
+    if (!id) return;
 
+    autoDeclareMutation.mutate(id);
+  };
   return (
     <Box p={1}>
       {/* Declare Session */}

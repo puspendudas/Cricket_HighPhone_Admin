@@ -310,9 +310,9 @@ const useMatchApi = () => {
   );
 
   const AutoDeclareRun = useCallback(
-    async (payload: any = {}) => {  
+    async (matchId: string) => {
       try {
-        const response = await post(`${Endpoints.AutoDeclare}/run`, payload);
+        const response = await post(`${Endpoints.AutoDeclare}/run/${matchId}`,{});
 
         toast.success(response?.status || "Auto Declare Success");
 
