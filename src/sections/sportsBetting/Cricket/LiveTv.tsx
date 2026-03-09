@@ -157,7 +157,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                         flexShrink: 0,
                     }}
                 >
-                    Bet Locked
+                    BM Lock
                 </Button>
 
                 <Button

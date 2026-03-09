@@ -249,7 +249,7 @@ export const dashboardRoutes = [
 
       { path: 'match-manuall-update/:id', element: <MatchManuallyUpdate /> },
       { path: '/session-update/:id', element: <SessionUpdate /> },
-      { path: 'locked-casino', element: <Lockedcasino /> },
+      { path: 'global-locks', element: <Lockedcasino /> },
       { path: '/cricket-live-match-data/:gameId', element: <CricketMatchLiveData /> },
       { path: '/deleted-bets/:gameId', element: <DeletedBets /> },
     ],

@@ -221,8 +221,8 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
   navData.push({
     items: [
       {
-        title: 'Extra Casino',
-        path: paths.dashboard.lockedcasino,
+        title: 'Global Locks',
+        path: paths.dashboard.globallocks,
         icon: ICONS.lock,
       },
     ],
