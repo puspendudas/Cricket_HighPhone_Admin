@@ -30,7 +30,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
         setIsLiveTvExpanded(!isLiveTvExpanded);
     };
     const marketId = matchData?.match?.marketId;
-
+    const gameid =matchData?.match?.gameId
     // Get current admin ID and check lock status
     const [adminId, setAdminId] = useState<string | null>(null);
     const [isBetLockedByAdmin, setIsBetLockedByAdmin] = useState(false);
@@ -47,7 +47,6 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 setAdminId(currentAdminId);
 
                 const match = matchData?.data?.[0]?.match;
-                console.log('Match Data:', match); // Debug log to check match data structure
 
                 if (currentAdminId && match) {
                     const betLocked = match.bm_lock?.includes(currentAdminId) || false;
@@ -81,9 +80,6 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
 
             await MatchOddsBetLock(adminId, marketId);
 
-
-            await MatchOddsBetLock(adminId, marketId);
-
             // Update local state after API call
             setIsBetLockedByAdmin(!isBetLockedByAdmin);
         } catch (error) {
@@ -113,9 +109,9 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
         }
     };
 
-    // Determine button colors based on lock status
-    const betLockedColor = isBetLockedByAdmin ? '#d42b2b' : '#1C1C1C';
-    const fancyLockColor = isFancyLockedByAdmin ? '#d42b2b' : '#1C1C1C';
+    // Use CSS classes for button color
+    const betLockBtnClass = isBetLockedByAdmin ? 'bet-lock-active' : 'bet-lock-inactive';
+    const fancyLockBtnClass = isFancyLockedByAdmin ? 'fancy-lock-active' : 'fancy-lock-inactive';
 
     return (
         <Box sx={{ boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)' }}>
@@ -134,7 +130,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 <Button
                     color="error"
                     variant="contained"
-                    onClick={() => navigate(`/deleted-bets/${marketId}`)}
+                    onClick={() => navigate(`/deleted-bets/${gameid}`)}
                     sx={{
                         borderRadius: '20px',
                         textTransform: 'none',
@@ -150,8 +146,8 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 <Button
                     variant="contained"
                     onClick={handleBetLocked}
+                    className={betLockBtnClass}
                     sx={{
-                        backgroundColor: betLockedColor,
                         borderRadius: '20px',
                         color: '#fff',
                         textTransform: 'none',
@@ -159,7 +155,6 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                         px: 2,
                         whiteSpace: 'nowrap',
                         flexShrink: 0,
-                        '&:hover': { backgroundColor: '#d42b2b' },
                     }}
                 >
                     Bet Locked
@@ -168,8 +163,8 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 <Button
                     variant="contained"
                     onClick={handleFancyLock}
+                    className={fancyLockBtnClass}
                     sx={{
-                        backgroundColor: fancyLockColor,
                         borderRadius: '20px',
                         color: '#fff',
                         textTransform: 'none',
@@ -177,7 +172,6 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                         px: 2,
                         whiteSpace: 'nowrap',
                         flexShrink: 0,
-                        '&:hover': { backgroundColor: '#d42b2b' },
                     }}
                 >
                     Fancy Lock

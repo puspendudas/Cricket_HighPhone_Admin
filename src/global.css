@@ -1,3 +1,31 @@
+/* Bet Locked & Fancy Lock Button Styles */
+.bet-lock-active {
+  background-color: #d42b2b !important;
+  color: #fff !important;
+}
+.bet-lock-inactive {
+  background-color: #1C1C1C !important;
+  color: #fff !important;
+}
+.fancy-lock-active {
+  background-color: #d42b2b !important;
+  color: #fff !important;
+}
+.fancy-lock-inactive {
+  background-color: #1C1C1C !important;
+  color: #fff !important;
+}
+
+@media (max-width: 600px) {
+  .bet-lock-active, .fancy-lock-active {
+    background-color: #d42b2b !important;
+    color: #fff !important;
+  }
+  .bet-lock-inactive, .fancy-lock-inactive {
+    background-color: #1C1C1C !important;
+    color: #fff !important;
+  }
+}
 /** **************************************
 * Fonts: app
 *************************************** */
