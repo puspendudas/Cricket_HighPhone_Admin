@@ -29,6 +29,15 @@ const useBetHistroyApi = () => {
       throw error;
     }
   };
+  const deleteBets = async (match_id: string) => {
+    try {
+      const response = await get(`${Endpoints.fatchdeletedBet}/${match_id}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetch Bet History', error);
+      throw error;
+    }
+  };
   const deleteBetHistory = async (matchId: string) => {
     try {
       const response = await deleted(`${Endpoints.CancelSingleBetMatch}/${matchId}`);
@@ -44,7 +53,8 @@ const useBetHistroyApi = () => {
   return {
     fetchBetHistory,
     deleteBetHistory,
-    fetchBetUndlecarHistory
+    fetchBetUndlecarHistory,
+    deleteBets
   };
 };
 

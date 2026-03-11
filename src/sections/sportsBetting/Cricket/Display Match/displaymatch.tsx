@@ -214,7 +214,7 @@ const DisplayMatch: React.FC = () => {
                 ? fetchTableData(userId, currentMatchId)
                 : Promise.reject(new Error('Missing user ID or match ID')),
         enabled: !!userId && !!currentMatchId,
-        refetchInterval: 2000,
+        // refetchInterval: 2000,
     });
 
     useEffect(() => {

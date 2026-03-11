@@ -77,6 +77,7 @@ export const paths = {
       livematch: `/sport/live-match-data`,
       cricketlivematch: `/sport/cricket-live-match-data/:gameId`,
       deletedBets: `/sport/deleted-bets/:gameId`,
+      deletedBetsouter: `/sport/deleted-bet/:gameId`,
       livecasino: `/sport/live-casino`,
       // undeclaredmatch: `/sport/undeclared-match/:id`, // define if used in routes
     },
@@ -86,6 +87,7 @@ export const paths = {
       allsuperadmin: `/ledger/settlement`,
       totalprofit: `/ledger/total-profit`,
       superadmindata: `/ledger/child_ledger`,
+      commission:`/ledger/commission`
     },
 
     adminreport: `/all-super-admin-report`,

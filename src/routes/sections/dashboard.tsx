@@ -31,12 +31,14 @@ const MatchsessionDisplay = lazy(() => import('src/sections/sportsBetting/All Po
 const MatchLiveData = lazy(() => import('src/sections/sportsBetting/MatchLiveData'));
 const CricketMatchLiveData = lazy(() => import('src/sections/sportsBetting/Cricket/CricketMatchLiveData'));
 const DeletedBets = lazy(() => import('src/sections/sportsBetting/Cricket/DeletedBets'));
+const DeletedBetsouter = lazy(() => import('src/sections/sportsBetting/Cricket/DeletedBetsouter'));
 const MatchCasinoData = lazy(() => import('src/sections/sportsBetting/Casino/MatchLiveData'));
 
 const MyLedger = lazy(() => import('src/pages/ledger/ledger'));
 const SuperAdmin = lazy(() => import('src/pages/ledger/allSuper'));
 const TotalProfit = lazy(() => import('src/pages/ledger/totalprofit'));
 const SuperAdminData = lazy(() => import('src/pages/ledger/superAdmin'));
+const Commission = lazy(() => import('src/pages/ledger/commission'));
 
 const AdminReport = lazy(() => import('src/pages/allSuperAdminReport/adminReport'));
 
@@ -207,6 +209,7 @@ export const dashboardRoutes = [
           { path: 'settlement', element: <SuperAdmin /> },
           { path: 'total-profit', element: <TotalProfit /> },
           { path: 'child_ledger', element: <SuperAdminData /> },
+          { path: 'commission', element: <Commission /> },
         ],
       },
 
@@ -252,6 +255,7 @@ export const dashboardRoutes = [
       { path: 'global-locks', element: <Lockedcasino /> },
       { path: '/cricket-live-match-data/:gameId', element: <CricketMatchLiveData /> },
       { path: '/deleted-bets/:gameId', element: <DeletedBets /> },
+      { path: '/deleted-bet/:gameId', element: <DeletedBetsouter /> },
     ],
   },
 ];
