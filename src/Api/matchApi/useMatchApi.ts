@@ -232,7 +232,6 @@ const useMatchApi = () => {
       return response;
     } catch (error) {
       console.error('Error fetch Table Data', error);
-      toast.error('Failed to fetch Table Data');
       throw error;
     }
   };
