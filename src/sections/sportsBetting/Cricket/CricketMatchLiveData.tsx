@@ -27,6 +27,8 @@ import {
     AccordionDetails,
 } from '@mui/material';
 
+import { useCricketMatchSocket } from 'src/hooks/useCricketMatchSocket';
+
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
 import useBetHistroyApi from 'src/Api/matchApi/useBetHistroyApi';
@@ -105,7 +107,7 @@ export default function CricketMatchLiveData() {
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
     const { fetchMe } = useMeApi();
 
-    const { FatchUpdateMatchData, fetchTableData, Exposure } = useMatchApi();
+    const { fetchTableData, Exposure } = useMatchApi();
     const { fetchBetHistory } = useBetHistroyApi();
     const { gameId } = useParams<{ gameId: string }>();
 
@@ -135,17 +137,8 @@ export default function CricketMatchLiveData() {
     // Extract user ID
     const userId = userData?.data?._id;
 
-    // Match Data
-    const {
-        data: matchData,
-        isLoading: matchLoading,
-        error: matchError,
-    } = useQuery({
-        queryKey: ['matchData', gameId],
-        queryFn: () => (gameId ? FatchUpdateMatchData(gameId) : Promise.reject(new Error('No gameId'))),
-        enabled: !!gameId,
-        refetchInterval: 2000,
-    });
+    // Match Data via Socket.IO
+    const { matchData, isLoading: matchLoading, error: matchError } = useCricketMatchSocket(gameId);
 
     // Extract current match ID AFTER matchData is defined
     const currentMatchId = matchData?.match?._id;
