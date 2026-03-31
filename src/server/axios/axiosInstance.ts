@@ -7,12 +7,12 @@ import { BASE_URL } from '../BaseURL/BaseURL';
 
 const axiosInstance = axios.create({
   baseURL: BASE_URL,
-  headers: {
-    'Access-Control-Allow-Origin': import.meta.env.VITE_CURRENT_URL,
-    'Access-Control-Allow-Methods': 'OPTIONS, HEAD, GET, POST, PUT, DELETE',
-    'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
-    'X-Requested-With': '*',
-  },
+  // headers: {
+  //   'Access-Control-Allow-Origin': import.meta.env.VITE_CURRENT_URL,
+  //   'Access-Control-Allow-Methods': 'OPTIONS, HEAD, GET, POST, PUT, DELETE',
+  //   'Access-Control-Allow-Headers': 'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token',
+  //   'X-Requested-With': '*',
+  // },
 });
 
 // Request interceptor for dynamic token injection
