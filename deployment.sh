@@ -1,0 +1,1 @@
+docker stop cricket_admin && docker rm cricket_admin && docker rmi cricket_admin && git pull && docker compose up -d

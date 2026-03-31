@@ -186,17 +186,17 @@ export default function SessionUpdate() {
   }, [fancySessions]);
 
   // Filter sessions
-  const allowedMarkets = ["Normal", "Over By Over", "Ball By Ball"];
+  // const allowedMarkets = ["Normal", "Over By Over", "Ball By Ball"];
 
-  useEffect(() => {
-    const filtered = fancySessions.filter(
-      (session: FancyRow) =>
-        allowedMarkets.includes(session.market || '') &&
-        !session.isDeclared
-    );
-    setFilteredSessions(filtered);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fancySessions]);
+  // useEffect(() => {
+  //   const filtered = fancySessions.filter(
+  //     (session: FancyRow) =>
+  //       allowedMarkets.includes(session.market || '') &&
+  //       !session.isDeclared
+  //   );
+  //   setFilteredSessions(filtered);
+  //   // eslint-disable-next-line react-hooks/exhaustive-deps
+  // }, [fancySessions]);
 
   // Mutations
   const updateStatusMutation = useMutation({
