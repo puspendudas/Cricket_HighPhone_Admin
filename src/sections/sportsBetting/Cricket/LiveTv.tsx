@@ -258,7 +258,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                         }}
                     >
                         <iframe
-                            src={`https://apis.professorji.in/api/tv?eventId=${matchId}&sport=cricket`}
+                            src={`https://cricketbz.app/apiTvHtml/${matchId}?gameType=cricket`}
 
                             style={{
                                 width: '100%',
