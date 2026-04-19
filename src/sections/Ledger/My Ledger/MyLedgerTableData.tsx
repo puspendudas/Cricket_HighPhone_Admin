@@ -10,8 +10,10 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  Typography
+  Typography,
 } from '@mui/material';
+
+import { formatUTCDateTime12H } from 'src/utils/date';
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
@@ -20,6 +22,7 @@ import win from '../../../../public/assets/win.png';
 
 interface LedgerEntry {
   date: string;
+  timestamp: number;
   credit: number;
   debit: number;
   balance: number;
@@ -96,10 +99,7 @@ export function MyLedgerTableData() {
     error,
   } = useQuery({
     queryKey: ['ledgerTableData', userId],
-    queryFn: () =>
-      userId
-        ? fetchTotalData(userId)
-        : Promise.reject(new Error('Missing user ID')),
+    queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
     enabled: !!userId,
   });
 
@@ -107,24 +107,22 @@ export function MyLedgerTableData() {
   const { data: settlementData } = useQuery({
     queryKey: ['mySettlementData', adminId],
     queryFn: () =>
-      adminId
-        ? fetchMySettlement(adminId)
-        : Promise.reject(new Error('Missing admin ID')),
+      adminId ? fetchMySettlement(adminId) : Promise.reject(new Error('Missing admin ID')),
     enabled: !!adminId,
   });
 
   // Helper function to parse date strings
-  const parseDateString = (dateStr: string): Date => {
-    if (!dateStr || dateStr === 'N/A') return new Date(0); // Return epoch for invalid dates
+  // const parseDateString = (dateStr: string): Date => {
+  //   if (!dateStr || dateStr === 'N/A') return new Date(0); // Return epoch for invalid dates
 
-    try {
-      // Try to parse the date string
-      return new Date(dateStr);
-    } catch (e) {
-      console.error('Error parsing date:', dateStr, e);
-      return new Date(0);
-    }
-  };
+  //   try {
+  //     // Try to parse the date string
+  //     return new Date(dateStr);
+  //   } catch (e) {
+  //     console.error('Error parsing date:', dateStr, e);
+  //     return new Date(0);
+  //   }
+  // };
   const loginUser = userData?.data;
   const loginMatchCommissionRate = loginUser?.match_commission || 0;
   const loginSessionCommissionRate = loginUser?.session_commission || 0;
@@ -159,8 +157,8 @@ export function MyLedgerTableData() {
         if (processedKeys.has(key)) return;
         processedKeys.add(key);
 
-        const bookmakerBets = clientBets.filter(b => b.bet_type === 'BOOKMAKER');
-        const fancyBets = clientBets.filter(b => b.bet_type === 'FANCY');
+        const bookmakerBets = clientBets.filter((b) => b.bet_type === 'BOOKMAKER');
+        const fancyBets = clientBets.filter((b) => b.bet_type === 'FANCY');
 
         const calcPL = (bets: any[]) =>
           bets.reduce((acc, bet) => {
@@ -168,18 +166,14 @@ export function MyLedgerTableData() {
             const potential = Number(bet.potential_winnings) || 0;
 
             if (bet.status === 'WON') {
-              return acc + (
-                bet.selection === 'Back' || bet.selection === 'Yes'
-                  ? potential
-                  : stake
+              return (
+                acc + (bet.selection === 'Back' || bet.selection === 'Yes' ? potential : stake)
               );
             }
 
             if (bet.status === 'LOST') {
-              return acc - (
-                bet.selection === 'Back' || bet.selection === 'Yes'
-                  ? stake
-                  : potential
+              return (
+                acc - (bet.selection === 'Back' || bet.selection === 'Yes' ? stake : potential)
               );
             }
 
@@ -198,27 +192,19 @@ export function MyLedgerTableData() {
 
         clientSummaries.forEach((c: any) => {
           const belongsToMe = match.matchBets.some(
-            (b: any) =>
-              b.user_id === c.client_id &&
-              b.immediate_child_admin?._id === adminId
+            (b: any) => b.user_id === c.client_id && b.immediate_child_admin?._id === adminId
           );
 
           if (!belongsToMe) return;
 
           if (c.client_net_match_pl < 0) {
-            matchCommission +=
-              Math.abs(c.client_net_match_pl) *
-              (loginMatchCommissionRate / 100);
+            matchCommission += Math.abs(c.client_net_match_pl) * (loginMatchCommissionRate / 100);
           }
         });
 
-        const totalSessionStake = fancyBets.reduce(
-          (a, b) => a + (Number(b.stake_amount) || 0),
-          0
-        );
+        const totalSessionStake = fancyBets.reduce((a, b) => a + (Number(b.stake_amount) || 0), 0);
 
-        const sessionCommission =
-          totalSessionStake * (loginSessionCommissionRate / 100);
+        const sessionCommission = totalSessionStake * (loginSessionCommissionRate / 100);
 
         const totalCommission = matchCommission + sessionCommission;
 
@@ -229,15 +215,8 @@ export function MyLedgerTableData() {
         if (Math.abs(grandTotal) < 0.01) return;
 
         ledgerEntries.push({
-          date: new Date(match.eventTime).toLocaleString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true,
-          }),
+          date: formatUTCDateTime12H(match.eventTime),
+          timestamp: new Date(match.eventTime).getTime(),
           credit: grandTotal < 0 ? Math.abs(grandTotal) : 0,
           debit: grandTotal > 0 ? grandTotal : 0,
           balance: 0, // 🔴 TEMPORARY
@@ -250,11 +229,7 @@ export function MyLedgerTableData() {
     });
 
     // ---------------- STEP 2: SORT BY DATE ----------------
-    const sortedLedgerEntries = ledgerEntries.sort(
-      (a, b) =>
-        parseDateString(a.date).getTime() -
-        parseDateString(b.date).getTime()
-    );
+    const sortedLedgerEntries = ledgerEntries.sort((a, b) => a.timestamp - b.timestamp);
 
     // ---------------- STEP 3: APPLY RUNNING BALANCE ----------------
     let runningBalance = 0;
@@ -264,11 +239,8 @@ export function MyLedgerTableData() {
       entry.balance = runningBalance;
     });
 
-
     return sortedLedgerEntries;
   };
-
-
 
   // Process settlement data for display
   const processSettlementData = (settlements: SettlementData[]) => {
@@ -276,51 +248,36 @@ export function MyLedgerTableData() {
 
     const settlementEntries = settlements.map((settlement: SettlementData) => {
       // Determine which admin to show based on type
-      const clientAdmin = settlement.type === 'credit' ? settlement.adminIdTo : settlement.adminIdFrom;
+      const clientAdmin =
+        settlement.type === 'credit' ? settlement.adminIdTo : settlement.adminIdFrom;
       const clientName = clientAdmin?.user_name || clientAdmin?.name || 'N/A';
 
       return {
         client: clientName,
-        date: new Date(settlement.createdAt).toLocaleString('en-US', {
-          year: 'numeric',
-          month: 'short',
-          day: '2-digit',
-          hour: '2-digit',
-          minute: '2-digit',
-          second: '2-digit',
-          hour12: true,
-        }),
+        date: formatUTCDateTime12H(settlement.createdAt),
+        timestamp: new Date(settlement.createdAt).getTime(),
         credit: settlement.type === 'credit' ? settlement.ammount : 0,
         debit: settlement.type === 'debit' ? settlement.ammount : 0,
         balance: 0,
         winner: 'Settlement',
-        remark: settlement.remark || 'No remark'
+        remark: settlement.remark || 'No remark',
       };
     });
 
     // SORT SETTLEMENT ENTRIES BY DATE (OLDEST FIRST)
-    return settlementEntries.sort((a, b) => {
-      const dateA = parseDateString(a.date);
-      const dateB = parseDateString(b.date);
-      return dateA.getTime() - dateB.getTime(); // ascending (oldest first)
-    });
+    return settlementEntries.sort((a, b) => a.timestamp - b.timestamp);
   };
 
   const ledgerData = tableData?.matches ? processLedgerData(tableData.matches) : [];
   const settlementEntries = processSettlementData(settlementData?.data || []);
 
   // Calculate final balance including settlement
-  let finalBalance =
-    ledgerData.length > 0
-      ? ledgerData[ledgerData.length - 1].balance
-      : 0;
+  let finalBalance = ledgerData.length > 0 ? ledgerData[ledgerData.length - 1].balance : 0;
 
   // ✅ FIXED SETTLEMENT LOGIC
   settlementEntries.forEach((entry: { debit: number; credit: number }) => {
     finalBalance += entry.credit - entry.debit;
   });
-
-
 
   if (isLoading) {
     return (
@@ -340,14 +297,16 @@ export function MyLedgerTableData() {
 
   return (
     <Box>
-      <Paper sx={{
-        p: 2,
-        overflowX: 'auto',
-        boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
-        borderRadius: '10px',
-        borderBottomLeftRadius: settlementEntries.length > 0 ? '10px' : '0',
-        borderBottomRightRadius: settlementEntries.length > 0 ? '10px' : '0'
-      }}>
+      <Paper
+        sx={{
+          p: 2,
+          overflowX: 'auto',
+          boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
+          borderRadius: '10px',
+          borderBottomLeftRadius: settlementEntries.length > 0 ? '10px' : '0',
+          borderBottomRightRadius: settlementEntries.length > 0 ? '10px' : '0',
+        }}
+      >
         {/* Original Ledger Table */}
         <Table>
           <TableHead sx={{ backgroundColor: '#f4f6f8' }}>
@@ -364,14 +323,32 @@ export function MyLedgerTableData() {
               ledgerData.map((entry, index) => (
                 <TableRow key={`${entry.client}-${index}`}>
                   <TableCell>{entry.date}</TableCell>
-                  <TableCell sx={{ color: entry.credit > 0 ? 'green' : 'inherit', fontWeight: entry.credit > 0 ? 'bold' : 'normal' }}>
-                    {entry.credit > 0 ? `+ ₹${entry.credit.toFixed(2)}` : `₹${entry.credit.toFixed(2)}`}
+                  <TableCell
+                    sx={{
+                      color: entry.credit > 0 ? 'green' : 'inherit',
+                      fontWeight: entry.credit > 0 ? 'bold' : 'normal',
+                    }}
+                  >
+                    {entry.credit > 0
+                      ? `+ ₹${entry.credit.toFixed(2)}`
+                      : `₹${entry.credit.toFixed(2)}`}
                   </TableCell>
-                  <TableCell sx={{ color: entry.debit > 0 ? 'red' : 'inherit', fontWeight: entry.debit > 0 ? 'bold' : 'normal' }}>
-                    {entry.debit > 0 ? `- ₹${entry.debit.toFixed(2)}` : `₹${entry.debit.toFixed(2)}`}
+                  <TableCell
+                    sx={{
+                      color: entry.debit > 0 ? 'red' : 'inherit',
+                      fontWeight: entry.debit > 0 ? 'bold' : 'normal',
+                    }}
+                  >
+                    {entry.debit > 0
+                      ? `- ₹${entry.debit.toFixed(2)}`
+                      : `₹${entry.debit.toFixed(2)}`}
                   </TableCell>
-                  <TableCell sx={{ color: entry.balance >= 0 ? 'green' : 'red', fontWeight: 'bold' }}>
-                    {entry.balance >= 0 ? `+ ₹${entry.balance.toFixed(2)}` : `- ₹${Math.abs(entry.balance).toFixed(2)}`}
+                  <TableCell
+                    sx={{ color: entry.balance >= 0 ? 'green' : 'red', fontWeight: 'bold' }}
+                  >
+                    {entry.balance >= 0
+                      ? `+ ₹${entry.balance.toFixed(2)}`
+                      : `- ₹${Math.abs(entry.balance).toFixed(2)}`}
                   </TableCell>
                   <TableCell>
                     <Grid container alignItems="center" spacing={1}>
@@ -414,32 +391,46 @@ export function MyLedgerTableData() {
                   <TableRow key={`settlement-${index}`}>
                     <TableCell>{entry.client}</TableCell>
                     <TableCell>{entry.date}</TableCell>
-                    <TableCell sx={{
-                      color: entry.credit > 0 ? 'green' : 'inherit',
-                      fontWeight: 'bold'
-                    }}>
-                      {entry.credit > 0 ? `+ ₹${entry.credit.toFixed(2)}` : `₹${entry.credit.toFixed(2)}`}
+                    <TableCell
+                      sx={{
+                        color: entry.credit > 0 ? 'green' : 'inherit',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {entry.credit > 0
+                        ? `+ ₹${entry.credit.toFixed(2)}`
+                        : `₹${entry.credit.toFixed(2)}`}
                     </TableCell>
-                    <TableCell sx={{
-                      color: entry.debit > 0 ? 'red' : 'inherit',
-                      fontWeight: 'bold'
-                    }}>
-                      {entry.debit > 0 ? `- ₹${entry.debit.toFixed(2)}` : `₹${entry.debit.toFixed(2)}`}
+                    <TableCell
+                      sx={{
+                        color: entry.debit > 0 ? 'red' : 'inherit',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      {entry.debit > 0
+                        ? `- ₹${entry.debit.toFixed(2)}`
+                        : `₹${entry.debit.toFixed(2)}`}
                     </TableCell>
                     <TableCell>
                       <Grid container alignItems="center" spacing={1}>
                         <Grid item>
-                          <Typography sx={{ background: '#ffeb3b', p: 0.4, borderRadius: 0.7 }} variant="body2">
+                          <Typography
+                            sx={{ background: '#ffeb3b', p: 0.4, borderRadius: 0.7 }}
+                            variant="body2"
+                          >
                             {entry.winner}
                           </Typography>
                         </Grid>
                       </Grid>
                     </TableCell>
                     <TableCell>
-                      <Typography variant="body2" sx={{
-                        fontStyle: 'italic',
-                        color: '#666'
-                      }}>
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontStyle: 'italic',
+                          color: '#666',
+                        }}
+                      >
                         {entry.remark}
                       </Typography>
                     </TableCell>
@@ -475,7 +466,10 @@ export function MyLedgerTableData() {
           }}
         >
           <Typography variant="body1" sx={{ color: finalBalance >= 0 ? 'green' : 'red' }}>
-            Final Balance: {finalBalance >= 0 ? `+₹${finalBalance.toFixed(2)}` : `-₹${Math.abs(finalBalance).toFixed(2)}`}
+            Final Balance:{' '}
+            {finalBalance >= 0
+              ? `+₹${finalBalance.toFixed(2)}`
+              : `-₹${Math.abs(finalBalance).toFixed(2)}`}
           </Typography>
         </Box>
       </Box>

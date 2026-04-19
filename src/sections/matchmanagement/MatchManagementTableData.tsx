@@ -34,6 +34,8 @@ import {
   FormControlLabel,
 } from '@mui/material';
 
+import { formatUTCDateTime12H } from 'src/utils/date';
+
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
 
 import { toast } from 'src/components/snackbar';
@@ -105,7 +107,7 @@ export function MatchManagementTableData() {
 
   const handleRollbackConfirm = async () => {
     if (selectedMatch?._id) {
-      console.log("Rollback confirmed for match:", selectedMatch._id);
+      console.log('Rollback confirmed for match:', selectedMatch._id);
 
       const response = await matchRollback(selectedMatch._id);
 
@@ -243,7 +245,7 @@ export function MatchManagementTableData() {
     );
 
     try {
-      const rowsNeedingUpdate = targetRowsOnPage.filter(row => row.status !== targetStatus);
+      const rowsNeedingUpdate = targetRowsOnPage.filter((row) => row.status !== targetStatus);
       await Promise.all(rowsNeedingUpdate.map((match) => updateTogalStatus(match._id)));
       setStatusDialogOpen(false);
     } catch (err) {
@@ -261,8 +263,7 @@ export function MatchManagementTableData() {
     // Step 1: Search filter
     let data = matches.filter(
       (match) =>
-        match.eventName.toLowerCase().includes(term) ||
-        match.gameId.toLowerCase().includes(term)
+        match.eventName.toLowerCase().includes(term) || match.gameId.toLowerCase().includes(term)
     );
 
     // Step 2: Sorting by date
@@ -276,9 +277,8 @@ export function MatchManagementTableData() {
     return data;
   }, [matches, searchTerm, order]);
 
-
   return (
-    <Box >
+    <Box>
       <Card>
         <CardContent>
           <Grid container direction="column" spacing={1} mb={2}>
@@ -321,9 +321,7 @@ export function MatchManagementTableData() {
                 }}
               />
             </Grid>
-
           </Grid>
-
 
           {/* Checkbox selection header */}
           <Box mb={1} display="flex" alignItems="center">
@@ -354,11 +352,7 @@ export function MatchManagementTableData() {
                   <TableCell>Code</TableCell>
                   <TableCell>Name</TableCell>
                   <TableCell sortDirection={order}>
-                    <TableSortLabel
-                      active
-                      direction={order}
-                      onClick={handleSortRequest}
-                    >
+                    <TableSortLabel active direction={order} onClick={handleSortRequest}>
                       Date
                     </TableSortLabel>
                   </TableCell>
@@ -373,12 +367,7 @@ export function MatchManagementTableData() {
                 {filteredMatches
                   .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                   .map((item, index) => {
-                    const dateTime = new Date(item.eventTime);
-                    const date = dateTime.toLocaleDateString();
-                    const time = dateTime.toLocaleTimeString([], {
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    });
+                    const formattedDateTime = formatUTCDateTime12H(item.eventTime);
 
                     return (
                       <TableRow key={item._id}>
@@ -391,20 +380,13 @@ export function MatchManagementTableData() {
                         <TableCell>{page * rowsPerPage + index + 1}</TableCell>
                         <TableCell>{item.gameId}</TableCell>
                         <TableCell>{item.eventName}</TableCell>
-                        <TableCell>{date}</TableCell>
-                        <TableCell>{time}</TableCell>
-                        <TableCell>
-                          {item.declared ? "Yes" : "No"}
-                        </TableCell>
+                        <TableCell>{formattedDateTime}</TableCell>
+                        <TableCell>{item.declared ? 'Yes' : 'No'}</TableCell>
                         <TableCell>
                           {item.declared ? (
                             item.wonby ? (
                               <Box display="flex" alignItems="center" gap={1}>
-                                <img
-                                  src={win}
-                                  alt="Won"
-                                  style={{ width: 30, height: 30 }}
-                                />
+                                <img src={win} alt="Won" style={{ width: 30, height: 30 }} />
                                 <Typography variant="body2" fontWeight={600}>
                                   {item.wonby}
                                 </Typography>
@@ -415,7 +397,7 @@ export function MatchManagementTableData() {
                               </Typography>
                             )
                           ) : (
-                            "--"
+                            '--'
                           )}
                         </TableCell>
                         <TableCell>
@@ -447,14 +429,9 @@ export function MatchManagementTableData() {
                           >
                             {item.status ? 'Active' : 'Inactive'}
                           </Button>
-
                         </TableCell>
                         <TableCell align="center">
-                          <IconButton
-                            onClick={(e) =>
-                              handleMenuOpen(e, item.gameId)
-                            }
-                          >
+                          <IconButton onClick={(e) => handleMenuOpen(e, item.gameId)}>
                             <Iconify icon="mdi:dots-vertical" />
                           </IconButton>
                         </TableCell>
@@ -482,27 +459,19 @@ export function MatchManagementTableData() {
             anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
             transformOrigin={{ vertical: 'top', horizontal: 'right' }}
           >
-            <MenuItem
-              onClick={() =>
-                handleNavigation(`/match-manuall-update/${selectedGameId}`)
-              }
-            >
+            <MenuItem onClick={() => handleNavigation(`/match-manuall-update/${selectedGameId}`)}>
               <Iconify icon="mdi:refresh" sx={{ mr: 1 }} />
               Match Manually Update
             </MenuItem>
 
-            <MenuItem
-              onClick={() =>
-                handleNavigation(`/session-update/${selectedGameId}`)
-              }
-            >
+            <MenuItem onClick={() => handleNavigation(`/session-update/${selectedGameId}`)}>
               <Iconify icon="mdi:update" sx={{ mr: 1 }} />
               Session Manually Update
             </MenuItem>
 
             <MenuItem
               onClick={() => {
-                const match = matches.find(m => m.gameId === selectedGameId);
+                const match = matches.find((m) => m.gameId === selectedGameId);
                 if (match) {
                   handleRollbackClick(match);
                 }
@@ -528,7 +497,12 @@ export function MatchManagementTableData() {
           />
 
           {/* Bulk Status Dialog */}
-          <Dialog open={statusDialogOpen} onClose={() => !bulkLoading && setStatusDialogOpen(false)} fullWidth maxWidth="xs">
+          <Dialog
+            open={statusDialogOpen}
+            onClose={() => !bulkLoading && setStatusDialogOpen(false)}
+            fullWidth
+            maxWidth="xs"
+          >
             <DialogTitle>Change Status (Current Page Only)</DialogTitle>
             <DialogContent dividers>
               <Typography variant="body2" sx={{ mb: 1 }}>

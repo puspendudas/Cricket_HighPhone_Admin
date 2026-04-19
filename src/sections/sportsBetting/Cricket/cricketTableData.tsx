@@ -22,6 +22,7 @@ import {
   Typography,
 } from '@mui/material';
 
+import { formatUTCDateTime12H } from 'src/utils/date';
 // Import commission utilities
 import {
   type Bet,
@@ -96,7 +97,7 @@ export function CricketTableData() {
       eventTime: m.eventTime || 'N/A',
       wonby: m.wonby || null,
       declared: m.declared ?? false,
-      status: m.status
+      status: m.status,
     }));
   }, [matchesData]);
 
@@ -115,44 +116,42 @@ export function CricketTableData() {
     }) as Bet[];
   }, []);
 
-
   // Build per-match net from a totalData response
-const buildNetByMatch = React.useCallback(
-  (resp: any, restrictImmediateChildId?: string) => {
-    if (!resp?.matches) return {};
-    const matchNet: Record<string, number> = {};
-    const processedMatches = new Set<string>();
+  const buildNetByMatch = React.useCallback(
+    (resp: any, restrictImmediateChildId?: string) => {
+      if (!resp?.matches) return {};
+      const matchNet: Record<string, number> = {};
+      const processedMatches = new Set<string>();
 
-    resp.matches.forEach((match: any) => {
-      if (processedMatches.has(match._id)) return;
-      processedMatches.add(match._id);
+      resp.matches.forEach((match: any) => {
+        if (processedMatches.has(match._id)) return;
+        processedMatches.add(match._id);
 
-      const cleanBets = dedupeBets(match.matchBets || []);
-      const betsByClient: Record<string, Bet[]> = {};
+        const cleanBets = dedupeBets(match.matchBets || []);
+        const betsByClient: Record<string, Bet[]> = {};
 
-      cleanBets.forEach((bet: Bet) => {
-        const cid = bet.immediate_child_admin?._id || 'unknown';
-        if (!betsByClient[cid]) betsByClient[cid] = [];
-        betsByClient[cid].push(bet);
+        cleanBets.forEach((bet: Bet) => {
+          const cid = bet.immediate_child_admin?._id || 'unknown';
+          if (!betsByClient[cid]) betsByClient[cid] = [];
+          betsByClient[cid].push(bet);
+        });
+
+        Object.values(betsByClient).forEach((clientBets) => {
+          const admin = clientBets[0]?.immediate_child_admin;
+          if (!admin) return;
+
+          if (restrictImmediateChildId && admin._id !== restrictImmediateChildId) return;
+
+          const net = calculateClientNetAmount(clientBets, match);
+
+          matchNet[match._id] = (matchNet[match._id] || 0) + net;
+        });
       });
 
-      Object.values(betsByClient).forEach((clientBets) => {
-        const admin = clientBets[0]?.immediate_child_admin;
-        if (!admin) return;
-
-        if (restrictImmediateChildId && admin._id !== restrictImmediateChildId) return;
-
-        const net = calculateClientNetAmount(clientBets, match);
-
-        matchNet[match._id] = (matchNet[match._id] || 0) + net;
-      });
-    });
-
-    return matchNet;
-  },
-  [dedupeBets]
-);
-
+      return matchNet;
+    },
+    [dedupeBets]
+  );
 
   const childNetByMatch = React.useMemo(
     () => buildNetByMatch(totalDataResponse),
@@ -163,7 +162,6 @@ const buildNetByMatch = React.useCallback(
     () => buildNetByMatch(parentTotalDataResponse, userId),
     [parentTotalDataResponse, userId, buildNetByMatch]
   );
-
 
   // My Share P/L = Child - MyLedger (same as before)
   const myShareByMatch = React.useMemo(() => {
@@ -211,7 +209,7 @@ const buildNetByMatch = React.useCallback(
 
       plMap[match._id] = {
         matchPL: totalMatchPL,
-        afterCommission: totalAfterCommission
+        afterCommission: totalAfterCommission,
       };
     });
 
@@ -229,7 +227,7 @@ const buildNetByMatch = React.useCallback(
       if (plData) {
         totalPL += plData.matchPL;
       }
-      mySharePL += (myShareByMatch[match._id] ?? 0);
+      mySharePL += myShareByMatch[match._id] ?? 0;
     });
 
     return { totalPL, mySharePL };
@@ -255,11 +253,12 @@ const buildNetByMatch = React.useCallback(
       style: 'currency',
       currency: 'INR',
       minimumFractionDigits: 2,
-      maximumFractionDigits: 2
+      maximumFractionDigits: 2,
     }).format(n);
 
   // Get P/L for individual match
-  const getIndividualMatchPL = (matchId: string) => plDataMap[matchId] || { matchPL: 0, afterCommission: 0 };
+  const getIndividualMatchPL = (matchId: string) =>
+    plDataMap[matchId] || { matchPL: 0, afterCommission: 0 };
 
   if (matchesLoading || totalDataLoading) {
     return (
@@ -370,7 +369,7 @@ const buildNetByMatch = React.useCallback(
                     <TableCell>{index + 1}</TableCell>
                     <TableCell>
                       <Typography variant="body2" fontWeight={500}>
-                        {dayjs(match.eventTime).format('DD MMM YYYY, hh:mm A')}
+                        {formatUTCDateTime12H(match.eventTime)}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -442,7 +441,7 @@ const buildNetByMatch = React.useCallback(
         anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
         transformOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
-      <MenuItem
+        <MenuItem
           onClick={() => {
             if (selectedMatch) {
               navigate(`/deleted-bet/${selectedMatch.gameId}`);

@@ -3,18 +3,11 @@ import type { Match } from 'src/Interface/dashboard.interface';
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 
-import {
-  Box,
-  Grid,
-  Card,
-  Chip,
-  Stack,
-  Typography,
-  CardContent,
-} from '@mui/material';
+import { Box, Grid, Card, Chip, Stack, Typography, CardContent } from '@mui/material';
+
+import { formatUTCDateTime12H } from 'src/utils/date';
 
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
-
 
 const UpcomingLiveEvents: React.FC = () => {
   const { fetchAllMatch } = useMatchApi();
@@ -28,11 +21,12 @@ const UpcomingLiveEvents: React.FC = () => {
 
         const now = new Date();
 
-        const upcomingMatches = response?.matches?.filter((match: Match) => {
-          const matchDateTime = new Date(match.eventTime);
+        const upcomingMatches =
+          response?.matches?.filter((match: Match) => {
+            const matchDateTime = new Date(match.eventTime);
 
-          return matchDateTime > now; 
-        }) || [];
+            return matchDateTime > now;
+          }) || [];
 
         setLiveMatches(upcomingMatches);
       } catch (error) {
@@ -43,8 +37,6 @@ const UpcomingLiveEvents: React.FC = () => {
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-
 
   return (
     <Box
@@ -68,9 +60,9 @@ const UpcomingLiveEvents: React.FC = () => {
           <Grid container spacing={2}>
             {liveMatches.map((match) => (
               <Grid item xs={12} sm={6} md={4} key={match._id}>
-                <Card sx={{ borderRadius: 2, overflow: 'hidden' }}
+                <Card
+                  sx={{ borderRadius: 2, overflow: 'hidden' }}
                   onClick={() => navigate(`/cricket-live-match-data/${match.gameId}`)}
-
                 >
                   {/* Gradient Header */}
                   <Box
@@ -97,16 +89,12 @@ const UpcomingLiveEvents: React.FC = () => {
                     </Stack>
 
                     <Typography variant="body2" fontWeight={600} mb={1}>
-                      {new Date(match.eventTime).toLocaleString()}
+                      {formatUTCDateTime12H(match.eventTime)}
                     </Typography>
 
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <Chip
-                        label={
-                          <Typography variant="caption">
-                            E match
-                          </Typography>
-                        }
+                        label={<Typography variant="caption">E match</Typography>}
                         sx={{
                           marginTop: '-40px',
                           bgcolor: '#E0F2F1',
@@ -135,7 +123,6 @@ const UpcomingLiveEvents: React.FC = () => {
             </Typography>
           </Box>
         )}
-
       </Grid>
     </Box>
   );

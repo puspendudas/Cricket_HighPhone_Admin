@@ -14,6 +14,8 @@ import {
   Autocomplete,
 } from '@mui/material';
 
+import { formatUTCDateTime12H } from 'src/utils/date';
+
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
 
@@ -21,6 +23,7 @@ import win from '../../../../public/assets/win.png';
 
 interface LedgerEntry {
   date: string;
+  timestamp: number;
   credit: number;
   debit: number;
   balance: number;
@@ -84,16 +87,12 @@ export function ChildTableData() {
   const { fetchTotalData, fetchSettlement } = useMatchApi();
   const { fetchMe } = useMeApi();
 
-
-
-
   const { data: userData } = useQuery({
     queryKey: ['userData'],
     queryFn: fetchMe,
   });
 
   const userId = userData?.data?._id;
-
 
   const extractUserName = (value: string) => {
     const match = value.match(/\(([^)]+)\)$/);
@@ -106,8 +105,7 @@ export function ChildTableData() {
     error,
   } = useQuery({
     queryKey: ['ledgerTableData', userId],
-    queryFn: () =>
-      userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID')),
+    queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
     enabled: !!userId,
     refetchInterval: 3000,
   });
@@ -121,25 +119,25 @@ export function ChildTableData() {
 
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
 
-const getClientOptions = (matches: MatchSummary[]): string[] => {
-  if (!matches || matches.length === 0) return [];
+  const getClientOptions = (matches: MatchSummary[]): string[] => {
+    if (!matches || matches.length === 0) return [];
 
-  const clientSet = new Set<string>();
+    const clientSet = new Set<string>();
 
-  matches.forEach((match) => {
-    match.matchBets.forEach((bet) => {
-      const immediateAdmin = bet.immediate_child_admin;
-      if (immediateAdmin && immediateAdmin._id) {
-        const name = immediateAdmin.name || '';
-        const userName = immediateAdmin.user_name || '';
+    matches.forEach((match) => {
+      match.matchBets.forEach((bet) => {
+        const immediateAdmin = bet.immediate_child_admin;
+        if (immediateAdmin && immediateAdmin._id) {
+          const name = immediateAdmin.name || '';
+          const userName = immediateAdmin.user_name || '';
 
-        clientSet.add(`${name} (${userName})`);
-      }
+          clientSet.add(`${name} (${userName})`);
+        }
+      });
     });
-  });
 
-  return Array.from(clientSet).sort();
-};
+    return Array.from(clientSet).sort();
+  };
 
   const clientOptions = tableData?.matches ? getClientOptions(tableData.matches) : [];
 
@@ -177,8 +175,6 @@ const getClientOptions = (matches: MatchSummary[]): string[] => {
     }
   };
 
-
-
   // --------------------------------------------------
   // UPDATED PROCESSING LOGIC
   // --------------------------------------------------
@@ -191,22 +187,20 @@ const getClientOptions = (matches: MatchSummary[]): string[] => {
 
     // Filter matches by client if filter is applied
     const filteredMatches = normalizedFilter
-      ? matches.filter(match =>
-        match.matchBets.some(bet => {
-          const admin = bet.immediate_child_admin;
-          if (!admin) return false;
-          const adminName = (admin.user_name || admin.name || '').toString().toLowerCase();
-          return adminName.includes(normalizedFilter);
-        })
-      )
+      ? matches.filter((match) =>
+          match.matchBets.some((bet) => {
+            const admin = bet.immediate_child_admin;
+            if (!admin) return false;
+            const adminName = (admin.user_name || admin.name || '').toString().toLowerCase();
+            return adminName.includes(normalizedFilter);
+          })
+        )
       : matches;
 
     // Sort matches by date first
-    const sortedMatches = filteredMatches.sort((a, b) => {
-      const dateA = parseDateString(a.eventTime);
-      const dateB = parseDateString(b.eventTime);
-      return dateA.getTime() - dateB.getTime();
-    });
+    const sortedMatches = filteredMatches.sort(
+      (a, b) => new Date(a.eventTime).getTime() - new Date(b.eventTime).getTime()
+    );
 
     // CASE 1: Client filter is selected
     if (normalizedFilter) {
@@ -270,9 +264,7 @@ const getClientOptions = (matches: MatchSummary[]): string[] => {
 
           clientSummaries.forEach((c: any) => {
             const belongsToThisAdmin = match.matchBets.some(
-              (b: any) =>
-                b.user_id === c.client_id &&
-                b.immediate_child_admin?._id === admin._id
+              (b: any) => b.user_id === c.client_id && b.immediate_child_admin?._id === admin._id
             );
 
             if (!belongsToThisAdmin) return;
@@ -297,18 +289,8 @@ const getClientOptions = (matches: MatchSummary[]): string[] => {
             runningBalance += debit - credit;
 
             ledgerEntries.push({
-              date: match.eventTime
-                ? `${new Date(match.eventTime).toLocaleDateString('en-GB', {
-                  day: '2-digit',
-                  month: '2-digit',
-                  year: '2-digit',
-                })}, ${new Date(match.eventTime).toLocaleTimeString('en-US', {
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                  hour12: true,
-                })}`
-                : 'N/A',
+              date: formatUTCDateTime12H(match.eventTime),
+              timestamp: match.eventTime ? new Date(match.eventTime).getTime() : 0,
               credit,
               debit,
               balance: runningBalance,
@@ -380,9 +362,7 @@ const getClientOptions = (matches: MatchSummary[]): string[] => {
 
           clientSummaries.forEach((c: any) => {
             const belongsToThisAdmin = match.matchBets.some(
-              (b: any) =>
-                b.user_id === c.client_id &&
-                b.immediate_child_admin?._id === admin._id
+              (b: any) => b.user_id === c.client_id && b.immediate_child_admin?._id === admin._id
             );
 
             if (!belongsToThisAdmin) return;
@@ -411,18 +391,8 @@ const getClientOptions = (matches: MatchSummary[]): string[] => {
           runningBalance += debit - credit;
 
           ledgerEntries.push({
-            date: match.eventTime
-              ? `${new Date(match.eventTime).toLocaleDateString('en-GB', {
-                day: '2-digit',
-                month: '2-digit',
-                year: '2-digit',
-              })}, ${new Date(match.eventTime).toLocaleTimeString('en-US', {
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: true,
-              })}`
-              : 'N/A',
+            date: formatUTCDateTime12H(match.eventTime),
+            timestamp: match.eventTime ? new Date(match.eventTime).getTime() : 0,
             credit,
             debit,
             balance: runningBalance,
@@ -436,18 +406,11 @@ const getClientOptions = (matches: MatchSummary[]): string[] => {
     }
 
     // Return sorted entries
-    return ledgerEntries.sort((a, b) => {
-      const dateA = parseDateString(a.date);
-      const dateB = parseDateString(b.date);
-      return dateA.getTime() - dateB.getTime();
-    });
+    return ledgerEntries.sort((a, b) => a.timestamp - b.timestamp);
   };
 
   const ledgerData = tableData?.matches
-    ? processLedgerData(
-      tableData.matches,
-      selectedClient ? extractUserName(selectedClient) : ''
-    )
+    ? processLedgerData(tableData.matches, selectedClient ? extractUserName(selectedClient) : '')
     : [];
 
   const processSettlementData = (settlements: SettlementData[], clientFilter = '') => {
@@ -460,18 +423,8 @@ const getClientOptions = (matches: MatchSummary[]): string[] => {
         const clientName = clientAdmin?.user_name || clientAdmin?.name || 'N/A';
         return {
           client: clientName,
-          date: settlement.createdAt
-            ? `${new Date(settlement.createdAt).toLocaleDateString('en-GB', {
-              day: '2-digit',
-              month: '2-digit',
-              year: '2-digit',
-            })}, ${new Date(settlement.createdAt).toLocaleTimeString('en-US', {
-              hour: '2-digit',
-              minute: '2-digit',
-              second: '2-digit',
-              hour12: true,
-            })}`
-            : 'N/A',
+          date: formatUTCDateTime12H(settlement.createdAt),
+          timestamp: settlement.createdAt ? new Date(settlement.createdAt).getTime() : 0,
           credit: settlement.type === 'credit' ? settlement.ammount : 0,
           debit: settlement.type === 'debit' ? settlement.ammount : 0,
           balance: 0,
@@ -479,7 +432,9 @@ const getClientOptions = (matches: MatchSummary[]): string[] => {
           remark: settlement.remark || 'No remark',
         };
       })
-      .filter((entry) => (normalizedFilter ? entry.client.toLowerCase().includes(normalizedFilter) : true));
+      .filter((entry) =>
+        normalizedFilter ? entry.client.toLowerCase().includes(normalizedFilter) : true
+      );
 
     // SORT SETTLEMENT ENTRIES BY DATE (OLDEST FIRST, dd-mm-yy then time)
     return filteredEntries.sort((a, b) => {
