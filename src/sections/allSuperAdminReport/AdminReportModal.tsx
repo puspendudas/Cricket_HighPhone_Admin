@@ -15,6 +15,8 @@ import {
   IconButton,
 } from '@mui/material';
 
+import { formatUTCDateTime12H } from 'src/utils/date';
+
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
 
@@ -67,6 +69,7 @@ interface MatchSummary {
 
 interface LedgerEntry {
   date: string;
+  timestamp: number;
   credit: number;
   debit: number;
   balance: number;
@@ -84,7 +87,7 @@ interface LedgerEntry {
   netAmount: number;
   shareAmount: number;
   gTotal: number;
-  createdAt: string; // New field for sorting
+  createdAt: string;
 }
 
 interface AdminReportModalProps {
@@ -110,27 +113,24 @@ export function AdminReportModal({ open, onClose, rowData }: AdminReportModalPro
 
   const userId = userData?.data?._id;
 
-  const {
-    data: tableData,
-    isLoading,
-  } = useQuery({
+  const { data: tableData, isLoading } = useQuery({
     queryKey: ['adminModalTableData', userId],
     queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
     enabled: !!userId && open,
   });
 
   // Helper function to parse date strings
-  const parseDateString = (dateStr: string): Date => {
-    if (!dateStr || dateStr === 'N/A') return new Date(0); // Return epoch for invalid dates
+  // const parseDateString = (dateStr: string): Date => {
+  //   if (!dateStr || dateStr === 'N/A') return new Date(0); // Return epoch for invalid dates
 
-    try {
-      // Try to parse the date string
-      return new Date(dateStr);
-    } catch (e) {
-      console.error('Error parsing date:', dateStr, e);
-      return new Date(0);
-    }
-  };
+  //   try {
+  //     // Try to parse the date string
+  //     return new Date(dateStr);
+  //   } catch (e) {
+  //     console.error('Error parsing date:', dateStr, e);
+  //     return new Date(0);
+  //   }
+  // };
 
   // 🧮 Process ledger data (with duplicate removal)
   const processLedgerDataForAdmin = (
@@ -142,7 +142,6 @@ export function AdminReportModal({ open, onClose, rowData }: AdminReportModalPro
 
     const ledgerEntries: LedgerEntry[] = [];
     let runningBalance = 0;
-
 
     matches.forEach((match) => {
       const betsByAdmin: Record<string, any[]> = {};
@@ -159,7 +158,6 @@ export function AdminReportModal({ open, onClose, rowData }: AdminReportModalPro
 
         const currentUsername = (immediate.user_name || '').toLowerCase();
         if (currentUsername !== adminUserName) return;
-
 
         const bookmakerBets = adminBets.filter((b) => b.bet_type === 'BOOKMAKER');
         const fancyBets = adminBets.filter((b) => b.bet_type === 'FANCY');
@@ -201,34 +199,29 @@ export function AdminReportModal({ open, onClose, rowData }: AdminReportModalPro
           0
         );
 
-
         const matchCommissionRate = immediate?.match_commission || 0;
         const sessionCommissionRate = immediate?.session_commission || 0;
         // ---------------- MATCH COMMISSION (ONLY FROM client_summary) ----------------
-// ---------------- MATCH COMMISSION (ONLY OWN CLIENT LOSS) ----------------
-let matchCommission = 0;
+        // ---------------- MATCH COMMISSION (ONLY OWN CLIENT LOSS) ----------------
+        let matchCommission = 0;
 
-const clientSummaries = (match as any).client_summary || [];
+        const clientSummaries = (match as any).client_summary || [];
 
-clientSummaries.forEach((c: any) => {
-  const clientMatchPL = c.client_net_match_pl || 0;
+        clientSummaries.forEach((c: any) => {
+          const clientMatchPL = c.client_net_match_pl || 0;
 
-  // 🔑 Client must belong to THIS admin
-  const clientBelongsToThisAdmin = match.matchBets.some(
-    (b: any) =>
-      b.user_id === c.client_id &&
-      b.immediate_child_admin?._id === immediate._id
-  );
+          // 🔑 Client must belong to THIS admin
+          const clientBelongsToThisAdmin = match.matchBets.some(
+            (b: any) => b.user_id === c.client_id && b.immediate_child_admin?._id === immediate._id
+          );
 
-  if (!clientBelongsToThisAdmin) return;
+          if (!clientBelongsToThisAdmin) return;
 
-  // ✅ Sirf LOSS par commission
-  if (clientMatchPL < 0) {
-    matchCommission +=
-      Math.abs(clientMatchPL) * (matchCommissionRate / 100);
-  }
-});
-
+          // ✅ Sirf LOSS par commission
+          if (clientMatchPL < 0) {
+            matchCommission += Math.abs(clientMatchPL) * (matchCommissionRate / 100);
+          }
+        });
 
         const sessionCommission = totalSessionStake * (sessionCommissionRate / 100);
         const totalCommission = matchCommission + sessionCommission;
@@ -250,16 +243,8 @@ clientSummaries.forEach((c: any) => {
           runningBalance += debit - credit;
 
           ledgerEntries.push({
-            date: earliestDate
-              ? new Date(earliestDate).toLocaleString('en-US', {
-                month: 'short',
-                day: '2-digit',
-                hour: '2-digit',
-                minute: '2-digit',
-                second: '2-digit',
-                hour12: true,
-              })
-              : 'N/A',
+            date: formatUTCDateTime12H(earliestDate),
+            timestamp: earliestDate ? new Date(earliestDate).getTime() : 0,
             credit,
             debit,
             balance: runningBalance,
@@ -267,12 +252,7 @@ clientSummaries.forEach((c: any) => {
             icon: '/assets/win.png',
             client: immediate.user_name || immediate.name || 'Unknown Admin',
             matchName: match.eventName,
-            eventTime: match?.eventTime
-              ? new Date(match.eventTime).toLocaleString('en-IN', {
-                dateStyle: 'medium',
-                timeStyle: 'short',
-              })
-              : 'N/A',
+            eventTime: formatUTCDateTime12H(match.eventTime),
             match: invertedMatchPL,
             session: invertedSessionPL,
             total: totalPL,
@@ -291,15 +271,12 @@ clientSummaries.forEach((c: any) => {
     // 🚫 Remove duplicates (same matchName + same client)
     const uniqueLedger = ledgerEntries.filter(
       (entry, index, self) =>
-        index === self.findIndex((t) => t.matchName === entry.matchName && t.client === entry.client)
+        index ===
+        self.findIndex((t) => t.matchName === entry.matchName && t.client === entry.client)
     );
 
     // SORT LEDGER ENTRIES BY DATE (OLDEST FIRST)
-    const sortedLedgerEntries = uniqueLedger.sort((a, b) => {
-      const dateA = parseDateString(a.date);
-      const dateB = parseDateString(b.date);
-      return dateA.getTime() - dateB.getTime(); // ascending (oldest first)
-    });
+    const sortedLedgerEntries = uniqueLedger.sort((a, b) => a.timestamp - b.timestamp);
 
     return sortedLedgerEntries;
   };
@@ -342,10 +319,7 @@ clientSummaries.forEach((c: any) => {
               <Typography variant="body2" color="textSecondary">
                 Grand Total
               </Typography>
-              <Typography
-                variant="h6"
-                sx={{ color: rowData.gTotal >= 0 ? 'green' : 'red' }}
-              >
+              <Typography variant="h6" sx={{ color: rowData.gTotal >= 0 ? 'green' : 'red' }}>
                 ₹{rowData.gTotal.toFixed(2)}
               </Typography>
             </Paper>
@@ -380,17 +354,23 @@ clientSummaries.forEach((c: any) => {
               {ledgerData.length > 0 ? (
                 ledgerData.map((entry, index) => (
                   <TableRow key={`${entry.matchName}-${entry.client}-${index}`}>
-                    <TableCell sx={{ color: entry.match >= 0 ? 'green' : 'red', fontWeight: 'bold' }}>
+                    <TableCell
+                      sx={{ color: entry.match >= 0 ? 'green' : 'red', fontWeight: 'bold' }}
+                    >
                       {entry.match >= 0
                         ? `+ ₹${entry.match.toFixed(2)}`
                         : `- ₹${Math.abs(entry.match).toFixed(2)}`}
                     </TableCell>
-                    <TableCell sx={{ color: entry.session >= 0 ? 'green' : 'red', fontWeight: 'bold' }}>
+                    <TableCell
+                      sx={{ color: entry.session >= 0 ? 'green' : 'red', fontWeight: 'bold' }}
+                    >
                       {entry.session >= 0
                         ? `+ ₹${entry.session.toFixed(2)}`
                         : `- ₹${Math.abs(entry.session).toFixed(2)}`}
                     </TableCell>
-                    <TableCell sx={{ color: entry.total >= 0 ? 'green' : 'red', fontWeight: 'bold' }}>
+                    <TableCell
+                      sx={{ color: entry.total >= 0 ? 'green' : 'red', fontWeight: 'bold' }}
+                    >
                       {entry.total >= 0
                         ? `+ ₹${entry.total.toFixed(2)}`
                         : `- ₹${Math.abs(entry.total).toFixed(2)}`}
@@ -398,17 +378,23 @@ clientSummaries.forEach((c: any) => {
                     <TableCell sx={{ fontWeight: 'bold' }}>₹{entry.mCom.toFixed(2)}</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>₹{entry.sCom.toFixed(2)}</TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>₹{entry.tCom.toFixed(2)}</TableCell>
-                    <TableCell sx={{ color: entry.netAmount >= 0 ? 'green' : 'red', fontWeight: 'bold' }}>
+                    <TableCell
+                      sx={{ color: entry.netAmount >= 0 ? 'green' : 'red', fontWeight: 'bold' }}
+                    >
                       {entry.netAmount >= 0
                         ? `+ ₹${entry.netAmount.toFixed(2)}`
                         : `- ₹${Math.abs(entry.netAmount).toFixed(2)}`}
                     </TableCell>
-                    <TableCell sx={{ color: entry.shareAmount >= 0 ? 'green' : 'red', fontWeight: 'bold' }}>
+                    <TableCell
+                      sx={{ color: entry.shareAmount >= 0 ? 'green' : 'red', fontWeight: 'bold' }}
+                    >
                       {entry.shareAmount >= 0
                         ? `+ ₹${entry.shareAmount.toFixed(2)}`
                         : `- ₹${Math.abs(entry.shareAmount).toFixed(2)}`}
                     </TableCell>
-                    <TableCell sx={{ color: entry.gTotal >= 0 ? 'green' : 'red', fontWeight: 'bold' }}>
+                    <TableCell
+                      sx={{ color: entry.gTotal >= 0 ? 'green' : 'red', fontWeight: 'bold' }}
+                    >
                       {entry.gTotal >= 0
                         ? `+ ₹${entry.gTotal.toFixed(2)}`
                         : `- ₹${Math.abs(entry.gTotal).toFixed(2)}`}
@@ -434,7 +420,9 @@ clientSummaries.forEach((c: any) => {
                 <TableRow>
                   <TableCell colSpan={15} align="center">
                     <Typography>
-                      {isLoading ? 'Loading child data...' : 'No child data available for this admin'}
+                      {isLoading
+                        ? 'Loading child data...'
+                        : 'No child data available for this admin'}
                     </Typography>
                   </TableCell>
                 </TableRow>

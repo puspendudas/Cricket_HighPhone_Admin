@@ -101,7 +101,6 @@ export default function SessionUpdate() {
   const [filteredSessions, setFilteredSessions] = useState<FancyRow[]>([]);
   const [page, setPage] = useState(1);
   const rowsPerPage = 10;
-
   // Dialog and feedback state
   const [statusDialogOpen, setStatusDialogOpen] = useState(false);
   const [bulkLoading, setBulkLoading] = useState(false);

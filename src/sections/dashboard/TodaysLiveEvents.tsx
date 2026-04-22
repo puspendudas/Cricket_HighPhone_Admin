@@ -3,15 +3,9 @@ import type { Match } from 'src/Interface/dashboard.interface';
 import { useNavigate } from 'react-router-dom';
 import React, { useState, useEffect } from 'react';
 
-import {
-  Box,
-  Grid,
-  Card,
-  Chip,
-  Stack,
-  Typography,
-  CardContent,
-} from '@mui/material';
+import { Box, Grid, Card, Chip, Stack, Typography, CardContent } from '@mui/material';
+
+import { formatUTCDateTime12H } from 'src/utils/date';
 
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
 
@@ -97,16 +91,12 @@ const TodaysLiveEvents: React.FC = () => {
                     </Stack>
 
                     <Typography variant="body2" fontWeight={600} mb={1}>
-                      {new Date(match.eventTime).toLocaleString()}
+                      {formatUTCDateTime12H(match.eventTime)}
                     </Typography>
 
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
                       <Chip
-                        label={
-                          <Typography variant="caption">
-                            Undeclared
-                          </Typography>
-                        }
+                        label={<Typography variant="caption">Undeclared</Typography>}
                         sx={{
                           marginTop: '-40px',
                           bgcolor: '#FFEBEE',
@@ -122,7 +112,13 @@ const TodaysLiveEvents: React.FC = () => {
             ))}
           </Grid>
         ) : (
-          <Box display="flex" justifyContent="center" alignItems="center" height="200px" width="100%">
+          <Box
+            display="flex"
+            justifyContent="center"
+            alignItems="center"
+            height="200px"
+            width="100%"
+          >
             <Typography variant="body1" color="text.secondary">
               No Data Found
             </Typography>

@@ -10,8 +10,10 @@ import {
   TableBody,
   TableCell,
   TableHead,
-  Typography
+  Typography,
 } from '@mui/material';
+
+import { formatUTCDateTime12H } from 'src/utils/date';
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
@@ -20,6 +22,7 @@ import win from '../../../../public/assets/win.png';
 
 interface LedgerEntry {
   date: string;
+  timestamp: number;
   credit: number;
   debit: number;
   balance: number;
@@ -75,13 +78,9 @@ export function TotalProfitTableData() {
   // Child Ledger Data
   const { data: childTableData } = useQuery({
     queryKey: ['childLedgerTableData', userId],
-    queryFn: () =>
-      userId
-        ? fetchTotalData(userId)
-        : Promise.reject(new Error('Missing user ID')),
+    queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
     enabled: !!userId,
     refetchInterval: 3000,
-
   });
 
   // My Ledger Data
@@ -92,19 +91,18 @@ export function TotalProfitTableData() {
   } = useQuery({
     queryKey: ['ledgerTableData', AdminuserId],
     queryFn: () =>
-      AdminuserId
-        ? fetchTotalData(AdminuserId)
-        : Promise.reject(new Error('Missing user ID')),
+      AdminuserId ? fetchTotalData(AdminuserId) : Promise.reject(new Error('Missing user ID')),
     enabled: !!AdminuserId,
     refetchInterval: 3000,
-
   });
 
   // Helper: Remove duplicate bets using Set
   const dedupeBets = (bets: MatchSummary['matchBets']) => {
     const seen = new Set<string>();
     return bets.filter((bet) => {
-      const key = bet._id || `${bet.user_id}-${bet.bet_type}-${bet.stake_amount}-${bet.potential_winnings}-${bet.status}-${bet.selection}-${bet.createdAt}`;
+      const key =
+        bet._id ||
+        `${bet.user_id}-${bet.bet_type}-${bet.stake_amount}-${bet.potential_winnings}-${bet.status}-${bet.selection}-${bet.createdAt}`;
       if (seen.has(key)) return false;
       seen.add(key);
       return true;
@@ -112,13 +110,9 @@ export function TotalProfitTableData() {
   };
 
   // Calculate net amount for a client in a match
-  const calculateClientNetAmount = (
-    clientBets: any[],
-    immediateChildAdmin: any,
-    match: any
-  ) => {
-    const bookmakerBets = clientBets.filter(b => b.bet_type === "BOOKMAKER");
-    const fancyBets = clientBets.filter(b => b.bet_type === "FANCY");
+  const calculateClientNetAmount = (clientBets: any[], immediateChildAdmin: any, match: any) => {
+    const bookmakerBets = clientBets.filter((b) => b.bet_type === 'BOOKMAKER');
+    const fancyBets = clientBets.filter((b) => b.bet_type === 'FANCY');
 
     const matchCommissionRate = immediateChildAdmin?.match_commission || 0;
     const sessionCommissionRate = immediateChildAdmin?.session_commission || 0;
@@ -128,13 +122,13 @@ export function TotalProfitTableData() {
       const stake = Number(bet.stake_amount) || 0;
       const potential = Number(bet.potential_winnings) || 0;
 
-      if (bet.status === "WON") {
-        if (bet.selection === "Back") return acc + potential;
-        if (bet.selection === "Lay") return acc + stake;
+      if (bet.status === 'WON') {
+        if (bet.selection === 'Back') return acc + potential;
+        if (bet.selection === 'Lay') return acc + stake;
       }
-      if (bet.status === "LOST") {
-        if (bet.selection === "Back") return acc - stake;
-        if (bet.selection === "Lay") return acc - potential;
+      if (bet.status === 'LOST') {
+        if (bet.selection === 'Back') return acc - stake;
+        if (bet.selection === 'Lay') return acc - potential;
       }
       return acc;
     }, 0);
@@ -143,13 +137,13 @@ export function TotalProfitTableData() {
       const stake = Number(bet.stake_amount) || 0;
       const potential = Number(bet.potential_winnings) || 0;
 
-      if (bet.status === "WON") {
-        if (bet.selection === "Yes") return acc + potential;
-        if (bet.selection === "Not") return acc + stake;
+      if (bet.status === 'WON') {
+        if (bet.selection === 'Yes') return acc + potential;
+        if (bet.selection === 'Not') return acc + stake;
       }
-      if (bet.status === "LOST") {
-        if (bet.selection === "Yes") return acc - stake;
-        if (bet.selection === "Not") return acc - potential;
+      if (bet.status === 'LOST') {
+        if (bet.selection === 'Yes') return acc - stake;
+        if (bet.selection === 'Not') return acc - potential;
       }
       return acc;
     }, 0);
@@ -162,9 +156,7 @@ export function TotalProfitTableData() {
     const clientSummaries = match?.client_summary || [];
 
     clientSummaries.forEach((c: any) => {
-      const belongsToClient = clientBets.some(
-        (b: any) => b.user_id === c.client_id
-      );
+      const belongsToClient = clientBets.some((b: any) => b.user_id === c.client_id);
 
       if (!belongsToClient) return;
 
@@ -172,8 +164,7 @@ export function TotalProfitTableData() {
 
       // ✅ sirf LOSS par
       if (clientMatchPL < 0) {
-        matchCommission +=
-          Math.abs(clientMatchPL) * (matchCommissionRate / 100);
+        matchCommission += Math.abs(clientMatchPL) * (matchCommissionRate / 100);
       }
     });
 
@@ -183,8 +174,7 @@ export function TotalProfitTableData() {
       0
     );
 
-    const sessionCommission =
-      totalSessionStake * (sessionCommissionRate / 100);
+    const sessionCommission = totalSessionStake * (sessionCommissionRate / 100);
 
     const totalCommission = matchCommission + sessionCommission;
 
@@ -194,7 +184,6 @@ export function TotalProfitTableData() {
 
     return grandTotal;
   };
-
 
   // Get MyLedger net amounts by match
   const getMyLedgerNetByMatch = (matches: MatchSummary[]): Record<string, number> => {
@@ -276,17 +265,17 @@ export function TotalProfitTableData() {
   };
 
   // Helper function to parse date strings
-  const parseDateString = (dateStr: string): Date => {
-    if (!dateStr || dateStr === 'N/A') return new Date(0); // Return epoch for invalid dates
+  // const parseDateString = (dateStr: string): Date => {
+  //   if (!dateStr || dateStr === 'N/A') return new Date(0); // Return epoch for invalid dates
 
-    try {
-      // Try to parse the date string
-      return new Date(dateStr);
-    } catch (e) {
-      console.error('Error parsing date:', dateStr, e);
-      return new Date(0);
-    }
-  };
+  //   try {
+  //     // Try to parse the date string
+  //     return new Date(dateStr);
+  //   } catch (e) {
+  //     console.error('Error parsing date:', dateStr, e);
+  //     return new Date(0);
+  //   }
+  // };
 
   // Process ledger entries for Total Profit
   const processLedgerData = (matches: MatchSummary[]): LedgerEntry[] => {
@@ -294,12 +283,8 @@ export function TotalProfitTableData() {
 
     const ledgerEntries: LedgerEntry[] = [];
 
-    const myLedgerNet = parentData?.matches
-      ? getMyLedgerNetByMatch(parentData.matches)
-      : {};
-    const childNet = childTableData?.matches
-      ? getChildNetByMatch(childTableData.matches)
-      : {};
+    const myLedgerNet = parentData?.matches ? getMyLedgerNetByMatch(parentData.matches) : {};
+    const childNet = childTableData?.matches ? getChildNetByMatch(childTableData.matches) : {};
 
     const processedEvents = new Set<string>();
 
@@ -335,15 +320,8 @@ export function TotalProfitTableData() {
         if (credit === 0 && debit === 0) return;
 
         ledgerEntries.push({
-          date: new Date(match.eventTime).toLocaleString('en-US', {
-            year: 'numeric',
-            month: 'short',
-            day: '2-digit',
-            hour: '2-digit',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true,
-          }),
+          date: formatUTCDateTime12H(match.eventTime),
+          timestamp: new Date(match.eventTime).getTime(),
           credit,
           debit,
           balance: 0, // temporary
@@ -356,11 +334,7 @@ export function TotalProfitTableData() {
     });
 
     // STEP 2: sort
-    const sortedLedgerEntries = ledgerEntries.sort((a, b) => {
-      const dateA = parseDateString(a.date);
-      const dateB = parseDateString(b.date);
-      return dateA.getTime() - dateB.getTime();
-    });
+    const sortedLedgerEntries = ledgerEntries.sort((a, b) => a.timestamp - b.timestamp);
 
     // STEP 3: cumulative balance (ACCOUNTING STYLE)
     let runningBalance = 0;
@@ -372,7 +346,6 @@ export function TotalProfitTableData() {
 
     return sortedLedgerEntries;
   };
-
 
   const ledgerData = parentData?.matches ? processLedgerData(parentData.matches) : [];
 
@@ -397,14 +370,16 @@ export function TotalProfitTableData() {
 
   return (
     <Box>
-      <Paper sx={{
-        p: 2,
-        overflowX: 'auto',
-        boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
-        borderRadius: '10px',
-        borderBottomLeftRadius: '0',
-        borderBottomRightRadius: '0'
-      }}>
+      <Paper
+        sx={{
+          p: 2,
+          overflowX: 'auto',
+          boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
+          borderRadius: '10px',
+          borderBottomLeftRadius: '0',
+          borderBottomRightRadius: '0',
+        }}
+      >
         <Table>
           <TableHead sx={{ backgroundColor: '#f4f6f8' }}>
             <TableRow>
@@ -421,24 +396,36 @@ export function TotalProfitTableData() {
                 <TableRow key={`${entry.client}-${index}`}>
                   <TableCell>{entry.date}</TableCell>
                   {/* CREDIT COLUMN - RED COLOR FOR CREDIT (Jab aapko paisa dena hai) */}
-                  <TableCell sx={{
-                    color: entry.credit > 0 ? 'red' : 'inherit',
-                    fontWeight: 'bold'
-                  }}>
-                    {entry.credit > 0 ? `- ₹${entry.credit.toFixed(2)}` : `₹${entry.credit.toFixed(2)}`}
+                  <TableCell
+                    sx={{
+                      color: entry.credit > 0 ? 'red' : 'inherit',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {entry.credit > 0
+                      ? `- ₹${entry.credit.toFixed(2)}`
+                      : `₹${entry.credit.toFixed(2)}`}
                   </TableCell>
                   {/* DEBIT COLUMN - GREEN COLOR FOR DEBIT (Jab aapko paisa milna hai) */}
-                  <TableCell sx={{
-                    color: entry.debit > 0 ? 'green' : 'inherit',
-                    fontWeight: 'bold'
-                  }}>
-                    {entry.debit > 0 ? `+ ₹${entry.debit.toFixed(2)}` : `₹${entry.debit.toFixed(2)}`}
+                  <TableCell
+                    sx={{
+                      color: entry.debit > 0 ? 'green' : 'inherit',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {entry.debit > 0
+                      ? `+ ₹${entry.debit.toFixed(2)}`
+                      : `₹${entry.debit.toFixed(2)}`}
                   </TableCell>
-                  <TableCell sx={{
-                    color: entry.balance >= 0 ? 'green' : 'red',
-                    fontWeight: 'bold'
-                  }}>
-                    {entry.balance >= 0 ? `+ ₹${entry.balance.toFixed(2)}` : `- ₹${Math.abs(entry.balance).toFixed(2)}`}
+                  <TableCell
+                    sx={{
+                      color: entry.balance >= 0 ? 'green' : 'red',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    {entry.balance >= 0
+                      ? `+ ₹${entry.balance.toFixed(2)}`
+                      : `- ₹${Math.abs(entry.balance).toFixed(2)}`}
                   </TableCell>
                   <TableCell>
                     <Grid container alignItems="center" spacing={1}>
@@ -476,7 +463,6 @@ export function TotalProfitTableData() {
           boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
         }}
       >
-
         <Box
           sx={{
             flex: 1,
@@ -487,11 +473,16 @@ export function TotalProfitTableData() {
             py: 1.5,
           }}
         >
-
-          <Typography variant="body1" sx={{
-            color: finalBalance >= 0 ? 'green' : 'red'
-          }}>
-            Final Balance: {finalBalance >= 0 ? `+₹${finalBalance.toFixed(2)}` : `-₹${Math.abs(finalBalance).toFixed(2)}`}
+          <Typography
+            variant="body1"
+            sx={{
+              color: finalBalance >= 0 ? 'green' : 'red',
+            }}
+          >
+            Final Balance:{' '}
+            {finalBalance >= 0
+              ? `+₹${finalBalance.toFixed(2)}`
+              : `-₹${Math.abs(finalBalance).toFixed(2)}`}
           </Typography>
         </Box>
       </Box>
