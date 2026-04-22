@@ -500,7 +500,7 @@ export default function CricketMatchLiveData() {
   const activeFancyOdds = Array.isArray(fancyOdds)
     ? fancyOdds.filter(
         (item: any) =>
-          item.market === 'Normal' &&
+          // item.market === 'Normal' &&
           !item.isDeclared &&
           !(item.isEnabled === false && item.isFancyEnded === true)
       )
