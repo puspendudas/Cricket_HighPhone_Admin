@@ -185,6 +185,8 @@ export default function SessionUpdate() {
     setRowMinMax(initial);
   }, [fancySessions]);
 
+  console.log("fancySessions", fancySessions);
+
   // Filter sessions
   // const allowedMarkets = ["Normal", "Over By Over", "Ball By Ball"];
 
@@ -197,6 +199,10 @@ export default function SessionUpdate() {
   //   setFilteredSessions(filtered);
   //   // eslint-disable-next-line react-hooks/exhaustive-deps
   // }, [fancySessions]);
+
+  useEffect(() => {
+    setFilteredSessions(fancySessions);
+  }, [fancySessions]);
 
   // Mutations
   const updateStatusMutation = useMutation({

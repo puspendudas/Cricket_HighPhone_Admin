@@ -496,12 +496,13 @@ export default function CricketMatchLiveData() {
     const { eventName, eventTime, bookMakerOdds = [], fancyOdds = [], wonby, teams = [] } = matchData.match;
 
     const activeFancyOdds = Array.isArray(fancyOdds)
-        ? fancyOdds.filter((item: any) =>
-            item.market === 'Normal' &&
-            !item.isDeclared &&
-            !(item.isEnabled === false && item.isFancyEnded === true)
+    ? fancyOdds.filter((item: any) =>
+        item &&
+        item.isDeclared !== true &&
+        (item.isActive === undefined || item.isActive === true) &&
+        item.isFancyEnded !== true
         )
-        : [];
+    : [];
 
 
 
