@@ -7,26 +7,16 @@ export const formatUTCDateTime12H = (
 
   if (Number.isNaN(d.getTime())) return 'N/A';
 
-  const day = String(d.getUTCDate()).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
   const monthNames = [
-    'Jan',
-    'Feb',
-    'Mar',
-    'Apr',
-    'May',
-    'Jun',
-    'Jul',
-    'Aug',
-    'Sep',
-    'Oct',
-    'Nov',
-    'Dec',
+    'Jan','Feb','Mar','Apr','May','Jun',
+    'Jul','Aug','Sep','Oct','Nov','Dec',
   ];
-  const month = monthNames[d.getUTCMonth()];
-  const year = d.getUTCFullYear();
+  const month = monthNames[d.getMonth()];
+  const year = d.getFullYear();
 
-  let hours = d.getUTCHours();
-  const minutes = String(d.getUTCMinutes()).padStart(2, '0');
+  let hours = d.getHours();
+  const minutes = String(d.getMinutes()).padStart(2, '0');
 
   const ampm = hours >= 12 ? 'PM' : 'AM';
   hours %= 12;
