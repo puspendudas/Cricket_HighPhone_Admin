@@ -18,16 +18,16 @@ const TodaysLiveEvents: React.FC = () => {
     const fetchData = async () => {
       try {
         const response = await fetchAllMatch();
-        const today = new Date();
+        const now = new Date();
 
         const filteredMatches =
           response?.matches?.filter((match: Match) => {
-            const matchDate = new Date(match.eventTime);
+            const matchDateTime = new Date(match.eventTime);
 
             // ✅ condition:
-            // 1. declared = false (undeclared)
-            // 2. match date <= today (past ya today)
-            return match.declared === false && matchDate <= today;
+            // 1. declared = false (undeclared) or undefined
+            // 2. match datetime <= now (past or current)
+            return !match.declared && matchDateTime <= now;
           }) || [];
 
         setLiveMatches(filteredMatches);
@@ -37,6 +37,8 @@ const TodaysLiveEvents: React.FC = () => {
     };
 
     fetchData();
+    const interval = setInterval(fetchData, 30000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -35,6 +35,8 @@ const UpcomingLiveEvents: React.FC = () => {
     };
 
     fetchData();
+    const interval = setInterval(fetchData, 60000);
+    return () => clearInterval(interval);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

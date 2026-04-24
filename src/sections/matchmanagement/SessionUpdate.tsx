@@ -25,7 +25,7 @@ import {
   DialogActions,
   TableContainer,
   CircularProgress,
-  FormControlLabel
+  FormControlLabel,
 } from '@mui/material';
 
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
@@ -43,23 +43,17 @@ interface RollbackConfirmModalProps {
 function RollbackConfirmModal({ open, onClose, onConfirm }: RollbackConfirmModalProps) {
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ fontWeight: "bold" }}>Confirm Rollback</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 'bold' }}>Confirm Rollback</DialogTitle>
       <DialogContent>
         <Typography>
           Are you sure you want to <strong>Rollback</strong> this session?
         </Typography>
       </DialogContent>
-      <DialogActions sx={{ display: "flex", justifyContent: "flex-end", gap: 2, p: 2 }}>
-        <Button
-          onClick={onClose}
-          sx={{ bgcolor: "#F32D2D33", color: "#F32D2D", px: 3 }}
-        >
+      <DialogActions sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, p: 2 }}>
+        <Button onClick={onClose} sx={{ bgcolor: '#F32D2D33', color: '#F32D2D', px: 3 }}>
           Cancel
         </Button>
-        <Button
-          onClick={onConfirm}
-          sx={{ bgcolor: "#0ED98D33", color: "#1E9C6D", px: 3 }}
-        >
+        <Button onClick={onConfirm} sx={{ bgcolor: '#0ED98D33', color: '#1E9C6D', px: 3 }}>
           Yes
         </Button>
       </DialogActions>
@@ -69,7 +63,15 @@ function RollbackConfirmModal({ open, onClose, onConfirm }: RollbackConfirmModal
 
 export default function SessionUpdate() {
   const queryClient = useQueryClient();
-  const { FatchUpdateMatch, updateStatusSession, DeclarefancyMatch, CancelfancyMatch, fancyRollBack, updateStatusMInMax, AutoDeclareRun } = useMatchApi();
+  const {
+    FatchUpdateMatch,
+    updateStatusSession,
+    DeclarefancyMatch,
+    CancelfancyMatch,
+    fancyRollBack,
+    updateStatusMInMax,
+    AutoDeclareRun,
+  } = useMatchApi();
   const { id } = useParams();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -106,38 +108,38 @@ export default function SessionUpdate() {
   const [bulkLoading, setBulkLoading] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
-
-
-
   const updateMinMaxMutation = useMutation({
     mutationFn: (payload: { id: string; min: number; max: number }) => updateStatusMInMax(payload),
     onSuccess: () => {
-      toast.success("Updated successfully");
+      toast.success('Updated successfully');
       queryClient.invalidateQueries({ queryKey: ['match', id] });
     },
     onError: () => {
-      toast.error("Failed to update min/max");
-    }
+      toast.error('Failed to update min/max');
+    },
   });
 
   // TanStack Query for fetching match data
-  const { data: matchData, isLoading, error } = useQuery({
+  const {
+    data: matchData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ['match', id],
     queryFn: () => FatchUpdateMatch(id!),
     enabled: !!id && !isEditing,
     refetchInterval: 1000,
-
   });
   const autoDeclareMutation = useMutation({
     mutationFn: (idParam: string) => AutoDeclareRun(idParam),
     onSuccess: () => {
-      toast.success("Auto declare run executed successfully");
+      toast.success('Auto declare run executed successfully');
       queryClient.invalidateQueries({ queryKey: ['match', id] });
     },
     onError: (errors: any) => {
-      console.error("AutoDeclareRun failed:", errors);
-      toast.error("Failed to auto declare run");
-    }
+      console.error('AutoDeclareRun failed:', errors);
+      toast.error('Failed to auto declare run');
+    },
   });
 
   // Process fancy sessions data
@@ -150,6 +152,11 @@ export default function SessionUpdate() {
 
     return fancyOdds
       .filter((item: any) => {
+        // Exclude declared sessions
+        if (item.isDeclared === true) {
+          return false;
+        }
+        // Existing filter: exclude if disabled and ended
         if (item.isEnabled === false && item.isFancyEnded === true) {
           return false;
         }
@@ -168,23 +175,22 @@ export default function SessionUpdate() {
         market: item.market,
         isDeclared: item.isDeclared,
         resultScore: item.resultScore,
-        nonDeletedBetCount: item.nonDeletedBetCount || 0
+        nonDeletedBetCount: item.nonDeletedBetCount || 0,
       }));
   }, [matchData, matchId]);
-
 
   useEffect(() => {
     const initial: any = {};
     fancySessions.forEach((row: any) => {
       initial[row.id] = {
         min: row.min || 100,
-        max: row.max || 25000
+        max: row.max || 25000,
       };
     });
     setRowMinMax(initial);
   }, [fancySessions]);
 
-  console.log("fancySessions", fancySessions);
+  console.log('fancySessions', fancySessions);
 
   // Filter sessions
   // const allowedMarkets = ["Normal", "Over By Over", "Ball By Ball"];
@@ -216,14 +222,14 @@ export default function SessionUpdate() {
             item.gameId === variables.gameId && item.sid === variables.sid
               ? { ...item, isActive: !item.isActive, status: item.isActive ? 'Inactive' : 'Active' }
               : item
-          )
+          ),
         };
       });
     },
     onError: (statusError) => {
       console.error('Status update failed:', statusError);
       toast.error('Failed to update status');
-    }
+    },
   });
 
   const declareFancyMutation = useMutation({
@@ -239,7 +245,7 @@ export default function SessionUpdate() {
       console.error('Declare failed:', declareError);
       const errorMessage = declareError?.response?.data?.message || 'Failed to declare session';
       toast.error(errorMessage);
-    }
+    },
   });
 
   const cancelFancyMutation = useMutation({
@@ -252,7 +258,7 @@ export default function SessionUpdate() {
     onError: (cancelError: any) => {
       console.error('Cancel failed:', cancelError);
       toast.error('Failed to cancel match');
-    }
+    },
   });
 
   const rollbackMutation = useMutation({
@@ -267,7 +273,7 @@ export default function SessionUpdate() {
       console.error('Rollback failed:', rollbackError);
       const errorMessage = rollbackError?.response?.data?.message || 'Failed to rollback session';
       toast.error(errorMessage);
-    }
+    },
   });
 
   const paginatedRows = useMemo(
@@ -341,7 +347,7 @@ export default function SessionUpdate() {
         rowsNeedingChange.map((row) =>
           updateStatusMutation.mutateAsync({
             gameId: row.gameId as string,
-            sid: row.sid as string
+            sid: row.sid as string,
           })
         )
       );
@@ -367,20 +373,18 @@ export default function SessionUpdate() {
       isWon: true,
       fancyId: selectedSession.id,
       sid: selectedSession.sid,
-      run: Number(declareScore)
+      run: Number(declareScore),
     };
 
     declareFancyMutation.mutate({
       matchId: selectedSession.matchId as string,
-      payload
+      payload,
     });
   };
 
   const filteredSessionBySearch = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    return filteredSessions.filter(session =>
-      session.sessionName.toLowerCase().includes(term)
-    );
+    return filteredSessions.filter((session) => session.sessionName.toLowerCase().includes(term));
   }, [filteredSessions, searchTerm]);
 
   const paginatedSearchRows = useMemo(
@@ -390,7 +394,7 @@ export default function SessionUpdate() {
 
   const handleCancelMatch = async () => {
     if (!matchId) {
-      toast.error("Match ID not found!");
+      toast.error('Match ID not found!');
       return;
     }
 
@@ -399,7 +403,7 @@ export default function SessionUpdate() {
     );
 
     if (!selectedSession) {
-      toast.error("Please select a session to cancel");
+      toast.error('Please select a session to cancel');
       return;
     }
 
@@ -417,7 +421,7 @@ export default function SessionUpdate() {
     );
 
     if (!selectedSession) {
-      toast.error("Please select a declared session to rollback");
+      toast.error('Please select a declared session to rollback');
       return;
     }
 
@@ -430,12 +434,12 @@ export default function SessionUpdate() {
 
     const payload = {
       fancyId: selectedSessionForRollback.id,
-      sid: selectedSessionForRollback.sid
+      sid: selectedSessionForRollback.sid,
     };
 
     rollbackMutation.mutate({
       matchId: selectedSessionForRollback.matchId,
-      payload
+      payload,
     });
 
     setRollbackOpen(false);
@@ -471,17 +475,12 @@ export default function SessionUpdate() {
       {/* Declare Session */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
-
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'initial', mb: 2 }}>
-
             {/* Left Side Text */}
-            <Typography variant="h6" >
-              Declare Session
-            </Typography>
+            <Typography variant="h6">Declare Session</Typography>
 
             {/* Right Side Controls */}
             <Box sx={{ display: 'flex', alignItems: 'right', gap: 8, ml: '72px' }}>
-
               {/* Refresh Icon Button */}
               <Button
                 variant="outlined"
@@ -499,11 +498,8 @@ export default function SessionUpdate() {
                 Refresh
               </Button>
 
-
               {/* Toggle Switch */}
-
             </Box>
-
           </Box>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} md={3}>
@@ -526,19 +522,25 @@ export default function SessionUpdate() {
                       </Typography>
 
                       {option.nonDeletedBetCount >= 1 && (
-                        <Box component="span" sx={{ ml: 1, display: 'inline-flex', alignItems: 'center' }}>
-                          <Iconify icon="line-md:hazard-lights-loop" style={{ color: '#ff9800', marginLeft: 6 }} />
+                        <Box
+                          component="span"
+                          sx={{ ml: 1, display: 'inline-flex', alignItems: 'center' }}
+                        >
+                          <Iconify
+                            icon="line-md:hazard-lights-loop"
+                            style={{ color: '#ff9800', marginLeft: 6 }}
+                          />
                         </Box>
                       )}
                     </Box>
                   </li>
                 )}
-
-                renderInput={(params) => <TextField {...params} label="Select Session" placeholder="Session" />}
+                renderInput={(params) => (
+                  <TextField {...params} label="Select Session" placeholder="Session" />
+                )}
                 isOptionEqualToValue={(option, value) => option.sessionName === value.sessionName}
               />
             </Grid>
-
 
             <Grid item xs={12} md={3}>
               <TextField
@@ -583,7 +585,8 @@ export default function SessionUpdate() {
                 options={fancySessions.filter((row: FancyRow) => row.isDeclared)}
                 getOptionLabel={(option) => option.sessionName || ''}
                 value={
-                  fancySessions.find((row: FancyRow) => row.sessionName === redeclareSession) || null
+                  fancySessions.find((row: FancyRow) => row.sessionName === redeclareSession) ||
+                  null
                 }
                 onChange={(_, newValue) => {
                   setRedeclareSession(newValue?.sessionName ?? '');
@@ -592,9 +595,7 @@ export default function SessionUpdate() {
                 renderInput={(params) => (
                   <TextField {...params} label="Select Session" placeholder="Session" />
                 )}
-                isOptionEqualToValue={(option, value) =>
-                  option.sessionName === value.sessionName
-                }
+                isOptionEqualToValue={(option, value) => option.sessionName === value.sessionName}
               />
             </Grid>
 
@@ -660,7 +661,6 @@ export default function SessionUpdate() {
             </Box>
           </Box>
 
-
           <Box mb={1} display="flex" alignItems="center">
             <FormControlLabel
               control={
@@ -691,6 +691,7 @@ export default function SessionUpdate() {
                   </TableCell>
                   <TableCell>#</TableCell>
                   <TableCell>Session Name</TableCell>
+                  <TableCell>SID</TableCell>
                   <TableCell>Min amount</TableCell>
                   <TableCell>Max amount</TableCell>
                   <TableCell>Update</TableCell>
@@ -705,24 +706,23 @@ export default function SessionUpdate() {
                       <TableCell padding="checkbox">
                         <Checkbox
                           checked={checked}
-                          onChange={(e) =>
-                            handleToggleRowSelect(row.id, e.target.checked)
-                          }
+                          onChange={(e) => handleToggleRowSelect(row.id, e.target.checked)}
                           inputProps={{ 'aria-label': `select row ${row.id}` }}
                         />
                       </TableCell>
                       <TableCell>{(page - 1) * rowsPerPage + index + 1}</TableCell>
                       <TableCell>{row.sessionName}</TableCell>
+                      <TableCell>{row.sid}</TableCell>
                       <TableCell>
                         <TextField
                           onFocus={() => setIsEditing(true)}
                           onBlur={() => setIsEditing(false)}
-                          sx={{ width: "80px" }}
-                          value={rowMinMax[row.id]?.min || ""}
+                          sx={{ width: '80px' }}
+                          value={rowMinMax[row.id]?.min || ''}
                           onChange={(e) =>
                             setRowMinMax({
                               ...rowMinMax,
-                              [row.id]: { ...rowMinMax[row.id], min: Number(e.target.value) }
+                              [row.id]: { ...rowMinMax[row.id], min: Number(e.target.value) },
                             })
                           }
                         />
@@ -731,12 +731,12 @@ export default function SessionUpdate() {
                         <TextField
                           onFocus={() => setIsEditing(true)}
                           onBlur={() => setIsEditing(false)}
-                          sx={{ width: "80px" }}
-                          value={rowMinMax[row.id]?.max || ""}
+                          sx={{ width: '80px' }}
+                          value={rowMinMax[row.id]?.max || ''}
                           onChange={(e) =>
                             setRowMinMax({
                               ...rowMinMax,
-                              [row.id]: { ...rowMinMax[row.id], max: Number(e.target.value) }
+                              [row.id]: { ...rowMinMax[row.id], max: Number(e.target.value) },
                             })
                           }
                         />
@@ -755,13 +755,8 @@ export default function SessionUpdate() {
                             updateMinMaxMutation.mutate(payload);
                           }}
                         >
-                          {updateMinMaxMutation.isPending ? (
-                            <CircularProgress size={20} />
-                          ) : (
-                            "Save"
-                          )}
+                          {updateMinMaxMutation.isPending ? <CircularProgress size={20} /> : 'Save'}
                         </Button>
-
                       </TableCell>
                       <TableCell>
                         <Button
@@ -775,15 +770,17 @@ export default function SessionUpdate() {
                           }}
                           disabled={updateStatusMutation.isPending}
                           sx={{
-                            backgroundColor:
-                              row.status === 'Active' ? 'green' : 'red',
+                            backgroundColor: row.status === 'Active' ? 'green' : 'red',
                             '&:hover': {
-                              backgroundColor:
-                                row.status === 'Active' ? '#2e7d32' : '#c62828'
-                            }
+                              backgroundColor: row.status === 'Active' ? '#2e7d32' : '#c62828',
+                            },
                           }}
                         >
-                          {updateStatusMutation.isPending ? <CircularProgress size={20} /> : row.status}
+                          {updateStatusMutation.isPending ? (
+                            <CircularProgress size={20} />
+                          ) : (
+                            row.status
+                          )}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -793,12 +790,7 @@ export default function SessionUpdate() {
             </Table>
           </TableContainer>
 
-          <Box
-            display="flex"
-            justifyContent="space-between"
-            mt={2}
-            alignItems="center"
-          >
+          <Box display="flex" justifyContent="space-between" mt={2} alignItems="center">
             <Typography variant="body2">
               Showing {(page - 1) * rowsPerPage + 1} to{' '}
               {Math.min(page * rowsPerPage, filteredSessionBySearch.length)} of{' '}
@@ -840,9 +832,7 @@ export default function SessionUpdate() {
             color="success"
             disabled={bulkLoading}
             onClick={() => bulkSetStatusForCurrentPage('Active')}
-            startIcon={
-              bulkLoading ? <CircularProgress size={18} color="inherit" /> : null
-            }
+            startIcon={bulkLoading ? <CircularProgress size={18} color="inherit" /> : null}
           >
             Active All
           </Button>
@@ -851,9 +841,7 @@ export default function SessionUpdate() {
             color="error"
             disabled={bulkLoading}
             onClick={() => bulkSetStatusForCurrentPage('Inactive')}
-            startIcon={
-              bulkLoading ? <CircularProgress size={18} color="inherit" /> : null
-            }
+            startIcon={bulkLoading ? <CircularProgress size={18} color="inherit" /> : null}
           >
             Inactive All
           </Button>
