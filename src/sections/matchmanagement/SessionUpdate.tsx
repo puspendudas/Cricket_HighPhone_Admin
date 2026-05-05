@@ -200,7 +200,10 @@ export default function SessionUpdate() {
   // }, [fancySessions]);
 
   useEffect(() => {
-    setFilteredSessions(fancySessions);
+    const declaredOnly = fancySessions.filter(
+      (session: FancyRow) => session.isDeclared === true
+    );
+    setFilteredSessions(declaredOnly);
   }, [fancySessions]);
 
   // Mutations

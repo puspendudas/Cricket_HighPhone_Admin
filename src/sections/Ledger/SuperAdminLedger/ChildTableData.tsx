@@ -107,7 +107,6 @@ export function ChildTableData() {
     queryKey: ['ledgerTableData', userId],
     queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
     enabled: !!userId,
-    refetchInterval: 3000,
   });
 
   const { data: settlementData } = useQuery({

@@ -80,7 +80,6 @@ export function TotalProfitTableData() {
     queryKey: ['childLedgerTableData', userId],
     queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
     enabled: !!userId,
-    refetchInterval: 3000,
   });
 
   // My Ledger Data
@@ -93,7 +92,6 @@ export function TotalProfitTableData() {
     queryFn: () =>
       AdminuserId ? fetchTotalData(AdminuserId) : Promise.reject(new Error('Missing user ID')),
     enabled: !!AdminuserId,
-    refetchInterval: 3000,
   });
 
   // Helper: Remove duplicate bets using Set

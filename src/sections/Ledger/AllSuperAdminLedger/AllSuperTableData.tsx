@@ -104,7 +104,6 @@ const useChildTableFinalBalance = (targetUserId?: string) => {
         ? fetchSettlement(userId)
         : Promise.reject(new Error('Missing user ID')),
     enabled: !!userId,
-    refetchInterval: 3000,
   });
 
   // Calculate total settled amount for EACH admin

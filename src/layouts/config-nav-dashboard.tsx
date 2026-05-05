@@ -34,7 +34,7 @@ const ICONS = {
   data: <Iconify icon="material-symbols:database" />,
   setting: <Iconify icon="solar:settings-bold-duotone" />,
   notification: <Iconify icon="mdi:bell-notification" />,
-    autoSetting: <Iconify icon="mdi:auto-fix" />, 
+  autoSetting: <Iconify icon="mdi:auto-fix" />,
 
 };
 
@@ -155,13 +155,15 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
         children: [
           { title: 'Settlement', path: paths.dashboard.ledger.allsuperadmin },
           { title: 'Child Ledger', path: paths.dashboard.ledger.superadmindata },
+
+          ...(currentRole === 'super_admin'
+            ? [{ title: 'कमीशन लेन देन', path: paths.dashboard.ledger.commission }]
+            : []),
+
           ...(currentRole !== 'super_admin'
             ? [
               { title: 'My Ledger', path: paths.dashboard.ledger.myledger },
               { title: 'Total Profit', path: paths.dashboard.ledger.totalprofit },
-              { title: 'कमीशन लेन देन', path: paths.dashboard.ledger.commission },
-
-
             ]
             : []),
         ],
@@ -211,7 +213,7 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
       items: [
         {
           title: 'Auto Setting',
-          path: paths.dashboard.autosetting, 
+          path: paths.dashboard.autosetting,
           icon: ICONS.autoSetting,
         },
       ],
