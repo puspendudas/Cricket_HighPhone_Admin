@@ -201,7 +201,7 @@ export default function SessionUpdate() {
 
   useEffect(() => {
     const declaredOnly = fancySessions.filter(
-      (session: FancyRow) => session.isDeclared === true
+      (session: FancyRow) => session.isDeclared === false
     );
     setFilteredSessions(declaredOnly);
   }, [fancySessions]);
