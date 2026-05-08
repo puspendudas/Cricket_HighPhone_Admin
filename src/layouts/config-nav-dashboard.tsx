@@ -156,7 +156,7 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
           { title: 'Settlement', path: paths.dashboard.ledger.allsuperadmin },
           { title: 'Child Ledger', path: paths.dashboard.ledger.superadmindata },
 
-          ...(currentRole === 'super_admin'
+          ...(currentRole === 'agent'
             ? [{ title: 'कमीशन लेन देन', path: paths.dashboard.ledger.commission }]
             : []),
 

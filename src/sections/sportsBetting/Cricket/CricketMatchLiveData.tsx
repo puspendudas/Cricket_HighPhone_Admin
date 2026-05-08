@@ -1,6 +1,6 @@
-import { useParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 
 import {
   Box,
@@ -103,6 +103,7 @@ export default function CricketMatchLiveData() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [summaryData, setSummaryData] = useState<SummaryRow[]>([]);
+  const navigate = useNavigate();
 
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -124,7 +125,6 @@ export default function CricketMatchLiveData() {
     const hours = date.getHours().toString().padStart(2, '0');
     const minutes = date.getMinutes().toString().padStart(2, '0');
     const seconds = date.getSeconds().toString().padStart(2, '0');
-
     return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
   };
   // Fetch user data first
@@ -481,11 +481,8 @@ export default function CricketMatchLiveData() {
   }
 
   if (matchError || !matchData) {
-    return (
-      <Box p={2}>
-        <Typography>No match data available</Typography>
-      </Box>
-    );
+    navigate('/dashboardc');
+    return null;
   }
 
   const {
@@ -499,11 +496,11 @@ export default function CricketMatchLiveData() {
 
   const activeFancyOdds = Array.isArray(fancyOdds)
     ? fancyOdds.filter(
-        (item: any) =>
-          // item.market === 'Normal' &&
-          !item.isDeclared &&
-          !(item.isEnabled === false && item.isFancyEnded === true)
-      )
+      (item: any) =>
+        // item.market === 'Normal' &&
+        !item.isDeclared &&
+        !(item.isEnabled === false && item.isFancyEnded === true)
+    )
     : [];
 
   const formattedDate = formatUTCDateTime12H(eventTime);
@@ -664,8 +661,8 @@ export default function CricketMatchLiveData() {
         </TableHead>
         <TableBody>
           {Array.isArray(bookMakerOdds) &&
-          bookMakerOdds.length > 0 &&
-          (bookMakerOdds as any)[0]?.bm1?.oddDatas?.length > 0 ? (
+            bookMakerOdds.length > 0 &&
+            (bookMakerOdds as any)[0]?.bm1?.oddDatas?.length > 0 ? (
             (bookMakerOdds as any)[0].bm1.oddDatas.map((row: any, index: number) => {
               const isBackSusp = Number(row.b1) >= 100;
               const isLaySusp = Number(row.l1) >= 100;
@@ -918,19 +915,19 @@ export default function CricketMatchLiveData() {
 
                       {(wonby === runnerName ||
                         bets.some((b) => b.status === 'WON' || b.result)) && (
-                        <Box
-                          display="flex"
-                          alignItems="center"
-                          padding="5px 12px"
-                          borderRadius="20px"
-                          bgcolor="#FFC107"
-                        >
-                          <img src={win} alt="win" style={{ width: 20, marginRight: 8 }} />
-                          <Typography color="#000" fontWeight="bold" fontSize="0.8rem">
-                            {bets.find((b) => b.result)?.result ?? wonby}
-                          </Typography>
-                        </Box>
-                      )}
+                          <Box
+                            display="flex"
+                            alignItems="center"
+                            padding="5px 12px"
+                            borderRadius="20px"
+                            bgcolor="#FFC107"
+                          >
+                            <img src={win} alt="win" style={{ width: 20, marginRight: 8 }} />
+                            <Typography color="#000" fontWeight="bold" fontSize="0.8rem">
+                              {bets.find((b) => b.result)?.result ?? wonby}
+                            </Typography>
+                          </Box>
+                        )}
 
                       <IconButton
                         size="small"
@@ -1178,23 +1175,23 @@ export default function CricketMatchLiveData() {
                         </Typography>
                         {(wonby === runnerName ||
                           bets.some((b) => b.status === 'WON' || b.result)) && (
-                          <Box
-                            display="flex"
-                            alignItems="center"
-                            padding="5px 18px"
-                            borderRadius="20px"
-                            bgcolor="#FFC107"
-                          >
-                            <img
-                              src={win}
-                              alt="win"
-                              style={{ width: '30px', marginRight: '8px' }}
-                            />
-                            <Typography color="#000000" variant="subtitle1" fontWeight="bold">
-                              {bets.find((b) => b.result)?.result ?? wonby}
-                            </Typography>
-                          </Box>
-                        )}
+                            <Box
+                              display="flex"
+                              alignItems="center"
+                              padding="5px 18px"
+                              borderRadius="20px"
+                              bgcolor="#FFC107"
+                            >
+                              <img
+                                src={win}
+                                alt="win"
+                                style={{ width: '30px', marginRight: '8px' }}
+                              />
+                              <Typography color="#000000" variant="subtitle1" fontWeight="bold">
+                                {bets.find((b) => b.result)?.result ?? wonby}
+                              </Typography>
+                            </Box>
+                          )}
                         <IconButton
                           size="small"
                           onClick={() => toggleSection(runnerName)}

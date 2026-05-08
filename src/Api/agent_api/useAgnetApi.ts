@@ -73,14 +73,25 @@ const useAgnetApi = () => {
       }
     },
     [put]
+    
   );
-
+ const fetchlenDen = async () => {
+    try {
+      const response = await get(`${Endpoints.lenden}/{gameid}/{agentid}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetchAagentList', error);
+      toast.error('Failed to fetch agent list'); 
+      throw error;
+    }
+  };
   return {
     addAgent,
     fetchAagentList,
     fetchsuperAdmin,
     GetAgentid,
     updateAgent,
+    fetchlenDen
   };
 };
 
