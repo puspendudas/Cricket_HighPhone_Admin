@@ -1,370 +1,183 @@
-import React from 'react';
 import { useQuery } from '@tanstack/react-query';
+import React, { useMemo, useState, useEffect } from 'react';
 
 import {
   Box,
-  Grid,
   Paper,
   Table,
+  Stack,
+  Dialog,
+  Button,
   TableRow,
   TableBody,
   TableCell,
   TableHead,
+  IconButton,
   Typography,
+  DialogTitle,
+  DialogContent,
+  TableContainer,
+  CircularProgress,
 } from '@mui/material';
 
 import { formatUTCDateTime12H } from 'src/utils/date';
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
+import useAgnetApi from 'src/Api/agent_api/useAgnetApi';
 
-import win from '../../../../public/assets/win.png';
+import { Iconify } from 'src/components/iconify';
 
-interface LedgerEntry {
-  date: string;
-  timestamp: number;
-  credit: number;
-  debit: number;
-  balance: number;
-  winner: string;
-  icon: string;
-  client: string;
-  matchName: string;
+interface MatchItem {
+  _id: string;
+  gameId: string;
+  eventName: string;
+  eventTime: string;
+  wonby: string | null;
 }
 
-interface MatchSummary {
-  eventTime: string | number | Date;
-  _id: string;
-  eventName: string;
+interface CommissionPayload {
+  match_id?: string;
+  game_id?: string;
   user?: {
     user_name?: string;
+    name?: string;
+    type?: string;
     match_commission?: number;
     session_commission?: number;
-    immediate_child_admin?: any;
   };
-  matchBets: Array<{
-    _id?: string;
-    user_id: string;
-    bet_type: string;
-    stake_amount: string | number;
-    potential_winnings: string | number;
-    status: string;
-    selection: string;
-    immediate_child_admin?: {
-      _id: string;
-      user_name: string;
-      name: string;
-      match_commission: number;
-      session_commission: number;
-      share: number;
+  parent?: {
+    data?: {
+      user_name?: string;
+      name?: string;
     };
-    createdAt: string;
-  }>;
+    match_commission?: number;
+    session_commission?: number;
+  };
+  summary?: {
+    total_bets?: number;
+    total_fancy_stake?: number;
+    net_match_pl?: number;
+    net_session_pl?: number;
+    total_net_pl?: number;
+  };
+  lena_h?: {
+    parent_name?: string;
+    session_commission?: number;
+    match_commission?: number;
+    total_commission?: number;
+  };
+  dena_h?: {
+    session_commission?: number;
+    match_commission?: number;
+    total_commission?: number;
+  };
+  bets?: {
+    data?: any[];
+  };
 }
 
+const toNumber = (value: unknown): number => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+};
+
+const extractCommissionPayload = (response: any): CommissionPayload | null => {
+  if (!response) return null;
+  if (response?.status && response?.data && typeof response.data === 'object') return response.data;
+  if (response?.data?.data && typeof response.data.data === 'object') return response.data.data;
+  if (response?.data?.match_id) return response.data;
+  if (response?.match_id) return response;
+  return null;
+};
+
+const getBets = (payload: CommissionPayload | null): any[] => {
+  if (!payload) return [];
+  if (Array.isArray((payload as any)?.bets)) return (payload as any).bets;
+  if (Array.isArray(payload?.bets?.data)) return payload.bets.data;
+  return [];
+};
+
 export function TotalProfitTableData() {
-  const { fetchTotalData } = useMatchApi();
+  const { fetchlenDen } = useAgnetApi();
   const { fetchMe } = useMeApi();
+  const { fetchAllMatch } = useMatchApi();
+
+  const [selectedGameId, setSelectedGameId] = useState<string>('');
+  const [selectedEventName, setSelectedEventName] = useState<string>('');
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   const { data: userData } = useQuery({
     queryKey: ['userData'],
     queryFn: fetchMe,
   });
 
-  const userId = userData?.data?._id; // Child ke liye
-  const AdminuserId = userData?.data?.parent_id; // My Ledger ke liye
-  const adminId = userData?.data?._id; // Current admin ID
+  const userId = userData?.data?._id;
 
-  // Child Ledger Data
-  const { data: childTableData } = useQuery({
-    queryKey: ['childLedgerTableData', userId],
-    queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
-    enabled: !!userId,
-  });
-
-  // My Ledger Data
   const {
-    data: parentData,
-    isLoading,
-    error,
+    data: allMatchData,
+    isLoading: isMatchLoading,
+    error: matchError,
   } = useQuery({
-    queryKey: ['ledgerTableData', AdminuserId],
-    queryFn: () =>
-      AdminuserId ? fetchTotalData(AdminuserId) : Promise.reject(new Error('Missing user ID')),
-    enabled: !!AdminuserId,
+    queryKey: ['commissionAllMatches'],
+    queryFn: fetchAllMatch,
   });
 
-  // Helper: Remove duplicate bets using Set
-  const dedupeBets = (bets: MatchSummary['matchBets']) => {
-    const seen = new Set<string>();
-    return bets.filter((bet) => {
-      const key =
-        bet._id ||
-        `${bet.user_id}-${bet.bet_type}-${bet.stake_amount}-${bet.potential_winnings}-${bet.status}-${bet.selection}-${bet.createdAt}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+  const matchList: MatchItem[] = useMemo(() => allMatchData?.matches || [], [allMatchData]);
+
+  useEffect(() => {
+    if (!selectedGameId && matchList.length > 0) {
+      setSelectedGameId(matchList[0].gameId);
+    }
+  }, [matchList, selectedGameId]);
+
+  const {
+    data: lenDenData,
+    isLoading: isDetailsLoading,
+    error: detailsError,
+  } = useQuery({
+    queryKey: ['commissionLenDenDetails', userId, selectedGameId],
+    queryFn: () =>
+      userId && selectedGameId
+        ? fetchlenDen(selectedGameId, userId)
+        : Promise.reject(new Error('Missing user ID or game ID')),
+    enabled: !!userId && !!selectedGameId && detailsOpen,
+  });
+
+  const commissionPayload = useMemo(() => extractCommissionPayload(lenDenData), [lenDenData]);
+  const bets = useMemo(() => getBets(commissionPayload), [commissionPayload]);
+
+  const handleOpenDetails = (match: MatchItem) => {
+    setSelectedGameId(match.gameId);
+    setSelectedEventName(match.eventName);
+    setDetailsOpen(true);
   };
 
-  // Calculate net amount for a client in a match
-  const calculateClientNetAmount = (clientBets: any[], immediateChildAdmin: any, match: any) => {
-    const bookmakerBets = clientBets.filter((b) => b.bet_type === 'BOOKMAKER');
-    const fancyBets = clientBets.filter((b) => b.bet_type === 'FANCY');
-
-    const matchCommissionRate = immediateChildAdmin?.match_commission || 0;
-    const sessionCommissionRate = immediateChildAdmin?.session_commission || 0;
-
-    // ---------------- MATCH + SESSION PL ----------------
-    const matchPL = bookmakerBets.reduce((acc, bet) => {
-      const stake = Number(bet.stake_amount) || 0;
-      const potential = Number(bet.potential_winnings) || 0;
-
-      if (bet.status === 'WON') {
-        if (bet.selection === 'Back') return acc + potential;
-        if (bet.selection === 'Lay') return acc + stake;
-      }
-      if (bet.status === 'LOST') {
-        if (bet.selection === 'Back') return acc - stake;
-        if (bet.selection === 'Lay') return acc - potential;
-      }
-      return acc;
-    }, 0);
-
-    const sessionPL = fancyBets.reduce((acc, bet) => {
-      const stake = Number(bet.stake_amount) || 0;
-      const potential = Number(bet.potential_winnings) || 0;
-
-      if (bet.status === 'WON') {
-        if (bet.selection === 'Yes') return acc + potential;
-        if (bet.selection === 'Not') return acc + stake;
-      }
-      if (bet.status === 'LOST') {
-        if (bet.selection === 'Yes') return acc - stake;
-        if (bet.selection === 'Not') return acc - potential;
-      }
-      return acc;
-    }, 0);
-
-    const totalPL = (matchPL + sessionPL) * -1;
-
-    // ---------------- ✅ MATCH COMMISSION (ONLY client_summary LOSS) ----------------
-    let matchCommission = 0;
-
-    const clientSummaries = match?.client_summary || [];
-
-    clientSummaries.forEach((c: any) => {
-      const belongsToClient = clientBets.some((b: any) => b.user_id === c.client_id);
-
-      if (!belongsToClient) return;
-
-      const clientMatchPL = c.client_net_match_pl || 0;
-
-      // ✅ sirf LOSS par
-      if (clientMatchPL < 0) {
-        matchCommission += Math.abs(clientMatchPL) * (matchCommissionRate / 100);
-      }
-    });
-
-    // ---------------- SESSION COMMISSION ----------------
-    const totalSessionStake = fancyBets.reduce(
-      (acc, bet) => acc + (Number(bet.stake_amount) || 0),
-      0
-    );
-
-    const sessionCommission = totalSessionStake * (sessionCommissionRate / 100);
-
-    const totalCommission = matchCommission + sessionCommission;
-
-    const netAmount = totalPL - totalCommission;
-    const shareAmount = netAmount * (immediateChildAdmin.share / 100);
-    const grandTotal = netAmount - shareAmount;
-
-    return grandTotal;
-  };
-
-  // Get MyLedger net amounts by match
-  const getMyLedgerNetByMatch = (matches: MatchSummary[]): Record<string, number> => {
-    if (!matches || matches.length === 0) return {};
-
-    const matchNet: Record<string, number> = {};
-    const processedMatches = new Set<string>();
-
-    matches.forEach((match: MatchSummary) => {
-      const key = match._id;
-      if (processedMatches.has(key)) return;
-      processedMatches.add(key);
-
-      const cleanBets = dedupeBets(match.matchBets);
-      const betsByClient: Record<string, any[]> = {};
-
-      cleanBets.forEach((bet) => {
-        const clientId = bet.immediate_child_admin?._id || 'unknown';
-        if (!betsByClient[clientId]) betsByClient[clientId] = [];
-        betsByClient[clientId].push(bet);
-      });
-
-      Object.entries(betsByClient).forEach(([clientId, clientBets]) => {
-        const firstBet = clientBets[0];
-        const immediateChildAdmin = firstBet?.immediate_child_admin;
-
-        // MyLedger mein sirf current admin ke data ko consider karo
-        if (!immediateChildAdmin || immediateChildAdmin._id !== adminId) return;
-
-        const grandTotal = calculateClientNetAmount(clientBets, immediateChildAdmin, match);
-
-        if (!matchNet[match.eventName]) {
-          matchNet[match.eventName] = 0;
-        }
-        matchNet[match.eventName] += grandTotal;
-      });
-    });
-
-    return matchNet;
-  };
-
-  // Get Child net amounts by match
-  const getChildNetByMatch = (matches: MatchSummary[]): Record<string, number> => {
-    if (!matches || matches.length === 0) return {};
-
-    const matchNet: Record<string, number> = {};
-    const processedMatches = new Set<string>();
-
-    matches.forEach((match: MatchSummary) => {
-      const key = match._id;
-      if (processedMatches.has(key)) return;
-      processedMatches.add(key);
-
-      const cleanBets = dedupeBets(match.matchBets);
-      const betsByClient: Record<string, any[]> = {};
-
-      cleanBets.forEach((bet) => {
-        const clientId = bet.immediate_child_admin?._id || 'unknown';
-        if (!betsByClient[clientId]) betsByClient[clientId] = [];
-        betsByClient[clientId].push(bet);
-      });
-
-      Object.entries(betsByClient).forEach(([clientId, clientBets]) => {
-        const firstBet = clientBets[0];
-        const immediateChildAdmin = firstBet?.immediate_child_admin;
-
-        if (!immediateChildAdmin) return;
-
-        const grandTotal = calculateClientNetAmount(clientBets, immediateChildAdmin, match);
-
-        if (!matchNet[match.eventName]) {
-          matchNet[match.eventName] = 0;
-        }
-        matchNet[match.eventName] += grandTotal;
-      });
-    });
-
-    return matchNet;
-  };
-
-  // Helper function to parse date strings
-  // const parseDateString = (dateStr: string): Date => {
-  //   if (!dateStr || dateStr === 'N/A') return new Date(0); // Return epoch for invalid dates
-
-  //   try {
-  //     // Try to parse the date string
-  //     return new Date(dateStr);
-  //   } catch (e) {
-  //     console.error('Error parsing date:', dateStr, e);
-  //     return new Date(0);
-  //   }
-  // };
-
-  // Process ledger entries for Total Profit
-  const processLedgerData = (matches: MatchSummary[]): LedgerEntry[] => {
-    if (!matches || matches.length === 0) return [];
-
-    const ledgerEntries: LedgerEntry[] = [];
-
-    const myLedgerNet = parentData?.matches ? getMyLedgerNetByMatch(parentData.matches) : {};
-    const childNet = childTableData?.matches ? getChildNetByMatch(childTableData.matches) : {};
-
-    const processedEvents = new Set<string>();
-
-    // STEP 1: sirf entries banao (NO balance)
-    matches.forEach((match) => {
-      const cleanBets = dedupeBets(match.matchBets);
-      const betsByClient: Record<string, any[]> = {};
-
-      cleanBets.forEach((bet) => {
-        const clientId = bet.immediate_child_admin?._id || 'unknown';
-        if (!betsByClient[clientId]) betsByClient[clientId] = [];
-        betsByClient[clientId].push(bet);
-      });
-
-      Object.entries(betsByClient).forEach(([clientId, clientBets]) => {
-        const firstBet = clientBets[0];
-        const immediateChildAdmin = firstBet?.immediate_child_admin;
-
-        if (!immediateChildAdmin || immediateChildAdmin._id !== adminId) return;
-
-        const key = `${match.eventName}-${clientId}`;
-        if (processedEvents.has(key)) return;
-        processedEvents.add(key);
-
-        const myLedgerAmount = myLedgerNet[match.eventName] || 0;
-        const childAmount = childNet[match.eventName] || 0;
-
-        const totalProfit = childAmount - myLedgerAmount;
-
-        const credit = totalProfit < 0 ? Math.abs(totalProfit) : 0;
-        const debit = totalProfit > 0 ? totalProfit : 0;
-
-        if (credit === 0 && debit === 0) return;
-
-        ledgerEntries.push({
-          date: formatUTCDateTime12H(match.eventTime),
-          timestamp: new Date(match.eventTime).getTime(),
-          credit,
-          debit,
-          balance: 0, // temporary
-          winner: match.eventName,
-          icon: win,
-          client: immediateChildAdmin.user_name || 'Unknown Client',
-          matchName: match.eventName,
-        });
-      });
-    });
-
-    // STEP 2: sort
-    const sortedLedgerEntries = ledgerEntries.sort((a, b) => a.timestamp - b.timestamp);
-
-    // STEP 3: cumulative balance (ACCOUNTING STYLE)
-    let runningBalance = 0;
-
-    sortedLedgerEntries.forEach((entry) => {
-      runningBalance += entry.debit - entry.credit;
-      entry.balance = runningBalance;
-    });
-
-    return sortedLedgerEntries;
-  };
-
-  const ledgerData = parentData?.matches ? processLedgerData(parentData.matches) : [];
-
-  // Calculate totals
-  const finalBalance = ledgerData.length > 0 ? ledgerData[ledgerData.length - 1].balance : 0;
-
-  if (isLoading) {
-    return (
-      <Box p={3} textAlign="center">
-        <Typography>Loading ledger data...</Typography>
-      </Box>
-    );
-  }
-
-  if (error) {
-    return (
-      <Box p={3} textAlign="center">
-        <Typography color="error">Error loading ledger data</Typography>
-      </Box>
-    );
-  }
+  const detailRows = useMemo(
+    () => [
+      { label: 'Match Name', value: selectedEventName || 'N/A' },
+      { label: 'User Name', value: commissionPayload?.user?.user_name || 'N/A' },
+      { label: 'User Type', value: commissionPayload?.user?.type || 'N/A' },
+      { label: 'Parent Name', value: commissionPayload?.parent?.data?.name || 'N/A' },
+      { label: 'Total Bets', value: commissionPayload?.summary?.total_bets ?? 0 },
+      {
+        label: 'Total Fancy Stake',
+        value: toNumber(commissionPayload?.summary?.total_fancy_stake).toFixed(2),
+      },
+      { label: 'Net Match P/L', value: toNumber(commissionPayload?.summary?.net_match_pl).toFixed(2) },
+      { label: 'Net Session P/L', value: toNumber(commissionPayload?.summary?.net_session_pl).toFixed(2) },
+      { label: 'Total Net P/L', value: toNumber(commissionPayload?.summary?.total_net_pl).toFixed(2) },
+      {
+        label: 'Lena - Total Commission',
+        value: toNumber(commissionPayload?.lena_h?.total_commission).toFixed(2),
+      },
+      {
+        label: 'Dena - Total Commission',
+        value: toNumber(commissionPayload?.dena_h?.total_commission).toFixed(2),
+      },
+    ],
+    [commissionPayload, selectedEventName]
+  );
 
   return (
     <Box>
@@ -374,116 +187,182 @@ export function TotalProfitTableData() {
           overflowX: 'auto',
           boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
           borderRadius: '10px',
-          borderBottomLeftRadius: '0',
-          borderBottomRightRadius: '0',
+          mb: 3,
         }}
       >
-        <Table>
-          <TableHead sx={{ backgroundColor: '#f4f6f8' }}>
-            <TableRow>
-              <TableCell>Date</TableCell>
-              <TableCell>Credit</TableCell>
-              <TableCell>Debit</TableCell>
-              <TableCell>Balance</TableCell>
-              <TableCell>Winner/Remark</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {ledgerData.length > 0 ? (
-              ledgerData.map((entry, index) => (
-                <TableRow key={`${entry.client}-${index}`}>
-                  <TableCell>{entry.date}</TableCell>
-                  {/* CREDIT COLUMN - RED COLOR FOR CREDIT (Jab aapko paisa dena hai) */}
-                  <TableCell
-                    sx={{
-                      color: entry.credit > 0 ? 'red' : 'inherit',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    {entry.credit > 0
-                      ? `- ₹${entry.credit.toFixed(2)}`
-                      : `₹${entry.credit.toFixed(2)}`}
-                  </TableCell>
-                  {/* DEBIT COLUMN - GREEN COLOR FOR DEBIT (Jab aapko paisa milna hai) */}
-                  <TableCell
-                    sx={{
-                      color: entry.debit > 0 ? 'green' : 'inherit',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    {entry.debit > 0
-                      ? `+ ₹${entry.debit.toFixed(2)}`
-                      : `₹${entry.debit.toFixed(2)}`}
-                  </TableCell>
-                  <TableCell
-                    sx={{
-                      color: entry.balance >= 0 ? 'green' : 'red',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    {entry.balance >= 0
-                      ? `+ ₹${entry.balance.toFixed(2)}`
-                      : `- ₹${Math.abs(entry.balance).toFixed(2)}`}
-                  </TableCell>
-                  <TableCell>
-                    <Grid container alignItems="center" spacing={1}>
-                      <Grid item>
-                        <img src={entry.icon} alt="icon" width={20} />
-                      </Grid>
-                      <Grid item>
-                        <Typography variant="body2">{entry.winner}</Typography>
-                      </Grid>
-                    </Grid>
-                  </TableCell>
+        <Typography variant="h6" sx={{ mb: 2 }}>
+          Event List
+        </Typography>
+
+        {isMatchLoading ? (
+          <Box p={3} textAlign="center">
+            <CircularProgress size={24} />
+          </Box>
+        ) : matchError ? (
+          <Box p={3} textAlign="center">
+            <Typography color="error">Unable to load events</Typography>
+          </Box>
+        ) : (
+          <TableContainer>
+            <Table>
+              <TableHead sx={{ backgroundColor: '#f4f6f8' }}>
+                <TableRow>
+                  <TableCell>#</TableCell>
+                  <TableCell>Event</TableCell>
+                  <TableCell>Winner</TableCell>
+                  <TableCell>Date</TableCell>
+                  <TableCell align="center">Action</TableCell>
                 </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={5} align="center">
-                  <Typography>No ledger data available</Typography>
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              </TableHead>
+              <TableBody>
+                {matchList.length > 0 ? (
+                  matchList.map((match, index) => {
+                    const isSelected = selectedGameId === match.gameId;
+                    return (
+                      <TableRow
+                        key={match._id}
+                        sx={{
+                          backgroundColor: isSelected ? 'rgba(25, 118, 210, 0.08)' : 'inherit',
+                        }}
+                      >
+                        <TableCell>{index + 1}</TableCell>
+                        <TableCell>{match.eventName}</TableCell>
+                        <TableCell>{match.wonby || 'Pending'}</TableCell>
+                        <TableCell>{formatUTCDateTime12H(match.eventTime)}</TableCell>
+                        <TableCell align="center">
+                          <IconButton
+                            color={isSelected ? 'primary' : 'default'}
+                            onClick={() => handleOpenDetails(match)}
+                          >
+                            <Iconify icon="mdi-light:eye" width={20} />
+                          </IconButton>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                ) : (
+                  <TableRow>
+                    <TableCell colSpan={5} align="center">
+                      <Typography>No events available</Typography>
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
       </Paper>
 
-      {/* Fixed Total Section */}
-      <Box
-        sx={{
-          width: '100%',
-          backgroundColor: '#ffc107',
-          display: 'flex',
-          alignItems: 'center',
-          position: 'sticky',
-          bottom: 0,
-          zIndex: 10,
-          boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)',
-        }}
+      <Dialog
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        fullWidth
+        maxWidth="lg"
       >
-        <Box
-          sx={{
-            flex: 1,
-            display: 'flex',
-            justifyContent: 'space-around',
-            alignItems: 'center',
-            px: 2,
-            py: 1.5,
-          }}
-        >
-          <Typography
-            variant="body1"
-            sx={{
-              color: finalBalance >= 0 ? 'green' : 'red',
-            }}
-          >
-            Final Balance:{' '}
-            {finalBalance >= 0
-              ? `+₹${finalBalance.toFixed(2)}`
-              : `-₹${Math.abs(finalBalance).toFixed(2)}`}
-          </Typography>
-        </Box>
-      </Box>
+        <DialogTitle>
+          Commission Details - {selectedEventName} ({selectedGameId})
+        </DialogTitle>
+        <DialogContent dividers>
+          {isDetailsLoading ? (
+            <Box p={3} textAlign="center">
+              <CircularProgress size={24} />
+            </Box>
+          ) : detailsError ? (
+            <Typography color="error">Error loading commission details</Typography>
+          ) : !commissionPayload ? (
+            <Typography>No data available</Typography>
+          ) : (
+            <Stack spacing={2}>
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                  Commission Data (API Response)
+                </Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead sx={{ backgroundColor: '#f4f6f8' }}>
+                      <TableRow>
+                        <TableCell sx={{ width: '35%' }}>Field</TableCell>
+                        <TableCell>Value</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {detailRows.map((row) => (
+                        <TableRow key={row.label}>
+                          <TableCell sx={{ fontWeight: 700 }}>{row.label}</TableCell>
+                          <TableCell>{String(row.value)}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                  Bets Data
+                </Typography>
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead sx={{ backgroundColor: '#f4f6f8' }}>
+                      <TableRow>
+                        <TableCell>#</TableCell>
+                        <TableCell>Type</TableCell>
+                        <TableCell>Selection</TableCell>
+                        <TableCell>Stake</TableCell>
+                        <TableCell>Potential</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell>Result</TableCell>
+                        <TableCell>Team/Runner</TableCell>
+                        <TableCell>Date</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {bets.length > 0 ? (
+                        bets.map((bet: any, index: number) => (
+                          <TableRow key={bet?._id || index}>
+                            <TableCell>{index + 1}</TableCell>
+                            <TableCell>{bet?.bet_type || 'N/A'}</TableCell>
+                            <TableCell>{bet?.selection || 'N/A'}</TableCell>
+                            <TableCell>{toNumber(bet?.stake_amount).toFixed(2)}</TableCell>
+                            <TableCell>{toNumber(bet?.potential_winnings).toFixed(2)}</TableCell>
+                            <TableCell>{bet?.status || 'N/A'}</TableCell>
+                            <TableCell>{bet?.result || 'N/A'}</TableCell>
+                            <TableCell>{bet?.team_name || bet?.runner_name || 'N/A'}</TableCell>
+                            <TableCell>
+                              {bet?.createdAt ? formatUTCDateTime12H(bet.createdAt) : 'N/A'}
+                            </TableCell>
+                          </TableRow>
+                        ))
+                      ) : (
+                        <TableRow>
+                          <TableCell colSpan={9} align="center">
+                            No bets found
+                          </TableCell>
+                        </TableRow>
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Paper>
+
+              <Paper sx={{ p: 2 }}>
+                <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
+                  Note
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Above details are shown from selected event action response.
+                </Typography>
+              </Paper>
+            </Stack>
+          )}
+
+          <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end' }}>
+            <Button onClick={() => setDetailsOpen(false)} variant="contained">
+              Close
+            </Button>
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 }

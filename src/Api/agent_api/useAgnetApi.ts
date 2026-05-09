@@ -6,7 +6,7 @@ import { useCallback } from 'react';
 import useApi from 'src/server/axios/index';
 import { Endpoints } from 'src/server/endpoints_configuration/Endpoints';
 
-import { toast } from 'src/components/snackbar'; 
+import { toast } from 'src/components/snackbar';
 
 const useAgnetApi = () => {
   const { get, post, put } = useApi();
@@ -17,7 +17,7 @@ const useAgnetApi = () => {
       return response;
     } catch (error) {
       console.error('Error fetchAagentList', error);
-      toast.error('Failed to fetch agent list'); 
+      toast.error('Failed to fetch agent list');
       throw error;
     }
   };
@@ -28,7 +28,7 @@ const useAgnetApi = () => {
       return response;
     } catch (error) {
       console.error('Error fetchsuperAdmin', error);
-      toast.error('Failed to fetch super agent'); 
+      toast.error('Failed to fetch super agent');
       throw error;
     }
   };
@@ -37,7 +37,7 @@ const useAgnetApi = () => {
     async (admin: AdminApiPayload) => {
       try {
         const response = await post(`${Endpoints.superadmin}/signup`, admin);
-        toast.success('Agent added successfully'); 
+        toast.success('Agent added successfully');
         return response.data;
       } catch (error) {
         console.error('Error addAgent:', error);
@@ -54,7 +54,7 @@ const useAgnetApi = () => {
       return response;
     } catch (error) {
       console.error('Error GetAgentid', error);
-      toast.error('Failed to get agent ID'); 
+      toast.error('Failed to get agent ID');
       throw error;
     }
   };
@@ -68,20 +68,25 @@ const useAgnetApi = () => {
         return response.data;
       } catch (error) {
         console.error('Error updating agent:', error);
-        toast.error('Failed to update agent');  
+        toast.error('Failed to update agent');
         throw error;
       }
     },
     [put]
-    
+
   );
- const fetchlenDen = async () => {
+  const fetchlenDen = async (gameId?: string, agentId?: string) => {
     try {
-      const response = await get(`${Endpoints.lenden}/{gameid}/{agentid}`);
+      const response =
+        gameId && agentId
+          ? await get(`${Endpoints.lenden}/${gameId}/${agentId}`)
+          : agentId
+            ? await get(`${Endpoints.lenden}/${agentId}`)
+            : await get(`${Endpoints.lenden}`);
       return response;
     } catch (error) {
       console.error('Error fetchAagentList', error);
-      toast.error('Failed to fetch agent list'); 
+      toast.error('Failed to fetch agent list');
       throw error;
     }
   };
