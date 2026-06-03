@@ -25,7 +25,6 @@ import {
 import { formatUTCDateTime12H } from 'src/utils/date';
 // Import commission utilities
 import {
-  type Bet,
   calculateMySharePL,
   calculateCommission,
   calculateClientNetAmount,
@@ -101,20 +100,7 @@ export function CricketTableData() {
     }));
   }, [matchesData]);
 
-  // Helper: dedupe bets
-  const dedupeBets = React.useCallback((bets: any[]): Bet[] => {
-    const seen = new Set<string>();
 
-    return bets.filter((bet) => {
-      const key =
-        bet._id ||
-        `${bet.user_id}-${bet.bet_type}-${bet.stake_amount}-${bet.potential_winnings}-${bet.status}-${bet.selection}-${bet.createdAt}`;
-
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }) as Bet[];
-  }, []);
 
   // Build per-match net from a totalData response
   const buildNetByMatch = React.useCallback(
@@ -127,22 +113,22 @@ export function CricketTableData() {
         if (processedMatches.has(match._id)) return;
         processedMatches.add(match._id);
 
-        const cleanBets = dedupeBets(match.matchBets || []);
-        const betsByClient: Record<string, Bet[]> = {};
+        const clientSummaries = match.client_summary || [];
+        const summariesByClient: Record<string, any[]> = {};
 
-        cleanBets.forEach((bet: Bet) => {
-          const cid = bet.immediate_child_admin?._id || 'unknown';
-          if (!betsByClient[cid]) betsByClient[cid] = [];
-          betsByClient[cid].push(bet);
+        clientSummaries.forEach((c: any) => {
+          const cid = c.immediate_child_admin?._id || 'unknown';
+          if (!summariesByClient[cid]) summariesByClient[cid] = [];
+          summariesByClient[cid].push(c);
         });
 
-        Object.values(betsByClient).forEach((clientBets) => {
-          const admin = clientBets[0]?.immediate_child_admin;
+        Object.values(summariesByClient).forEach((adminSummaries) => {
+          const admin = adminSummaries[0]?.immediate_child_admin;
           if (!admin) return;
 
           if (restrictImmediateChildId && admin._id !== restrictImmediateChildId) return;
 
-          const net = calculateClientNetAmount(clientBets, match);
+          const net = calculateClientNetAmount(adminSummaries);
 
           matchNet[match._id] = (matchNet[match._id] || 0) + net;
         });
@@ -150,7 +136,7 @@ export function CricketTableData() {
 
       return matchNet;
     },
-    [dedupeBets]
+    []
   );
 
   const childNetByMatch = React.useMemo(
@@ -181,27 +167,27 @@ export function CricketTableData() {
     const plMap: Record<string, { matchPL: number; afterCommission: number }> = {};
 
     totalDataResponse.matches.forEach((match: any) => {
-      if (!match?.matchBets?.length) {
+      if (!match?.client_summary?.length) {
         plMap[match._id] = { matchPL: 0, afterCommission: 0 };
         return;
       }
 
-      const cleanBets = dedupeBets(match.matchBets);
+      const clientSummaries = match.client_summary || [];
 
       // Group by admin to calculate per-admin commission
-      const betsByAdmin: Record<string, Bet[]> = {};
-      cleanBets.forEach((bet: Bet) => {
-        const adminId = bet.immediate_child_admin?._id || 'unknown';
-        if (!betsByAdmin[adminId]) betsByAdmin[adminId] = [];
-        betsByAdmin[adminId].push(bet);
+      const summariesByAdmin: Record<string, any[]> = {};
+      clientSummaries.forEach((c: any) => {
+        const adminId = c.immediate_child_admin?._id || 'unknown';
+        if (!summariesByAdmin[adminId]) summariesByAdmin[adminId] = [];
+        summariesByAdmin[adminId].push(c);
       });
 
       let totalMatchPL = 0;
       let totalAfterCommission = 0;
 
       // Calculate for each admin (same logic as DisplayMatch.tsx)
-      Object.values(betsByAdmin).forEach((adminBets: Bet[]) => {
-        const result = calculateCommission(adminBets, userShare);
+      Object.values(summariesByAdmin).forEach((adminSummaries: any[]) => {
+        const result = calculateCommission(adminSummaries);
 
         totalMatchPL += result.matchPL + result.sessionPL; // This is the 'total' field
         totalAfterCommission += result.grandTotal;
@@ -215,7 +201,7 @@ export function CricketTableData() {
 
     return plMap;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalDataResponse, userShare]);
+  }, [totalDataResponse]);
 
   // Totals bar
   const totalData = React.useMemo(() => {

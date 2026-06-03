@@ -30,7 +30,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
         setIsLiveTvExpanded(!isLiveTvExpanded);
     };
     const marketId = matchData?.match?.marketId;
-    const gameid =matchData?.match?.gameId
+    const gameid = matchData?.match?.gameId
     // Get current admin ID and check lock status
     const [adminId, setAdminId] = useState<string | null>(null);
     const [isBetLockedByAdmin, setIsBetLockedByAdmin] = useState(false);
@@ -258,7 +258,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                         }}
                     >
                         <iframe
-                            src={`https://cricketbz.app/apiTvHtml/${matchId}?gameType=cricket`}
+                            src={`https://video.proexch.in/tv/v4/stream/${matchId}`}
 
                             style={{
                                 width: '100%',

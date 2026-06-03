@@ -35,6 +35,7 @@ import useMatchApi from 'src/Api/matchApi/useMatchApi';
 import useBetHistroyApi from 'src/Api/matchApi/useBetHistroyApi';
 
 import { Iconify } from 'src/components/iconify';
+import { calculateCommission } from 'src/utils/commissionUtils';
 
 import win from '../../../../../public/assets/win.png';
 
@@ -240,144 +241,41 @@ const DisplayMatch: React.FC = () => {
   const userShare = userData?.data?.share || 100; // SUPERADMIN ka share (100)
   const teamWisePotentialPL = calculateTeamWisePotentialPL();
 
-  const processSummaryData = (matches: MatchSummary[]): SummaryRow[] => {
-    const adminGroups: Record<string, MatchSummary[]> = {};
-
-    matches.forEach((match: MatchSummary) => {
-      match.matchBets.forEach((bet: any) => {
-        const admin = bet.immediate_child_admin;
-        if (admin && admin._id) {
-          const adminId = admin._id;
-          if (!adminGroups[adminId]) {
-            adminGroups[adminId] = [];
-          }
-          // Sirf unique matches add karo
-          const existingMatch = adminGroups[adminId].find((m) => m._id === match._id);
-          if (!existingMatch) {
-            adminGroups[adminId].push(match);
-          }
-        }
-      });
-    });
-
-    // Ab har admin ke liye calculate karo
+  const processSummaryData = (matches: any[]): SummaryRow[] => {
     const summaryRows: SummaryRow[] = [];
 
-    Object.entries(adminGroups).forEach(([adminId, adminMatches]) => {
-      adminMatches.forEach((match: MatchSummary) => {
-        const bookmakerBets = match.matchBets.filter(
-          (b: MatchBet) =>
-            b.bet_type === 'BOOKMAKER' && (b as any).immediate_child_admin?._id === adminId
-        );
-        const fancyBets = match.matchBets.filter(
-          (b: MatchBet) =>
-            b.bet_type === 'FANCY' && (b as any).immediate_child_admin?._id === adminId
-        );
+    matches.forEach((match: any) => {
+      if (!match.client_summary || !Array.isArray(match.client_summary)) return;
 
-        if (bookmakerBets.length === 0 && fancyBets.length === 0) return;
+      const adminGroups: Record<string, any[]> = {};
 
-        // Commission rates - first bet se lekar jo adminId match kare
-        const firstBetWithThisAdmin = match.matchBets.find(
-          (bet: any) => bet.immediate_child_admin?._id === adminId
-        ) as any;
+      match.client_summary.forEach((c: any) => {
+        const adminId = c.immediate_child_admin?._id;
+        if (adminId) {
+          if (!adminGroups[adminId]) adminGroups[adminId] = [];
+          adminGroups[adminId].push(c);
+        }
+      });
 
-        const immediateChildAdmin = firstBetWithThisAdmin?.immediate_child_admin;
+      Object.entries(adminGroups).forEach(([adminId, adminSummaries]) => {
+        const immediateChildAdmin = adminSummaries[0]?.immediate_child_admin;
+        if (!immediateChildAdmin) return;
 
-        const matchCommissionRate = immediateChildAdmin?.match_commission || 0;
-        const sessionCommissionRate = immediateChildAdmin?.session_commission || 0;
-
-        // DYNAMIC SHARE PERCENTAGE - database se lo
-        const sharePercentage = immediateChildAdmin?.share || 0; // 80% in your case
-        const shareRate = sharePercentage / 100; // 0.8
-
-        // --- MATCH P/L (BOOKMAKER) ---
-        const matchPL = bookmakerBets.reduce((acc: number, bet: MatchBet) => {
-          const stake = parseFloat(bet.stake_amount as string) || 0;
-          const potential = parseFloat(bet.potential_winnings as string) || 0;
-          let value = 0;
-
-          if (bet.status === 'WON') {
-            if (bet.selection === 'Back') value = potential;
-            if (bet.selection === 'Lay') value = stake;
-          } else if (bet.status === 'LOST') {
-            if (bet.selection === 'Back') value = -stake;
-            if (bet.selection === 'Lay') value = -potential;
-          }
-          return acc + value;
-        }, 0);
-
-        // --- SESSION P/L (FANCY) ---
-        const sessionPL = fancyBets.reduce((acc: number, bet: MatchBet) => {
-          const stake = parseFloat(bet.stake_amount as string) || 0;
-          const potential = parseFloat(bet.potential_winnings as string) || 0;
-          let value = 0;
-
-          if (bet.status === 'WON') {
-            if (bet.selection === 'Yes') value = potential;
-            if (bet.selection === 'Not') value = stake;
-          } else if (bet.status === 'LOST') {
-            if (bet.selection === 'Yes') value = -stake;
-            if (bet.selection === 'Not') value = -potential;
-          }
-          return acc + value;
-        }, 0);
-
-        // --- INVERT FOR DISPLAY ---
-        const invertedMatchPL = matchPL * -1;
-        const invertedSessionPL = sessionPL * -1;
-
-        // --- COMMISSION CALCULATION ---
-        const totalSessionStake = fancyBets.reduce(
-          (acc: number, bet: MatchBet) => acc + (parseFloat(bet.stake_amount as string) || 0),
-          0
-        );
-        let matchCommission = 0;
-
-        const clientSummaries = (match as any).client_summary || [];
-
-        clientSummaries.forEach((c: any) => {
-          // 🔑 CLIENT MUST BELONG TO THIS AGENT
-          const clientBelongsToThisAgent = match.matchBets.some(
-            (b: any) => b.user_id === c.client_id && b.immediate_child_admin?._id === adminId
-          );
-
-          if (!clientBelongsToThisAgent) return;
-
-          // ✅ Sirf LOSS par commission
-          if (c.client_net_match_pl < 0) {
-            matchCommission += Math.abs(c.client_net_match_pl) * (matchCommissionRate / 100);
-          }
-        });
-
-        // SESSION COMMISSION: Hamesha lagegi (total stake pe)
-        const sessionCommission = totalSessionStake * (sessionCommissionRate / 100);
-        const totalCommission = matchCommission + sessionCommission;
-
-        // --- TOTAL (WITHOUT COMMISSION) ---
-        const total = invertedMatchPL + invertedSessionPL;
-
-        // --- NET AMOUNT (AFTER COMMISSION) ---
-        const netAmount = total - totalCommission;
-
-        //  CORRECTED: SHARE AMOUNT (dynamic share percentage se)
-        const shareAmount = netAmount * shareRate;
-
-        // --- GRAND TOTAL (NET AMOUNT - SHARE AMOUNT) ---
-        const grandTotal = netAmount - shareAmount;
+        const result = calculateCommission(adminSummaries);
 
         summaryRows.push({
-          client: immediateChildAdmin?.user_name || 'N/A',
-          userName: immediateChildAdmin?.user_name || 'N/A',
-          userFullName: immediateChildAdmin?.name || 'N/A',
-          matchPL: invertedMatchPL,
-          sessionPL: invertedSessionPL,
-          total,
-          matchCommission,
-          sessionCommission,
-          totalCommission,
-          netAmount,
-          shareAmount,
-          grandTotal,
+          client: immediateChildAdmin.user_name || 'N/A',
+          userName: immediateChildAdmin.user_name || 'N/A',
+          userFullName: immediateChildAdmin.name || 'N/A',
+          matchPL: result.matchPL,
+          sessionPL: result.sessionPL,
+          total: result.total,
+          matchCommission: result.matchCommission,
+          sessionCommission: result.sessionCommission,
+          totalCommission: result.totalCommission,
+          netAmount: result.netAmount,
+          shareAmount: result.shareAmount,
+          grandTotal: result.grandTotal,
         });
       });
     });

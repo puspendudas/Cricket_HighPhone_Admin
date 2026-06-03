@@ -309,27 +309,118 @@ const useMatchApi = () => {
     [patch]
   );
 
-  const AutoDeclareRun = useCallback(
-    async (matchId: string) => {
+    const AutoDeclareRun = useCallback(
+      async (matchId: string) => {
+        try {
+          const response = await post(`${Endpoints.AutoDeclare}/run/${matchId}`,{});
+  
+          toast.success(response?.status || "Auto Declare Success");
+  
+          return response;
+        } catch (error: any) {
+          console.error('Error Auto Declare:', error);
+  
+          const errorMessage =
+            error?.response?.data?.message || 'Failed to Auto Declare';
+  
+          toast.error(errorMessage);
+  
+          throw error;
+        }
+      },
+      [post]
+    );
+  
+    const fetchCommissionSummary = async (agentId: string, fromDate?: string, toDate?: string) => {
       try {
-        const response = await post(`${Endpoints.AutoDeclare}/run/${matchId}`,{});
-
-        toast.success(response?.status || "Auto Declare Success");
-
+        let url = `${Endpoints.commissionSummary}/${agentId}`;
+        const queryParams = [];
+        if (fromDate) queryParams.push(`fromDate=${fromDate}`);
+        if (toDate) queryParams.push(`toDate=${toDate}`);
+        if (queryParams.length > 0) url += `?${queryParams.join('&')}`;
+        
+        const response = await get(url);
         return response;
-      } catch (error: any) {
-        console.error('Error Auto Declare:', error);
-
-        const errorMessage =
-          error?.response?.data?.message || 'Failed to Auto Declare';
-
-        toast.error(errorMessage);
-
+      } catch (error) {
+        console.error('Error fetching commission summary:', error);
         throw error;
       }
-    },
-    [post]
-  );
+    };
+  
+    const fetchCommissionMatches = async (agentId: string, fromDate?: string, toDate?: string, clientId?: string) => {
+      try {
+        let url = `${Endpoints.commissionMatches}/${agentId}`;
+        const queryParams = [];
+        if (fromDate) queryParams.push(`fromDate=${fromDate}`);
+        if (toDate) queryParams.push(`toDate=${toDate}`);
+        if (clientId) queryParams.push(`clientId=${clientId}`);
+        if (queryParams.length > 0) url += `?${queryParams.join('&')}`;
+        
+        const response = await get(url);
+        return response;
+      } catch (error) {
+        console.error('Error fetching commission matches:', error);
+        return null;
+      }
+    };
+  
+    const fetchCommissionClients = async (agentId: string, fromDate?: string, toDate?: string) => {
+      try {
+        let url = `${Endpoints.commissionClients}/${agentId}`;
+        const queryParams = [];
+        if (fromDate) queryParams.push(`fromDate=${fromDate}`);
+        if (toDate) queryParams.push(`toDate=${toDate}`);
+        if (queryParams.length > 0) url += `?${queryParams.join('&')}`;
+        
+        const response = await get(url);
+        return response;
+      } catch (error) {
+        console.error('Error fetching commission clients:', error);
+        throw error;
+      }
+    };
+  
+    const fetchCommissionLedgerHistory = async (agentId: string, fromDate?: string, toDate?: string) => {
+      try {
+        let url = `${Endpoints.commissionLedgerHistory}/${agentId}`;
+        const queryParams = [];
+        if (fromDate) queryParams.push(`fromDate=${fromDate}`);
+        if (toDate) queryParams.push(`toDate=${toDate}`);
+        if (queryParams.length > 0) url += `?${queryParams.join('&')}`;
+        
+        const response = await get(url);
+        return response;
+      } catch (error) {
+        console.error('Error fetching commission ledger history:', error);
+        throw error;
+      }
+    };
+  
+    const settleAgentCommission = useCallback(
+      async (payload: { agentId: string; userId: string; matchId?: string }) => {
+        try {
+          const response = await post(`${Endpoints.commissionAgentSettle}`, payload);
+          toast.success(response?.data?.message || 'Commission settled successfully');
+          return response;
+        } catch (error: any) {
+          console.error('Error settling agent commission:', error);
+          const errorMessage = error?.response?.data?.message || 'Failed to settle commission';
+          toast.error(errorMessage);
+          throw error;
+        }
+      },
+      [post]
+    );
+
+    const fetchCommissionHistory = async (userId: string) => {
+      try {
+        const response = await get(`${Endpoints.commissionHistory}/${userId}`);
+        return response;
+      } catch (error) {
+        console.error('Error fetching commission history:', error);
+        throw error;
+      }
+    };
 
   return {
     updateStatusSession,
@@ -354,7 +445,13 @@ const useMatchApi = () => {
     Exposure,
     fetchMySettlement,
     updateStatusMInMax,
-    AutoDeclareRun
+    AutoDeclareRun,
+    fetchCommissionSummary,
+    fetchCommissionMatches,
+    fetchCommissionClients,
+    fetchCommissionLedgerHistory,
+    settleAgentCommission,
+    fetchCommissionHistory
   };
 };
 

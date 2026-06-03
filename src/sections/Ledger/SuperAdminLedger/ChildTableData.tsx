@@ -33,36 +33,7 @@ interface LedgerEntry {
   matchName: string;
 }
 
-interface MatchSummary {
-  eventTime: string;
-  _id: string;
-  eventName: string;
-  user?: {
-    name?: string;
-    user_name?: string;
-    match_commission?: number;
-    session_commission?: number;
-    immediate_child_admin?: any;
-  };
-  matchBets: Array<{
-    _id: string;
-    user_id: string;
-    bet_type: string;
-    stake_amount: string | number;
-    potential_winnings: string | number;
-    status: string;
-    selection: string;
-    immediate_child_admin?: {
-      _id: string;
-      user_name: string;
-      name: string;
-      match_commission: number;
-      session_commission: number;
-      share: number;
-    };
-    createdAt: string;
-  }>;
-}
+
 
 interface SettlementData {
   _id: string;
@@ -118,14 +89,15 @@ export function ChildTableData() {
 
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
 
-  const getClientOptions = (matches: MatchSummary[]): string[] => {
+  const getClientOptions = (matches: any[]): string[] => {
     if (!matches || matches.length === 0) return [];
 
     const clientSet = new Set<string>();
 
     matches.forEach((match) => {
-      match.matchBets.forEach((bet) => {
-        const immediateAdmin = bet.immediate_child_admin;
+      const clientSummaries = match.client_summary || [];
+      clientSummaries.forEach((c: any) => {
+        const immediateAdmin = c.immediate_child_admin;
         if (immediateAdmin && immediateAdmin._id) {
           const name = immediateAdmin.name || '';
           const userName = immediateAdmin.user_name || '';
@@ -177,7 +149,7 @@ export function ChildTableData() {
   // --------------------------------------------------
   // UPDATED PROCESSING LOGIC
   // --------------------------------------------------
-  const processLedgerData = (matches: MatchSummary[], clientFilter = ''): LedgerEntry[] => {
+  const processLedgerData = (matches: any[], clientFilter = ''): LedgerEntry[] => {
     if (!matches || matches.length === 0) return [];
 
     const normalizedFilter = clientFilter.trim().toLowerCase();
@@ -186,14 +158,15 @@ export function ChildTableData() {
 
     // Filter matches by client if filter is applied
     const filteredMatches = normalizedFilter
-      ? matches.filter((match) =>
-          match.matchBets.some((bet) => {
-            const admin = bet.immediate_child_admin;
+      ? matches.filter((match) => {
+          const clientSummaries = match.client_summary || [];
+          return clientSummaries.some((c: any) => {
+            const admin = c.immediate_child_admin;
             if (!admin) return false;
             const adminName = (admin.user_name || admin.name || '').toString().toLowerCase();
             return adminName.includes(normalizedFilter);
-          })
-        )
+          });
+        })
       : matches;
 
     // Sort matches by date first
@@ -204,69 +177,41 @@ export function ChildTableData() {
     // CASE 1: Client filter is selected
     if (normalizedFilter) {
       sortedMatches.forEach((match) => {
-        // Group bets by client for this match
-        const betsByAdmin: Record<string, any[]> = {};
+        // Group summaries by client for this match
+        const summariesByAdmin: Record<string, any[]> = {};
+        const clientSummaries = match.client_summary || [];
 
-        match.matchBets.forEach((bet) => {
-          const admin = bet.immediate_child_admin;
+        clientSummaries.forEach((c: any) => {
+          const admin = c.immediate_child_admin;
           if (!admin || !admin._id) return;
 
           const adminName = (admin.user_name || admin.name || '').toString();
           if (!adminName.toLowerCase().includes(normalizedFilter)) return;
 
           const adminId = admin._id;
-          if (!betsByAdmin[adminId]) betsByAdmin[adminId] = [];
-          betsByAdmin[adminId].push(bet);
+          if (!summariesByAdmin[adminId]) summariesByAdmin[adminId] = [];
+          summariesByAdmin[adminId].push(c);
         });
 
-        // Process each client's bets for this match
-        Object.values(betsByAdmin).forEach((clientBets: any[]) => {
-          if (!clientBets || clientBets.length === 0) return;
+        // Process each client's summaries for this match
+        Object.values(summariesByAdmin).forEach((adminSummaries: any[]) => {
+          if (!adminSummaries || adminSummaries.length === 0) return;
 
-          const firstBet = clientBets[0];
-          const admin = firstBet.immediate_child_admin;
+          const admin = adminSummaries[0].immediate_child_admin;
           if (!admin) return;
 
-          // Calculate PL for this client in this match
-          const bookmakerBets = clientBets.filter((b) => b.bet_type === 'BOOKMAKER');
-          const fancyBets = clientBets.filter((b) => b.bet_type === 'FANCY');
-
-          const calcBetValue = (bet: any) => {
-            const stake = parseFloat(bet.stake_amount as any) || 0;
-            const potential = parseFloat(bet.potential_winnings as any) || 0;
-
-            if (bet.status === 'WON') {
-              if (bet.selection === 'Back' || bet.selection === 'Yes') return potential;
-              if (bet.selection === 'Lay' || bet.selection === 'Not') return stake;
-            } else if (bet.status === 'LOST') {
-              if (bet.selection === 'Back' || bet.selection === 'Yes') return -stake;
-              if (bet.selection === 'Lay' || bet.selection === 'Not') return -potential;
-            }
-            return 0;
-          };
-
-          const matchPL = bookmakerBets.reduce((acc: number, b: any) => acc + calcBetValue(b), 0);
-          const sessionPL = fancyBets.reduce((acc: number, b: any) => acc + calcBetValue(b), 0);
-          const netAmount = (matchPL + sessionPL) * -1;
-
-          const totalSessionStake = fancyBets.reduce(
-            (acc: number, bet: any) => acc + (parseFloat(bet.stake_amount as any) || 0),
-            0
-          );
+          let matchPL = 0;
+          let sessionPL = 0;
+          let totalSessionStake = 0;
+          let matchCommission = 0;
 
           const matchCommissionRate = admin?.match_commission || 0;
           const sessionCommissionRate = admin?.session_commission || 0;
 
-          // Calculate match commission based on losses
-          let matchCommission = 0;
-          const clientSummaries = (match as any).client_summary || [];
-
-          clientSummaries.forEach((c: any) => {
-            const belongsToThisAdmin = match.matchBets.some(
-              (b: any) => b.user_id === c.client_id && b.immediate_child_admin?._id === admin._id
-            );
-
-            if (!belongsToThisAdmin) return;
+          adminSummaries.forEach((c: any) => {
+            matchPL += c.client_net_match_pl || 0;
+            sessionPL += c.client_net_session_pl || 0;
+            totalSessionStake += c.client_total_session_stake || 0;
 
             const clientMatchPL = c.client_net_match_pl || 0;
             if (clientMatchPL < 0) {
@@ -274,6 +219,7 @@ export function ChildTableData() {
             }
           });
 
+          const netAmount = (matchPL + sessionPL) * -1;
           const sessionCommission = totalSessionStake * (sessionCommissionRate / 100);
           const totalCommission = matchCommission + sessionCommission;
           const afterCommission = netAmount - totalCommission;
@@ -308,63 +254,35 @@ export function ChildTableData() {
         let matchTotal = 0;
         let matchHasData = false;
 
-        // Group bets by client
-        const betsByAdmin: Record<string, any[]> = {};
-        match.matchBets.forEach((bet) => {
-          const admin = bet.immediate_child_admin;
-          if (!admin || !admin._id) return;
+        const summariesByAdmin: Record<string, any[]> = {};
+        const clientSummaries = match.client_summary || [];
 
+        clientSummaries.forEach((c: any) => {
+          const admin = c.immediate_child_admin;
+          if (!admin || !admin._id) return;
           const adminId = admin._id;
-          if (!betsByAdmin[adminId]) betsByAdmin[adminId] = [];
-          betsByAdmin[adminId].push(bet);
+          if (!summariesByAdmin[adminId]) summariesByAdmin[adminId] = [];
+          summariesByAdmin[adminId].push(c);
         });
 
-        // Calculate total for this match
-        Object.values(betsByAdmin).forEach((clientBets: any[]) => {
-          if (!clientBets || clientBets.length === 0) return;
+        Object.values(summariesByAdmin).forEach((adminSummaries: any[]) => {
+          if (!adminSummaries || adminSummaries.length === 0) return;
 
-          const firstBet = clientBets[0];
-          const admin = firstBet.immediate_child_admin;
+          const admin = adminSummaries[0].immediate_child_admin;
           if (!admin) return;
 
-          const bookmakerBets = clientBets.filter((b) => b.bet_type === 'BOOKMAKER');
-          const fancyBets = clientBets.filter((b) => b.bet_type === 'FANCY');
-
-          const calcBetValue = (bet: any) => {
-            const stake = parseFloat(bet.stake_amount as any) || 0;
-            const potential = parseFloat(bet.potential_winnings as any) || 0;
-
-            if (bet.status === 'WON') {
-              if (bet.selection === 'Back' || bet.selection === 'Yes') return potential;
-              if (bet.selection === 'Lay' || bet.selection === 'Not') return stake;
-            } else if (bet.status === 'LOST') {
-              if (bet.selection === 'Back' || bet.selection === 'Yes') return -stake;
-              if (bet.selection === 'Lay' || bet.selection === 'Not') return -potential;
-            }
-            return 0;
-          };
-
-          const matchPL = bookmakerBets.reduce((acc: number, b: any) => acc + calcBetValue(b), 0);
-          const sessionPL = fancyBets.reduce((acc: number, b: any) => acc + calcBetValue(b), 0);
-          const netAmount = (matchPL + sessionPL) * -1;
-
-          const totalSessionStake = fancyBets.reduce(
-            (acc: number, bet: any) => acc + (parseFloat(bet.stake_amount as any) || 0),
-            0
-          );
+          let matchPL = 0;
+          let sessionPL = 0;
+          let totalSessionStake = 0;
+          let matchCommission = 0;
 
           const matchCommissionRate = admin?.match_commission || 0;
           const sessionCommissionRate = admin?.session_commission || 0;
 
-          let matchCommission = 0;
-          const clientSummaries = (match as any).client_summary || [];
-
-          clientSummaries.forEach((c: any) => {
-            const belongsToThisAdmin = match.matchBets.some(
-              (b: any) => b.user_id === c.client_id && b.immediate_child_admin?._id === admin._id
-            );
-
-            if (!belongsToThisAdmin) return;
+          adminSummaries.forEach((c: any) => {
+            matchPL += c.client_net_match_pl || 0;
+            sessionPL += c.client_net_session_pl || 0;
+            totalSessionStake += c.client_total_session_stake || 0;
 
             const clientMatchPL = c.client_net_match_pl || 0;
             if (clientMatchPL < 0) {
@@ -372,6 +290,7 @@ export function ChildTableData() {
             }
           });
 
+          const netAmount = (matchPL + sessionPL) * -1;
           const sessionCommission = totalSessionStake * (sessionCommissionRate / 100);
           const totalCommission = matchCommission + sessionCommission;
           const afterCommission = netAmount - totalCommission;

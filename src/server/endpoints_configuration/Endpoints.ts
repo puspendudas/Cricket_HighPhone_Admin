@@ -31,7 +31,13 @@ export const Endpoints = {
     updateStatusMInMax: `${BASE_URL}/match/session/limit`,
     AutoDeclare: `${BASE_URL}/auto-declare`,
     fatchdeletedBet: `${BASE_URL}/match-bets/cancel/single`,
-    lenden:`${BASE_URL}/match/commission`
+    lenden:`${BASE_URL}/match/commission`,
+    commissionSummary: `${BASE_URL}/match/commission/summary`,
+    commissionMatches: `${BASE_URL}/match/commission/matches`,
+    commissionClients: `${BASE_URL}/match/commission/clients`,
+    commissionLedgerHistory: `${BASE_URL}/match/commission/ledger-history`,
+    commissionAgentSettle: `${BASE_URL}/match/commission/agent-settle`,
+    commissionHistory: `${BASE_URL}/match/commission/history`
 
 
 

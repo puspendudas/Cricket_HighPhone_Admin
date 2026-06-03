@@ -264,7 +264,7 @@ export function ClientTableData() {
                         if (!selectedMember) return;
 
                         const loginDetails = `
-                          BaseURL:https://highphone11.com/
+                          BaseURL:https://testingexch.com/
                           UserName: ${selectedMember.user}
                           Password: ${selectedMember.password} `;
 

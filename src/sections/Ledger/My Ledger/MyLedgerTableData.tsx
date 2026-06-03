@@ -32,35 +32,7 @@ interface LedgerEntry {
   matchName: string;
 }
 
-interface MatchSummary {
-  eventTime: string | number | Date;
-  _id: string;
-  eventName: string;
-  user?: {
-    user_name?: string;
-    match_commission?: number;
-    session_commission?: number;
-    immediate_child_admin?: any;
-  };
-  matchBets: Array<{
-    _id: string;
-    user_id: string;
-    bet_type: string;
-    stake_amount: string | number;
-    potential_winnings: string | number;
-    status: string;
-    selection: string;
-    immediate_child_admin?: {
-      _id: string;
-      user_name: string;
-      name: string;
-      match_commission: number;
-      session_commission: number;
-      share: number;
-    };
-    createdAt: string;
-  }>;
-}
+
 
 interface SettlementData {
   _id: string;
@@ -128,7 +100,7 @@ export function MyLedgerTableData() {
   const loginSessionCommissionRate = loginUser?.session_commission || 0;
   const loginShareRate = (loginUser?.share || 0) / 100;
 
-  const processLedgerData = (matches: MatchSummary[]): LedgerEntry[] => {
+  const processLedgerData = (matches: any[]): LedgerEntry[] => {
     if (!matches || matches.length === 0) return [];
 
     const ledgerEntries: LedgerEntry[] = [];
@@ -136,19 +108,19 @@ export function MyLedgerTableData() {
 
     // ---------------- STEP 1: BUILD ENTRIES (NO BALANCE YET) ----------------
     matches.forEach((match) => {
-      const betsByClient: Record<string, any[]> = {};
+      const summariesByClient: Record<string, any[]> = {};
+      const clientSummaries = match.client_summary || [];
 
-      match.matchBets.forEach((bet) => {
-        const clientId = bet.immediate_child_admin?._id;
+      clientSummaries.forEach((c: any) => {
+        const clientId = c.immediate_child_admin?._id;
         if (!clientId) return;
 
-        if (!betsByClient[clientId]) betsByClient[clientId] = [];
-        betsByClient[clientId].push(bet);
+        if (!summariesByClient[clientId]) summariesByClient[clientId] = [];
+        summariesByClient[clientId].push(c);
       });
 
-      Object.entries(betsByClient).forEach(([clientId, clientBets]) => {
-        const firstBet = clientBets[0];
-        const clientAdmin = firstBet?.immediate_child_admin;
+      Object.entries(summariesByClient).forEach(([clientId, clientAdminSummaries]) => {
+        const clientAdmin = clientAdminSummaries[0]?.immediate_child_admin;
 
         // 🔑 My Ledger → sirf login admin ke related clients
         if (!clientAdmin || clientAdmin._id !== adminId) return;
@@ -157,55 +129,23 @@ export function MyLedgerTableData() {
         if (processedKeys.has(key)) return;
         processedKeys.add(key);
 
-        const bookmakerBets = clientBets.filter((b) => b.bet_type === 'BOOKMAKER');
-        const fancyBets = clientBets.filter((b) => b.bet_type === 'FANCY');
-
-        const calcPL = (bets: any[]) =>
-          bets.reduce((acc, bet) => {
-            const stake = Number(bet.stake_amount) || 0;
-            const potential = Number(bet.potential_winnings) || 0;
-
-            if (bet.status === 'WON') {
-              return (
-                acc + (bet.selection === 'Back' || bet.selection === 'Yes' ? potential : stake)
-              );
-            }
-
-            if (bet.status === 'LOST') {
-              return (
-                acc - (bet.selection === 'Back' || bet.selection === 'Yes' ? stake : potential)
-              );
-            }
-
-            return acc;
-          }, 0);
-
-        const matchPL = calcPL(bookmakerBets);
-        const sessionPL = calcPL(fancyBets);
-
-        const totalPL = (matchPL + sessionPL) * -1;
-
-        // ---------------- COMMISSION ----------------
+        let matchPL = 0;
+        let sessionPL = 0;
+        let totalSessionStake = 0;
         let matchCommission = 0;
 
-        const clientSummaries = (match as any).client_summary || [];
-
-        clientSummaries.forEach((c: any) => {
-          const belongsToMe = match.matchBets.some(
-            (b: any) => b.user_id === c.client_id && b.immediate_child_admin?._id === adminId
-          );
-
-          if (!belongsToMe) return;
+        clientAdminSummaries.forEach((c: any) => {
+          matchPL += c.client_net_match_pl || 0;
+          sessionPL += c.client_net_session_pl || 0;
+          totalSessionStake += c.client_total_session_stake || 0;
 
           if (c.client_net_match_pl < 0) {
             matchCommission += Math.abs(c.client_net_match_pl) * (loginMatchCommissionRate / 100);
           }
         });
 
-        const totalSessionStake = fancyBets.reduce((a, b) => a + (Number(b.stake_amount) || 0), 0);
-
+        const totalPL = (matchPL + sessionPL) * -1;
         const sessionCommission = totalSessionStake * (loginSessionCommissionRate / 100);
-
         const totalCommission = matchCommission + sessionCommission;
 
         const netAmount = totalPL - totalCommission;

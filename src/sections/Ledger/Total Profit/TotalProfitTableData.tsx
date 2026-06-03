@@ -32,35 +32,7 @@ interface LedgerEntry {
   matchName: string;
 }
 
-interface MatchSummary {
-  eventTime: string | number | Date;
-  _id: string;
-  eventName: string;
-  user?: {
-    user_name?: string;
-    match_commission?: number;
-    session_commission?: number;
-    immediate_child_admin?: any;
-  };
-  matchBets: Array<{
-    _id?: string;
-    user_id: string;
-    bet_type: string;
-    stake_amount: string | number;
-    potential_winnings: string | number;
-    status: string;
-    selection: string;
-    immediate_child_admin?: {
-      _id: string;
-      user_name: string;
-      name: string;
-      match_commission: number;
-      session_commission: number;
-      share: number;
-    };
-    createdAt: string;
-  }>;
-}
+
 
 export function TotalProfitTableData() {
   const { fetchTotalData } = useMatchApi();
@@ -94,86 +66,31 @@ export function TotalProfitTableData() {
     enabled: !!AdminuserId,
   });
 
-  // Helper: Remove duplicate bets using Set
-  const dedupeBets = (bets: MatchSummary['matchBets']) => {
-    const seen = new Set<string>();
-    return bets.filter((bet) => {
-      const key =
-        bet._id ||
-        `${bet.user_id}-${bet.bet_type}-${bet.stake_amount}-${bet.potential_winnings}-${bet.status}-${bet.selection}-${bet.createdAt}`;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
-  };
+
 
   // Calculate net amount for a client in a match
-  const calculateClientNetAmount = (clientBets: any[], immediateChildAdmin: any, match: any) => {
-    const bookmakerBets = clientBets.filter((b) => b.bet_type === 'BOOKMAKER');
-    const fancyBets = clientBets.filter((b) => b.bet_type === 'FANCY');
-
+  const calculateClientNetAmount = (clientSummaries: any[], immediateChildAdmin: any, match: any) => {
     const matchCommissionRate = immediateChildAdmin?.match_commission || 0;
     const sessionCommissionRate = immediateChildAdmin?.session_commission || 0;
 
-    // ---------------- MATCH + SESSION PL ----------------
-    const matchPL = bookmakerBets.reduce((acc, bet) => {
-      const stake = Number(bet.stake_amount) || 0;
-      const potential = Number(bet.potential_winnings) || 0;
-
-      if (bet.status === 'WON') {
-        if (bet.selection === 'Back') return acc + potential;
-        if (bet.selection === 'Lay') return acc + stake;
-      }
-      if (bet.status === 'LOST') {
-        if (bet.selection === 'Back') return acc - stake;
-        if (bet.selection === 'Lay') return acc - potential;
-      }
-      return acc;
-    }, 0);
-
-    const sessionPL = fancyBets.reduce((acc, bet) => {
-      const stake = Number(bet.stake_amount) || 0;
-      const potential = Number(bet.potential_winnings) || 0;
-
-      if (bet.status === 'WON') {
-        if (bet.selection === 'Yes') return acc + potential;
-        if (bet.selection === 'Not') return acc + stake;
-      }
-      if (bet.status === 'LOST') {
-        if (bet.selection === 'Yes') return acc - stake;
-        if (bet.selection === 'Not') return acc - potential;
-      }
-      return acc;
-    }, 0);
-
-    const totalPL = (matchPL + sessionPL) * -1;
-
-    // ---------------- ✅ MATCH COMMISSION (ONLY client_summary LOSS) ----------------
+    let matchPL = 0;
+    let sessionPL = 0;
+    let totalSessionStake = 0;
     let matchCommission = 0;
 
-    const clientSummaries = match?.client_summary || [];
-
     clientSummaries.forEach((c: any) => {
-      const belongsToClient = clientBets.some((b: any) => b.user_id === c.client_id);
-
-      if (!belongsToClient) return;
+      matchPL += c.client_net_match_pl || 0;
+      sessionPL += c.client_net_session_pl || 0;
+      totalSessionStake += c.client_total_session_stake || 0;
 
       const clientMatchPL = c.client_net_match_pl || 0;
-
-      // ✅ sirf LOSS par
       if (clientMatchPL < 0) {
         matchCommission += Math.abs(clientMatchPL) * (matchCommissionRate / 100);
       }
     });
 
-    // ---------------- SESSION COMMISSION ----------------
-    const totalSessionStake = fancyBets.reduce(
-      (acc, bet) => acc + (Number(bet.stake_amount) || 0),
-      0
-    );
-
+    const totalPL = (matchPL + sessionPL) * -1;
     const sessionCommission = totalSessionStake * (sessionCommissionRate / 100);
-
     const totalCommission = matchCommission + sessionCommission;
 
     const netAmount = totalPL - totalCommission;
@@ -184,34 +101,33 @@ export function TotalProfitTableData() {
   };
 
   // Get MyLedger net amounts by match
-  const getMyLedgerNetByMatch = (matches: MatchSummary[]): Record<string, number> => {
+  const getMyLedgerNetByMatch = (matches: any[]): Record<string, number> => {
     if (!matches || matches.length === 0) return {};
 
     const matchNet: Record<string, number> = {};
     const processedMatches = new Set<string>();
 
-    matches.forEach((match: MatchSummary) => {
+    matches.forEach((match: any) => {
       const key = match._id;
       if (processedMatches.has(key)) return;
       processedMatches.add(key);
 
-      const cleanBets = dedupeBets(match.matchBets);
-      const betsByClient: Record<string, any[]> = {};
+      const summariesByClient: Record<string, any[]> = {};
+      const clientSummaries = match.client_summary || [];
 
-      cleanBets.forEach((bet) => {
-        const clientId = bet.immediate_child_admin?._id || 'unknown';
-        if (!betsByClient[clientId]) betsByClient[clientId] = [];
-        betsByClient[clientId].push(bet);
+      clientSummaries.forEach((c: any) => {
+        const clientId = c.immediate_child_admin?._id || 'unknown';
+        if (!summariesByClient[clientId]) summariesByClient[clientId] = [];
+        summariesByClient[clientId].push(c);
       });
 
-      Object.entries(betsByClient).forEach(([clientId, clientBets]) => {
-        const firstBet = clientBets[0];
-        const immediateChildAdmin = firstBet?.immediate_child_admin;
+      Object.entries(summariesByClient).forEach(([clientId, adminSummaries]) => {
+        const immediateChildAdmin = adminSummaries[0]?.immediate_child_admin;
 
         // MyLedger mein sirf current admin ke data ko consider karo
         if (!immediateChildAdmin || immediateChildAdmin._id !== adminId) return;
 
-        const grandTotal = calculateClientNetAmount(clientBets, immediateChildAdmin, match);
+        const grandTotal = calculateClientNetAmount(adminSummaries, immediateChildAdmin, match);
 
         if (!matchNet[match.eventName]) {
           matchNet[match.eventName] = 0;
@@ -224,33 +140,32 @@ export function TotalProfitTableData() {
   };
 
   // Get Child net amounts by match
-  const getChildNetByMatch = (matches: MatchSummary[]): Record<string, number> => {
+  const getChildNetByMatch = (matches: any[]): Record<string, number> => {
     if (!matches || matches.length === 0) return {};
 
     const matchNet: Record<string, number> = {};
     const processedMatches = new Set<string>();
 
-    matches.forEach((match: MatchSummary) => {
+    matches.forEach((match: any) => {
       const key = match._id;
       if (processedMatches.has(key)) return;
       processedMatches.add(key);
 
-      const cleanBets = dedupeBets(match.matchBets);
-      const betsByClient: Record<string, any[]> = {};
+      const summariesByClient: Record<string, any[]> = {};
+      const clientSummaries = match.client_summary || [];
 
-      cleanBets.forEach((bet) => {
-        const clientId = bet.immediate_child_admin?._id || 'unknown';
-        if (!betsByClient[clientId]) betsByClient[clientId] = [];
-        betsByClient[clientId].push(bet);
+      clientSummaries.forEach((c: any) => {
+        const clientId = c.immediate_child_admin?._id || 'unknown';
+        if (!summariesByClient[clientId]) summariesByClient[clientId] = [];
+        summariesByClient[clientId].push(c);
       });
 
-      Object.entries(betsByClient).forEach(([clientId, clientBets]) => {
-        const firstBet = clientBets[0];
-        const immediateChildAdmin = firstBet?.immediate_child_admin;
+      Object.entries(summariesByClient).forEach(([clientId, adminSummaries]) => {
+        const immediateChildAdmin = adminSummaries[0]?.immediate_child_admin;
 
         if (!immediateChildAdmin) return;
 
-        const grandTotal = calculateClientNetAmount(clientBets, immediateChildAdmin, match);
+        const grandTotal = calculateClientNetAmount(adminSummaries, immediateChildAdmin, match);
 
         if (!matchNet[match.eventName]) {
           matchNet[match.eventName] = 0;
@@ -276,7 +191,7 @@ export function TotalProfitTableData() {
   // };
 
   // Process ledger entries for Total Profit
-  const processLedgerData = (matches: MatchSummary[]): LedgerEntry[] => {
+  const processLedgerData = (matches: any[]): LedgerEntry[] => {
     if (!matches || matches.length === 0) return [];
 
     const ledgerEntries: LedgerEntry[] = [];
@@ -288,18 +203,17 @@ export function TotalProfitTableData() {
 
     // STEP 1: sirf entries banao (NO balance)
     matches.forEach((match) => {
-      const cleanBets = dedupeBets(match.matchBets);
-      const betsByClient: Record<string, any[]> = {};
+      const summariesByClient: Record<string, any[]> = {};
+      const clientSummaries = match.client_summary || [];
 
-      cleanBets.forEach((bet) => {
-        const clientId = bet.immediate_child_admin?._id || 'unknown';
-        if (!betsByClient[clientId]) betsByClient[clientId] = [];
-        betsByClient[clientId].push(bet);
+      clientSummaries.forEach((c: any) => {
+        const clientId = c.immediate_child_admin?._id || 'unknown';
+        if (!summariesByClient[clientId]) summariesByClient[clientId] = [];
+        summariesByClient[clientId].push(c);
       });
 
-      Object.entries(betsByClient).forEach(([clientId, clientBets]) => {
-        const firstBet = clientBets[0];
-        const immediateChildAdmin = firstBet?.immediate_child_admin;
+      Object.entries(summariesByClient).forEach(([clientId, adminSummaries]) => {
+        const immediateChildAdmin = adminSummaries[0]?.immediate_child_admin;
 
         if (!immediateChildAdmin || immediateChildAdmin._id !== adminId) return;
 
