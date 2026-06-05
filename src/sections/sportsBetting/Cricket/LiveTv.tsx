@@ -46,7 +46,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 const currentAdminId = userData?.data?._id;
                 setAdminId(currentAdminId);
 
-                const match = matchData?.data?.[0]?.match;
+                const match = matchData?.match || matchData?.data?.[0]?.match;
 
                 if (currentAdminId && match) {
                     const betLocked = match.bm_lock?.includes(currentAdminId) || false;

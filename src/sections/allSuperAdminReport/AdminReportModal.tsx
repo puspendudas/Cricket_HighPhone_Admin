@@ -144,138 +144,90 @@ export function AdminReportModal({ open, onClose, rowData }: AdminReportModalPro
     let runningBalance = 0;
 
     matches.forEach((match) => {
-      const betsByAdmin: Record<string, any[]> = {};
-      match.matchBets.forEach((bet) => {
-        const adminId = bet.immediate_child_admin?._id || 'unknown';
-        if (!betsByAdmin[adminId]) betsByAdmin[adminId] = [];
-        betsByAdmin[adminId].push(bet);
-      });
+      const clientSummaries = (match as any).client_summary || [];
 
-      Object.values(betsByAdmin).forEach((adminBets) => {
-        const firstBet = adminBets[0];
-        const immediate = firstBet?.immediate_child_admin;
+      let matchPL = 0;
+      let sessionPL = 0;
+      let totalSessionStake = 0;
+      let matchCommission = 0;
+      let sessionCommission = 0;
+      
+      let foundAdmin = false;
+      let adminObj: any = null;
+
+      clientSummaries.forEach((c: any) => {
+        const immediate = c.immediate_child_admin;
         if (!immediate) return;
 
         const currentUsername = (immediate.user_name || '').toLowerCase();
-        if (currentUsername !== adminUserName) return;
+        if (currentUsername !== adminName) return;
 
-        const bookmakerBets = adminBets.filter((b) => b.bet_type === 'BOOKMAKER');
-        const fancyBets = adminBets.filter((b) => b.bet_type === 'FANCY');
+        foundAdmin = true;
+        adminObj = immediate;
 
-        const matchPL = bookmakerBets.reduce((acc: number, bet) => {
-          const stake = parseFloat(bet.stake_amount as string) || 0;
-          const potential = parseFloat(bet.potential_winnings as string) || 0;
-          let value = 0;
-          if (bet.status === 'WON') {
-            if (bet.selection === 'Back') value = potential;
-            if (bet.selection === 'Lay') value = stake;
-          } else if (bet.status === 'LOST') {
-            if (bet.selection === 'Back') value = -stake;
-            if (bet.selection === 'Lay') value = -potential;
-          }
-          return acc + value;
-        }, 0);
+        const invertedMatch = (c.client_net_match_pl || 0) * -1;
+        const invertedSession = (c.client_net_session_pl || 0) * -1;
+        
+        matchPL += invertedMatch;
+        sessionPL += invertedSession;
+        totalSessionStake += (c.client_total_session_stake || 0);
 
-        const sessionPL = fancyBets.reduce((acc: number, bet) => {
-          const stake = parseFloat(bet.stake_amount as string) || 0;
-          const potential = parseFloat(bet.potential_winnings as string) || 0;
-          let value = 0;
-          if (bet.status === 'WON') {
-            if (bet.selection === 'Yes') value = potential;
-            if (bet.selection === 'Not') value = stake;
-          } else if (bet.status === 'LOST') {
-            if (bet.selection === 'Yes') value = -stake;
-            if (bet.selection === 'Not') value = -potential;
-          }
-          return acc + value;
-        }, 0);
-
-        const invertedMatchPL = matchPL * -1;
-        const invertedSessionPL = sessionPL * -1;
-        const totalPL = invertedMatchPL + invertedSessionPL;
-
-        const totalSessionStake = fancyBets.reduce(
-          (acc: number, bet) => acc + (parseFloat(bet.stake_amount as string) || 0),
-          0
-        );
-
-        const matchCommissionRate = immediate?.match_commission || 0;
-        const sessionCommissionRate = immediate?.session_commission || 0;
-        // ---------------- MATCH COMMISSION (ONLY FROM client_summary) ----------------
-        // ---------------- MATCH COMMISSION (ONLY OWN CLIENT LOSS) ----------------
-        let matchCommission = 0;
-
-        const clientSummaries = (match as any).client_summary || [];
-
-        clientSummaries.forEach((c: any) => {
-          const clientMatchPL = c.client_net_match_pl || 0;
-
-          // 🔑 Client must belong to THIS admin
-          const clientBelongsToThisAdmin = match.matchBets.some(
-            (b: any) => b.user_id === c.client_id && b.immediate_child_admin?._id === immediate._id
-          );
-
-          if (!clientBelongsToThisAdmin) return;
-
-          // ✅ Sirf LOSS par commission
-          if (clientMatchPL < 0) {
-            matchCommission += Math.abs(clientMatchPL) * (matchCommissionRate / 100);
-          }
-        });
-
-        const sessionCommission = totalSessionStake * (sessionCommissionRate / 100);
-        const totalCommission = matchCommission + sessionCommission;
-
-        const netAmount = totalPL - totalCommission;
-        const sharePercentage = immediate?.share || 0;
-        const shareAmount = netAmount * (sharePercentage / 100);
-        const grandTotal = netAmount - shareAmount;
-
-        const earliestDate = adminBets.reduce((earliest: string, b) => {
-          if (!earliest) return b.createdAt;
-          return new Date(b.createdAt) < new Date(earliest) ? b.createdAt : earliest;
-        }, '');
-
-        const credit = grandTotal < 0 ? Math.abs(grandTotal) : 0;
-        const debit = grandTotal > 0 ? grandTotal : 0;
-
-        if (credit > 0 || debit > 0) {
-          runningBalance += debit - credit;
-
-          ledgerEntries.push({
-            date: formatUTCDateTime12H(earliestDate),
-            timestamp: earliestDate ? new Date(earliestDate).getTime() : 0,
-            credit,
-            debit,
-            balance: runningBalance,
-            winner: match.eventName,
-            icon: '/assets/win.png',
-            client: immediate.user_name || immediate.name || 'Unknown Admin',
-            matchName: match.eventName,
-            eventTime: formatUTCDateTime12H(match.eventTime),
-            match: invertedMatchPL,
-            session: invertedSessionPL,
-            total: totalPL,
-            mCom: matchCommission,
-            sCom: sessionCommission,
-            tCom: totalCommission,
-            netAmount,
-            shareAmount,
-            gTotal: grandTotal,
-            createdAt: earliestDate || '', // Store for sorting
-          });
+        const matchCommRate = immediate.match_commission || 0;
+        if (c.client_net_match_pl < 0) {
+          matchCommission += Math.abs(c.client_net_match_pl) * (matchCommRate / 100);
         }
       });
+
+      if (!foundAdmin) return;
+
+      const sessionCommRate = adminObj?.session_commission || 0;
+      sessionCommission = totalSessionStake * (sessionCommRate / 100);
+
+      const totalPL = matchPL + sessionPL;
+      const totalCommission = matchCommission + sessionCommission;
+
+      const netAmount = totalPL - totalCommission;
+      const sharePercentage = adminObj?.share || 0;
+      const shareAmount = netAmount * (sharePercentage / 100);
+      const grandTotal = netAmount - shareAmount;
+
+      const credit = grandTotal < 0 ? Math.abs(grandTotal) : 0;
+      const debit = grandTotal > 0 ? grandTotal : 0;
+
+      if (credit > 0 || debit > 0 || matchPL !== 0 || sessionPL !== 0) {
+        runningBalance += debit - credit;
+
+        ledgerEntries.push({
+          date: formatUTCDateTime12H(match.createdAt),
+          timestamp: new Date(match.createdAt).getTime(),
+          credit,
+          debit,
+          balance: runningBalance,
+          winner: match.eventName,
+          icon: '/assets/win.png',
+          client: adminObj.user_name || adminObj.name || 'Unknown Admin',
+          matchName: match.eventName,
+          eventTime: formatUTCDateTime12H(match.eventTime as string),
+          match: matchPL,
+          session: sessionPL,
+          total: totalPL,
+          mCom: matchCommission,
+          sCom: sessionCommission,
+          tCom: totalCommission,
+          netAmount,
+          shareAmount,
+          gTotal: grandTotal,
+          createdAt: match.createdAt,
+        });
+      }
     });
 
-    // 🚫 Remove duplicates (same matchName + same client)
     const uniqueLedger = ledgerEntries.filter(
       (entry, index, self) =>
         index ===
         self.findIndex((t) => t.matchName === entry.matchName && t.client === entry.client)
     );
 
-    // SORT LEDGER ENTRIES BY DATE (OLDEST FIRST)
     const sortedLedgerEntries = uniqueLedger.sort((a, b) => a.timestamp - b.timestamp);
 
     return sortedLedgerEntries;
