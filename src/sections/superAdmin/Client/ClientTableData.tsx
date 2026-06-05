@@ -23,6 +23,7 @@ import { EditMemberModal } from './EditMemberModal';
 import { DeactivateModal } from './DeactivateModal';
 import { CreateMemberModal } from './CreateMemberModal';
 import { LimitUpdatesModal } from './LimitUpdatesModal';
+import { ExposureModal } from './ExposureModal';
 
 export function ClientTableData() {
   const { addClient, fetchClientList, updateTogalStatus, updateClient, ClintTogalStatus } = useSuperAdminApi();
@@ -42,6 +43,7 @@ export function ClientTableData() {
     deactivate: false,
     wdLimit: false,
     updateLimit: false,
+    exposure: false,
   });
 
   const [modalState, setModalState] = useState({
@@ -49,6 +51,8 @@ export function ClientTableData() {
     memberForWD: null as Member | null,
     memberForLimitUpdates: '',
     memberForLimitUpdatesId: '',
+    memberForExposureId: '',
+    memberForExposureName: '',
   });
 
   const fetchMembers = useCallback(async () => {
@@ -294,7 +298,27 @@ export function ClientTableData() {
                 <TableCell>{member.name}</TableCell>
                 <TableCell>{member.password}</TableCell>
                 <TableCell>{member.currentBal}</TableCell>
-                <TableCell>{Number(member.exposure).toFixed(2)}</TableCell>
+                <TableCell>
+                  {Number(member.exposure) !== 0 ? (
+                    <Button
+                      variant="text"
+                      color="primary"
+                      onClick={() => {
+                        setModalState((p) => ({
+                          ...p,
+                          memberForExposureId: member._id,
+                          memberForExposureName: member.user,
+                        }));
+                        setModals((p) => ({ ...p, exposure: true }));
+                      }}
+                      sx={{ minWidth: 'auto', p: 0, textDecoration: 'underline' }}
+                    >
+                      {Number(member.exposure).toFixed(2)}
+                    </Button>
+                  ) : (
+                    Number(member.exposure).toFixed(2)
+                  )}
+                </TableCell>
                 <TableCell>{member.match}</TableCell>
                 <TableCell>{member.session}</TableCell>
                 <TableCell>{member.casino}</TableCell>
@@ -384,6 +408,13 @@ export function ClientTableData() {
         onClose={() => setModals(p => ({ ...p, updateLimit: false }))}
         userName={modalState.memberForLimitUpdates}
         userId={modalState.memberForLimitUpdatesId}
+      />
+      
+      <ExposureModal
+        open={modals.exposure}
+        onClose={() => setModals((p) => ({ ...p, exposure: false }))}
+        userId={modalState.memberForExposureId}
+        userName={modalState.memberForExposureName}
       />
     </Paper>
   );

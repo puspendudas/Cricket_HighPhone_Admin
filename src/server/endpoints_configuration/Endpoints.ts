@@ -10,6 +10,7 @@ export const Endpoints = {
     updateStatusSession: `${BASE_URL}/match/togglesession`,
     useBetHistroy: `${BASE_URL}/match-bets/match`,
     fetchTableData: `${BASE_URL}/match/admin/all/declared/true`,
+    fetchUndeclaredBets: `${BASE_URL}/match/all/declared/false`,
     fetchTotalData: `${BASE_URL}/match/admin/all/total`,
     Settlement: `${BASE_URL}/admin/settlement`,
     Exposure: `${BASE_URL}/match/admin/exposure`,

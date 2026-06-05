@@ -245,6 +245,15 @@ const useMatchApi = () => {
       throw error;
     }
   };
+  const fetchUndeclaredBets = async (_id: string) => {
+    try {
+      const response = await get(`${Endpoints.fetchUndeclaredBets}/${_id}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetch Undeclared Bets', error);
+      throw error;
+    }
+  };
   const fetchSettlement = async (_id: string) => {
     try {
       const response = await get(`${Endpoints.Settlement}/get/${_id}`);
@@ -439,6 +448,7 @@ const useMatchApi = () => {
     Matchdelay,
     FetchBetData,
     fetchTableData,
+    fetchUndeclaredBets,
     fetchTotalData,
     fetchSettlement,
     AddSettlement,
