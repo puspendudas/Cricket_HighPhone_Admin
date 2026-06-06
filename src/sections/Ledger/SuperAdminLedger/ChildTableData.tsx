@@ -336,6 +336,7 @@ export function ChildTableData() {
     const normalizedFilter = clientFilter.trim().toLowerCase();
 
     const filteredEntries = settlements
+      .filter((settlement: SettlementData) => settlement.adminIdTo !== null)
       .map((settlement: SettlementData) => {
         const clientAdmin = settlement.adminIdTo;
         const clientName = clientAdmin?.user_name || clientAdmin?.name || 'N/A';
