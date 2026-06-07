@@ -17,6 +17,8 @@ interface UseCricketMatchSocketReturn {
   isLoading: boolean;
   error: Error | null;
   isDeclared: boolean;
+  betUpdate: any | null;
+  betHistoryData: any[];
 }
 
 function useCricketMatchSocket(gameId: string | undefined): UseCricketMatchSocketReturn {
@@ -24,6 +26,8 @@ function useCricketMatchSocket(gameId: string | undefined): UseCricketMatchSocke
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
   const [isDeclared, setIsDeclared] = useState<boolean>(false);
+  const [betUpdate, setBetUpdate] = useState<any | null>(null);
+  const [betHistoryData, setBetHistoryData] = useState<any[]>([]);
   const socketRef = useRef<Socket | null>(null);
 
   const getToken = useCallback(() => sessionStorage.getItem(STORAGE_KEY), []);
@@ -59,6 +63,10 @@ function useCricketMatchSocket(gameId: string | undefined): UseCricketMatchSocke
       console.log('✅ Socket Connected:', socket.id);
 
       socket.emit('match:join', {
+        matchId: gameId,
+      });
+
+      socket.emit('match:bets:request', {
         matchId: gameId,
       });
     });
@@ -101,7 +109,39 @@ function useCricketMatchSocket(gameId: string | undefined): UseCricketMatchSocke
       setIsDeclared(true);
     });
 
-    // ❌ CONNECT ERROR
+    // 💥 NEW BETS REAL-TIME
+    socket.on('bet:update', (data: any) => {
+      console.log('✅ NEW BET UPDATE:', data);
+      setBetUpdate(data);
+
+      setBetHistoryData((prev) => {
+        const newData = [...prev];
+        const betIdToMatch = data._id || data.id;
+        const existingIndex = newData.findIndex(b => b._id === betIdToMatch || b.id === betIdToMatch);
+        if (existingIndex !== -1) {
+          newData[existingIndex] = { ...newData[existingIndex], ...data };
+        } else {
+          newData.unshift(data);
+        }
+        return newData;
+      });
+    });
+
+    socket.on('match:bets:response', (data: any) => {
+      console.log('✅ BET HISTORY RESPONSE:', data);
+      if (data && Array.isArray(data.data)) {
+        setBetHistoryData(data.data);
+      }
+    });
+
+    socket.on('match:bets:refresh', () => {
+      console.log('✅ REFRESH BETS REQUESTED');
+      if (gameId) {
+        socket.emit('match:bets:request', { matchId: gameId });
+      }
+    });
+
+    // 🔴 DISCONNECT ERROR
     socket.on('connect_error', (err) => {
       console.log('❌ connect_error', err.message);
 
@@ -133,6 +173,8 @@ function useCricketMatchSocket(gameId: string | undefined): UseCricketMatchSocke
     isLoading,
     error,
     isDeclared,
+    betUpdate,
+    betHistoryData,
   };
 }
 

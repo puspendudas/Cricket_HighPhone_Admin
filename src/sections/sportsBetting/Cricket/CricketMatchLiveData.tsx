@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 
@@ -43,6 +43,7 @@ import win from '../../../../public/assets/win.png';
 
 interface BetData {
   id: string;
+  _id?: string;
   user: {
     name: any;
     user_name: string;
@@ -111,8 +112,8 @@ export default function CricketMatchLiveData() {
   const { fetchMe } = useMeApi();
 
   const { fetchTableData, Exposure } = useMatchApi();
-  const { fetchBetHistory } = useBetHistroyApi();
   const { gameId } = useParams<{ gameId: string }>();
+  const queryClient = useQueryClient();
 
   const formatDateTime = (dateString: string): string => {
     const date = new Date(dateString);
@@ -138,30 +139,10 @@ export default function CricketMatchLiveData() {
   const userId = userData?.data?._id;
 
   // Match Data via Socket.IO
-  const { matchData, isLoading: matchLoading, error: matchError } = useCricketMatchSocket(gameId);
+  const { matchData, isLoading: matchLoading, error: matchError, betUpdate, betHistoryData } = useCricketMatchSocket(gameId);
 
   // Extract current match ID AFTER matchData is defined
   const currentMatchId = matchData?.match?._id;
-
-  // Bet History
-  const { data: betHistoryData, isLoading: betHistoryLoading } = useQuery<
-    { data: BetData[] },
-    Error
-  >({
-    queryKey: ['betHistory', matchData?.match._id, userId],
-    queryFn: () =>
-      userId && currentMatchId
-        ? fetchBetHistory(currentMatchId, userId)
-        : Promise.reject(new Error('Missing user ID or match ID')),
-    enabled: !!userId && !!currentMatchId,
-    refetchInterval: 2000,
-    select: (data) => ({
-      ...data,
-      data: data.data.filter(
-        (bet: BetData) => bet.status !== 'DELETED' && bet.status !== 'CANCELLED'
-      ),
-    }),
-  });
 
   // Add this query for table data
   const { data: tableData, isLoading: isTableLoading } = useQuery({
@@ -370,7 +351,7 @@ export default function CricketMatchLiveData() {
     setOpenSections((prev) => ({ ...prev, [runnerName]: !prev[runnerName] }));
   };
 
-  if (matchLoading || betHistoryLoading) {
+  if (matchLoading) {
     return (
       <Box p={2}>
         <Typography>Loading match data...</Typography>
@@ -404,7 +385,7 @@ export default function CricketMatchLiveData() {
   const formattedDate = formatUTCDateTime12H(eventTime);
 
   // Match transactions formatting - Use BetData interface
-  const matchBetsRaw = (betHistoryData?.data || []).filter(
+  const matchBetsRaw = (betHistoryData || []).filter(
     (b: BetData) => (b?.bet_type || '').toUpperCase() !== 'FANCY'
   );
   const normalizeTeam = (name = '') => name.replace(/\./g, '').trim().toLowerCase();
@@ -422,8 +403,8 @@ export default function CricketMatchLiveData() {
     }
 
     return {
-      client: bet.user.user_name,
-      user: bet.user.name,
+      client: bet.user?.user_name || 'N/A',
+      user: bet.user?.name || 'N/A',
       amount: bet.stake_amount,
       rate: Number(bet.odds_rate).toFixed(2),
       mode: bet.selection === 'Back' ? 'L' : 'K',
@@ -434,19 +415,26 @@ export default function CricketMatchLiveData() {
   });
 
   // Fancy bets grouping
-  const fancyBets = (betHistoryData?.data || []).filter(
+  const fancyBets = (betHistoryData || []).filter(
     (bet: any) =>
       bet.bet_type === 'FANCY' &&
       bet.status !== 'DELETED' &&
       !(bet.isEnabled === false && bet.isFancyEnded === true)
   );
 
+  const last10UndeclaredBets = betHistoryData
+    ? betHistoryData
+        .filter((bet: BetData) => bet.status === 'PENDING' || bet.status === 'ACTIVE')
+        .sort((a: BetData, b: BetData) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 10)
+    : [];
+
   const groupedFancyBets = fancyBets.reduce((acc: Record<string, BetData[]>, bet: BetData) => {
     const runnerName = bet.runner_name || 'Unknown';
     if (!acc[runnerName]) acc[runnerName] = [];
     acc[runnerName].push(bet);
     return acc;
-  }, {});
+  }, {} as Record<string, BetData[]>);
 
   // Match table with pagination
   const renderMatchTable = () => {
@@ -803,7 +791,7 @@ export default function CricketMatchLiveData() {
             {Object.entries(groupedFancyBets).length === 0 ? (
               <Typography>No fancy bets available</Typography>
             ) : (
-              Object.entries(groupedFancyBets).map(([runnerName, bets]) => (
+              (Object.entries(groupedFancyBets) as [string, BetData[]][]).map(([runnerName, bets]) => (
                 <Box key={runnerName} mb={1}>
                   <Paper sx={{ backgroundColor: '#26B8A4', color: 'white' }}>
                     <Box display="flex" justifyContent="space-between" alignItems="center">
@@ -872,7 +860,7 @@ export default function CricketMatchLiveData() {
                               {bets.map((bet) => (
                                 <TableRow key={bet.id}>
                                   <TableCell>
-                                    {bet.user.name} ({bet.user.user_name})
+                                    {bet.user?.name || '-'} ({bet.user?.user_name || '-'})
                                   </TableCell>
                                   <TableCell>
                                     {parseInt(bet.odds_value || bet.odds_rate, 10)}
@@ -924,6 +912,105 @@ export default function CricketMatchLiveData() {
                 </Box>
               ))
             )}
+          </AccordionDetails>
+        </Accordion>
+
+        {/* Last 10 Undeclared Bets */}
+        <Accordion defaultExpanded>
+          <AccordionSummary
+            expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" width={20} height={20} />}
+          >
+            <Typography variant="subtitle1" fontWeight="bold">
+              Last 10 Undeclared Bets
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails sx={{ padding: '0px' }}>
+            <TableContainer sx={{ width: '100%', overflowX: 'auto' }}>
+              <Table size="small" sx={{ minWidth: 700 }}>
+                <TableHead>
+                  <TableRow sx={{ backgroundColor: '#26B8A4' }}>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>Client</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>Team/Runner</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>Run</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>Bet Type</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>Mode/Rate</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>Amount</TableCell>
+                    <TableCell sx={{ fontWeight: 'bold', color: '#000', whiteSpace: 'nowrap' }}>Created</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {last10UndeclaredBets.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center">No undeclared bets available</TableCell>
+                    </TableRow>
+                  ) : (
+                    last10UndeclaredBets.map((bet) => (
+                      <TableRow key={bet.id || bet._id}>
+                        <TableCell>
+                          {bet.user?.name} ({bet.user?.user_name})
+                        </TableCell>
+                        <TableCell>
+                          {bet.team_name || bet.runner_name || '-'}
+                        </TableCell>
+                        <TableCell>
+                          {bet.bet_type === 'FANCY' ? bet.odds_value || '-' : '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontWeight: 'bold',
+                              color: '#fff',
+                              backgroundColor: bet.bet_type === 'FANCY' ? '#9c27b0' : '#ff9800',
+                              px: 1,
+                              py: 0.5,
+                              borderRadius: '4px'
+                            }}
+                          >
+                            {bet.bet_type === 'FANCY' ? 'Fancy' : 'Bookmaker'}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box
+                            sx={{
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              px: 2,
+                              py: 0.5,
+                              borderRadius: '20px',
+                              fontWeight: 'bold',
+                              color: '#fff',
+                              backgroundColor:
+                                bet.selection === 'Yes' || bet.selection === 'Back' ? '#83c2fc' : '#fda4b4',
+                            }}
+                          >
+                            <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 0.5, color: '#000' }}>
+                              {bet.selection}
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              sx={{
+                                fontWeight: 'bold',
+                                background: '#fff',
+                                borderRadius: '20px',
+                                color: '#000',
+                                padding: '1px 8px',
+                              }}
+                            >
+                              {bet.bet_type === 'FANCY' 
+                                ? Number(bet.odds_rate).toFixed(0) 
+                                : Number(bet.odds_rate).toFixed(2)}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>₹{(bet.stake_amount || 0).toLocaleString()}</TableCell>
+                        <TableCell>{formatDateTime(bet.createdAt)}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </AccordionDetails>
         </Accordion>
 
@@ -1057,7 +1144,7 @@ export default function CricketMatchLiveData() {
         <Grid item xs={12} md={6}>
           {FancyOddsTable}
 
-          {Object.entries(groupedFancyBets).map(([runnerName, bets]) => (
+          {(Object.entries(groupedFancyBets) as [string, BetData[]][]).map(([runnerName, bets]) => (
             <TableContainer
               key={runnerName}
               component={Paper}
@@ -1140,7 +1227,7 @@ export default function CricketMatchLiveData() {
                                 {bets.map((bet) => (
                                   <TableRow key={bet.id}>
                                     <TableCell>
-                                      {bet.user.name} ({bet.user.user_name})
+                                      {bet.user?.name || '-'} ({bet.user?.user_name || '-'})
                                     </TableCell>
                                     <TableCell>
                                       {parseInt(bet.odds_value || bet.odds_rate, 10)}
@@ -1194,6 +1281,120 @@ export default function CricketMatchLiveData() {
               </Table>
             </TableContainer>
           ))}
+          
+          {/* Last 10 Undeclared Bets (Desktop) */}
+          <TableContainer
+            component={Paper}
+            sx={{ mt: 2, boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)' }}
+          >
+            <Table>
+              <TableHead>
+                <TableRow>
+                  <TableCell sx={{ backgroundColor: '#26B8A4' }}>
+                    <Box display="flex" alignItems="center" justifyContent="space-between">
+                      <Typography color="#000" variant="subtitle1" fontWeight="bold">
+                        Last 10 Undeclared Bets
+                      </Typography>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                <TableRow>
+                  <TableCell style={{ padding: 0 }}>
+                    <Paper sx={{ mt: 0 }}>
+                      <TableContainer sx={{ width: '100%', overflowX: 'auto' }}>
+                        <Table size="small" sx={{ minWidth: 700 }}>
+                          <TableHead>
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>Client</TableCell>
+                              <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>Team/Runner</TableCell>
+                              <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>Run</TableCell>
+                              <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>Bet Type</TableCell>
+                              <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>Mode/Rate</TableCell>
+                              <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>Amount</TableCell>
+                              <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>Created</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {last10UndeclaredBets.length === 0 ? (
+                              <TableRow>
+                                <TableCell colSpan={7} align="center">No undeclared bets available</TableCell>
+                              </TableRow>
+                            ) : (
+                              last10UndeclaredBets.map((bet) => (
+                                <TableRow key={bet.id || bet._id}>
+                                  <TableCell>
+                                    {bet.user?.name} ({bet.user?.user_name})
+                                  </TableCell>
+                                  <TableCell>
+                                    {bet.team_name || bet.runner_name || '-'}
+                                  </TableCell>
+                                  <TableCell>
+                                    {bet.bet_type === 'FANCY' ? bet.odds_value || '-' : '-'}
+                                  </TableCell>
+                                  <TableCell>
+                                    <Typography
+                                      variant="caption"
+                                      sx={{
+                                        fontWeight: 'bold',
+                                        color: '#fff',
+                                        backgroundColor: bet.bet_type === 'FANCY' ? '#9c27b0' : '#ff9800',
+                                        px: 1,
+                                        py: 0.5,
+                                        borderRadius: '4px'
+                                      }}
+                                    >
+                                      {bet.bet_type === 'FANCY' ? 'Fancy' : 'Bookmaker'}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell>
+                                    <Box
+                                      sx={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        px: 2,
+                                        py: 0.5,
+                                        borderRadius: '20px',
+                                        fontWeight: 'bold',
+                                        color: '#fff',
+                                        backgroundColor:
+                                          bet.selection === 'Yes' || bet.selection === 'Back' ? '#83c2fc' : '#fda4b4',
+                                      }}
+                                    >
+                                      <Typography variant="body2" sx={{ fontWeight: 'bold', mr: 0.5, color: '#000' }}>
+                                        {bet.selection}
+                                      </Typography>
+                                      <Typography
+                                        variant="body2"
+                                        sx={{
+                                          fontWeight: 'bold',
+                                          background: '#fff',
+                                          borderRadius: '20px',
+                                          color: '#000',
+                                          padding: '1px 8px',
+                                        }}
+                                      >
+                                        {bet.bet_type === 'FANCY' 
+                                          ? Number(bet.odds_rate).toFixed(0) 
+                                          : Number(bet.odds_rate).toFixed(2)}
+                                      </Typography>
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell>₹{(bet.stake_amount || 0).toLocaleString()}</TableCell>
+                                  <TableCell>{formatDateTime(bet.createdAt)}</TableCell>
+                                </TableRow>
+                              ))
+                            )}
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    </Paper>
+                  </TableCell>
+                </TableRow>
+              </TableBody>
+            </Table>
+          </TableContainer>
         </Grid>
       </Grid>
 
