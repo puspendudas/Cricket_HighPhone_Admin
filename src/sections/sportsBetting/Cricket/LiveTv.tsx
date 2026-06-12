@@ -8,6 +8,8 @@ import {
     Button,
     Collapse,
     // Typography,
+    useMediaQuery,
+    useTheme,
 } from '@mui/material';
 
 import useMeApi from 'src/Api/me/useMeApi';
@@ -25,6 +27,8 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
     const [isLiveTvExpanded, setIsLiveTvExpanded] = useState(false);
     const { MatchOddsBetLock, FancyBetLock } = useBatApi();
     const { fetchMe } = useMeApi();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
     const toggleLiveTv = () => {
         setIsLiveTvExpanded(!isLiveTvExpanded);
@@ -224,7 +228,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                             backgroundColor: '#000',
                             borderRadius: 2,
                             overflow: 'hidden',
-                            height: 220,
+                            height: isMobile ? 180 : 220,
                         }}
                     >
                         <iframe
@@ -247,7 +251,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                     <Box
                         sx={{
                             backgroundColor: '#000',
-                            height: 400,
+                            height: isMobile ? 250 : 400,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',

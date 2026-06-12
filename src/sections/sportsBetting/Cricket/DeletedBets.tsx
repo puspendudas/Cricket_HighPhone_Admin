@@ -62,8 +62,11 @@ export default function DeletedBets() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { fetchMe } = useMeApi();
-  const { FatchUpdateMatchData } = useMatchApi();
-  const { fetchBetHistory } = useBetHistroyApi();
+  const { FatchMatchData } = useMatchApi();
+  const {
+    fetchDeletedBetsHistory,
+    deleteBetHistory,
+  } = useBetHistroyApi();
   const { gameId } = useParams<{ gameId: string }>();
 
   // Fetch user data
@@ -82,7 +85,7 @@ export default function DeletedBets() {
     isError: isMatchError,
   } = useQuery({
     queryKey: ['matchData', gameId],
-    queryFn: () => (gameId ? FatchUpdateMatchData(gameId) : Promise.reject(new Error('No gameId'))),
+    queryFn: () => (gameId ? FatchMatchData(gameId) : Promise.reject(new Error('No gameId'))),
     enabled: !!gameId,
     // refetchInterval: 1000,
   });
@@ -96,7 +99,7 @@ export default function DeletedBets() {
     queryKey: ['betHistory', matchData?.match._id, userId],
     queryFn: () =>
       matchData?.match._id && userId
-        ? fetchBetHistory(matchData.match._id, userId)
+        ? fetchDeletedBetsHistory(matchData.match._id, userId)
         : Promise.reject(new Error('No match id or user id')),
     enabled: !!matchData?.match._id && !!userId,
     // refetchInterval: 1000,
@@ -281,7 +284,7 @@ export default function DeletedBets() {
             sx={{
               textAlign: 'center',
               background: 'linear-gradient(135deg, #26B8A4 0%, #1a7c6d 100%)',
-              height: '100px',
+              height: wonby ? '150px' : '100px',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
@@ -478,7 +481,8 @@ export default function DeletedBets() {
           sx={{
             textAlign: 'center',
             background: 'linear-gradient(135deg, #26B8A4 0%, #1a7c6d 100%)',
-            height: '100px',
+            // conditional height if wonby has data then 150px or 100 px
+            height: wonby ? '150px' : '100px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',

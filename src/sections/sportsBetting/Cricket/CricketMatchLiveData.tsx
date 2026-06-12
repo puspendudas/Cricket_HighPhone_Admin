@@ -950,7 +950,16 @@ export default function CricketMatchLiveData() {
                           {bet.user?.name} ({bet.user?.user_name})
                         </TableCell>
                         <TableCell>
-                          {bet.team_name || bet.runner_name || '-'}
+                          {(() => {
+                            if (bet.selection === 'Lay' && teams?.length === 2 && bet.team_name) {
+                              const betTeam = bet.team_name.replace(/\./g, '').trim().toLowerCase();
+                              const t0 = teams[0].replace(/\./g, '').trim().toLowerCase();
+                              const t1 = teams[1].replace(/\./g, '').trim().toLowerCase();
+                              if (betTeam === t0) return teams[1];
+                              if (betTeam === t1) return teams[0];
+                            }
+                            return bet.team_name || bet.runner_name || '-';
+                          })()}
                         </TableCell>
                         <TableCell>
                           {bet.bet_type === 'FANCY' ? bet.odds_value || '-' : '-'}
@@ -1328,7 +1337,16 @@ export default function CricketMatchLiveData() {
                                     {bet.user?.name} ({bet.user?.user_name})
                                   </TableCell>
                                   <TableCell>
-                                    {bet.team_name || bet.runner_name || '-'}
+                                    {(() => {
+                                      if (bet.selection === 'Lay' && teams?.length === 2 && bet.team_name) {
+                                        const betTeam = bet.team_name.replace(/\./g, '').trim().toLowerCase();
+                                        const t0 = teams[0].replace(/\./g, '').trim().toLowerCase();
+                                        const t1 = teams[1].replace(/\./g, '').trim().toLowerCase();
+                                        if (betTeam === t0) return teams[1];
+                                        if (betTeam === t1) return teams[0];
+                                      }
+                                      return bet.team_name || bet.runner_name || '-';
+                                    })()}
                                   </TableCell>
                                   <TableCell>
                                     {bet.bet_type === 'FANCY' ? bet.odds_value || '-' : '-'}

@@ -62,8 +62,8 @@ export default function DeletedBetsouter() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { fetchMe } = useMeApi();
-  const { FatchUpdateMatchData } = useMatchApi();
-  const { deleteBets } = useBetHistroyApi();
+  const { FatchMatchData } = useMatchApi();
+  const { fetchDeletedBetsHistory } = useBetHistroyApi();
   const { gameId } = useParams<{ gameId: string }>();
 
   // Fetch user data
@@ -83,7 +83,7 @@ export default function DeletedBetsouter() {
     isError: isMatchError,
   } = useQuery({
     queryKey: ['matchData', gameId],
-    queryFn: () => (gameId ? FatchUpdateMatchData(gameId) : Promise.reject(new Error('No gameId'))),
+    queryFn: () => (gameId ? FatchMatchData(gameId) : Promise.reject(new Error('No gameId'))),
     enabled: !!gameId,
     // refetchInterval: 1000,
   });
@@ -94,12 +94,12 @@ export default function DeletedBetsouter() {
     isLoading: betHistoryLoading,
     isError: isBetHistoryError,
   } = useQuery({
-    queryKey: ['betHistory', matchData?.match._id],
+    queryKey: ['betHistory', matchData?.match._id, userData?.data?._id],
     queryFn: () =>
-      matchData?.match._id
-        ? deleteBets(matchData.match._id)
-        : Promise.reject(new Error('No match id')),
-    enabled: !!matchData?.match._id,
+      matchData?.match._id && userData?.data?._id
+        ? fetchDeletedBetsHistory(matchData.match._id, userData.data._id)
+        : Promise.reject(new Error('No match id or user id')),
+    enabled: !!matchData?.match._id && !!userData?.data?._id,
   });
 
   const toggleSection = (runnerName: string) => {
@@ -281,7 +281,7 @@ export default function DeletedBetsouter() {
             sx={{
               textAlign: 'center',
               background: 'linear-gradient(135deg, #26B8A4 0%, #1a7c6d 100%)',
-              height: '100px',
+              height: wonby ? '150px' : '100px',
               display: 'flex',
               flexDirection: 'column',
               justifyContent: 'center',
@@ -478,7 +478,8 @@ export default function DeletedBetsouter() {
           sx={{
             textAlign: 'center',
             background: 'linear-gradient(135deg, #26B8A4 0%, #1a7c6d 100%)',
-            height: '100px',
+            // conditional height if wonby has data then 150px or 100 px
+            height: wonby ? '150px' : '100px',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'center',

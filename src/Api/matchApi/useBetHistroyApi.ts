@@ -38,6 +38,16 @@ const useBetHistroyApi = () => {
       throw error;
     }
   };
+  const fetchDeletedBetsHistory = async (match_id: string, userId: String) => {
+    try {
+      const response = await get(`${Endpoints.useBetHistroy}/${match_id}/deleted/admin/${userId}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetch Deleted Bet History', error);
+      toast.error('Failed to fetch Deleted Bet History');
+      throw error;
+    }
+  };
   const deleteBetHistory = async (matchId: string) => {
     try {
       const response = await deleted(`${Endpoints.CancelSingleBetMatch}/${matchId}`);
@@ -54,7 +64,8 @@ const useBetHistroyApi = () => {
     fetchBetHistory,
     deleteBetHistory,
     fetchBetUndlecarHistory,
-    deleteBets
+    deleteBets,
+    fetchDeletedBetsHistory
   };
 };
 
