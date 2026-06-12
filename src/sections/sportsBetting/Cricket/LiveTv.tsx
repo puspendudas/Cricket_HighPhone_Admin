@@ -251,7 +251,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                     <Box
                         sx={{
                             backgroundColor: '#000',
-                            height: isMobile ? 250 : 400,
+                            height: isMobile ? 220 : 400,
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
