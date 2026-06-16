@@ -385,8 +385,9 @@ export default function CricketMatchLiveData() {
   const formattedDate = formatUTCDateTime12H(eventTime);
 
   // Match transactions formatting - Use BetData interface
+  const allowedStatuses = ['PENDING', 'WON', 'LOST', 'ACTIVE'];
   const matchBetsRaw = (betHistoryData || []).filter(
-    (b: BetData) => (b?.bet_type || '').toUpperCase() !== 'FANCY'
+    (b: BetData) => (b?.bet_type || '').toUpperCase() !== 'FANCY' && allowedStatuses.includes((b.status || '').toUpperCase())
   );
   const normalizeTeam = (name = '') => name.replace(/\./g, '').trim().toLowerCase();
 
@@ -418,7 +419,7 @@ export default function CricketMatchLiveData() {
   const fancyBets = (betHistoryData || []).filter(
     (bet: any) =>
       bet.bet_type === 'FANCY' &&
-      bet.status !== 'DELETED' &&
+      allowedStatuses.includes((bet.status || '').toUpperCase()) &&
       !(bet.isEnabled === false && bet.isFancyEnded === true)
   );
 
