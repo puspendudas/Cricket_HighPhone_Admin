@@ -376,7 +376,7 @@ export default function MatchManuallyUpdate() {
                 variant="contained"
                 color="error"
                 onClick={handleCancelMatch}
-                disabled={cancelMutation.isPending || bookMakerTeams.length === 0}
+                disabled={cancelMutation.isPending}
               >
                 {cancelMutation.isPending ? 'Cancelling...' : 'Cancel Match'}
               </Button>
