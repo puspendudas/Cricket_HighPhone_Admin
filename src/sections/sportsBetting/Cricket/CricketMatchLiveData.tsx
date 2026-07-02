@@ -360,7 +360,7 @@ export default function CricketMatchLiveData() {
   }
 
   if (matchError || !matchData) {
-    navigate('/dashboardc');
+    navigate('/dashboard');
     return null;
   }
 
@@ -379,7 +379,7 @@ export default function CricketMatchLiveData() {
         // item.market === 'Normal' &&
         !item.isDeclared &&
         !(item.isEnabled === false && item.isFancyEnded === true)
-    )
+    ).sort((a: any, b: any) => Number(a.sno) - Number(b.sno))
     : [];
 
   const formattedDate = formatUTCDateTime12H(eventTime);
