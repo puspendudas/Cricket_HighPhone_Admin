@@ -193,6 +193,7 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
           children: [
             { title: 'Announcement', path: paths.dashboard.setting.announcement },
             { title: 'Sync Used Wallet', path: paths.dashboard.setting.syncusedwallet },
+            { title: 'Auto Setting', path: paths.dashboard.autosetting },
           ],
         },
       ],
@@ -204,17 +205,6 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
           title: 'Match Management',
           path: paths.dashboard.matchmanagement,
           icon: ICONS.game,
-        },
-      ],
-    });
-
-    // ✅ NEW AutoSetting menu
-    navData.push({
-      items: [
-        {
-          title: 'Auto Setting',
-          path: paths.dashboard.autosetting,
-          icon: ICONS.autoSetting,
         },
       ],
     });

@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 
 import {
   Box,
@@ -9,6 +9,10 @@ import {
   Typography,
   CardContent,
   CircularProgress,
+  Radio,
+  RadioGroup,
+  FormControlLabel,
+  FormControl,
 } from '@mui/material';
 
 import useAutosettingApi from 'src/Api/Autosetting/useAutosettingApi';
@@ -20,11 +24,31 @@ interface SwitchItem {
 
 export function AutosettingData() {
 
-  const { AutoDeclareSessionstart, AutoDeclareSessionstop } = useAutosettingApi();
+  const { AutoDeclareSessionstart, AutoDeclareSessionstop, getSettings, updateSettings } = useAutosettingApi();
 
   const [casinoSwitches, setCasinoSwitches] = useState<SwitchItem[]>([
     { label: 'Auto Session Manually Update', checked: false },
   ]);
+
+  const [scoreboardProvider, setScoreboardProvider] = useState<string>('BetFair');
+
+  // ✅ Fetch initial settings
+  const { data: settingsData, isLoading: isSettingsLoading } = useQuery({
+    queryKey: ['adminSettings'],
+    queryFn: getSettings,
+  });
+
+  useEffect(() => {
+    if (settingsData?.data) {
+      const settings = settingsData.data;
+      if (settings.auto_declare !== undefined) {
+        setCasinoSwitches([{ label: 'Auto Session Manually Update', checked: settings.auto_declare }]);
+      }
+      if (settings.scoreboard_provider) {
+        setScoreboardProvider(settings.scoreboard_provider);
+      }
+    }
+  }, [settingsData]);
 
   // ✅ Start mutation
   const startMutation = useMutation({
@@ -34,6 +58,11 @@ export function AutosettingData() {
   // ✅ Stop mutation
   const stopMutation = useMutation({
     mutationFn: () => AutoDeclareSessionstop(),
+  });
+
+  // ✅ Update Settings mutation
+  const updateSettingsMutation = useMutation({
+    mutationFn: (payload: any) => updateSettings(payload),
   });
 
   // ✅ Toggle handler with API call
@@ -53,6 +82,12 @@ export function AutosettingData() {
     } else {
       stopMutation.mutate();
     }
+  };
+
+  const handleScoreboardChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = (event.target as HTMLInputElement).value;
+    setScoreboardProvider(newValue);
+    updateSettingsMutation.mutate({ scoreboard_provider: newValue });
   };
 
   const isLoading = startMutation.isPending || stopMutation.isPending;
@@ -107,6 +142,7 @@ export function AutosettingData() {
   return (
     <Box>
       <Grid container spacing={2}>
+        
         <Grid item xs={12} md={6}>
           {renderSwitchSection(
             'Manage Auto Declare',
@@ -114,6 +150,50 @@ export function AutosettingData() {
             handleCasinoToggle
           )}
         </Grid>
+       
+        
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3 }}>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">Manage Scoreboard</Typography>
+              </Box>
+              
+              {isSettingsLoading ? (
+                <CircularProgress size={20} />
+              ) : (
+                <FormControl component="fieldset">
+                  <RadioGroup
+                    row
+                    name="scoreboard-provider"
+                    value={scoreboardProvider}
+                    onChange={handleScoreboardChange}
+                  >
+                    <FormControlLabel 
+                      value="BetFair" 
+                      control={<Radio color="primary" />} 
+                      label="BetFair" 
+                      disabled={updateSettingsMutation.isPending}
+                    />
+                    <FormControlLabel 
+                      value="Diamond" 
+                      control={<Radio color="primary" />} 
+                      label="Diamond" 
+                      disabled={updateSettingsMutation.isPending}
+                    />
+                  </RadioGroup>
+                  {updateSettingsMutation.isPending && (
+                    <Box mt={1} display="flex" alignItems="center" gap={1}>
+                      <CircularProgress size={16} />
+                      <Typography variant="caption">Updating...</Typography>
+                    </Box>
+                  )}
+                </FormControl>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
       </Grid>
     </Box>
   );

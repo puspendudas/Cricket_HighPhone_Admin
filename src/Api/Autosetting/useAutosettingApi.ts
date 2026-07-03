@@ -1,4 +1,4 @@
-// useEmployeeApi.ts
+// useAutosettingApi.ts
 
 import { useCallback } from 'react';
 
@@ -8,7 +8,7 @@ import { Endpoints } from 'src/server/endpoints_configuration/Endpoints';
 import { toast } from 'src/components/snackbar';
 
 const useAutosettingApi = () => {
-  const { post } = useApi();
+  const { post, get, put } = useApi();
 
   const AutoDeclareSessionstart = useCallback(
     async (payload: any = {}) => {
@@ -52,10 +52,43 @@ const useAutosettingApi = () => {
     },
     [post]
   );
+
+  const getSettings = useCallback(
+    async () => {
+      try {
+        const response = await get(Endpoints.SettingGet);
+        return response;
+      } catch (error: any) {
+        console.error('Error get settings:', error);
+        throw error;
+      }
+    },
+    [get]
+  );
+
+  const updateSettings = useCallback(
+    async (payload: any) => {
+      try {
+        const response = await put(Endpoints.SettingUpdate, payload);
+        toast.success(response?.message || "Settings updated successfully");
+        return response;
+      } catch (error: any) {
+        console.error('Error update settings:', error);
+        const errorMessage =
+          error?.response?.data?.message || 'Failed to update settings';
+        toast.error(errorMessage);
+        throw error;
+      }
+    },
+    [put]
+  );
+
   return {
 
     AutoDeclareSessionstart,
-    AutoDeclareSessionstop
+    AutoDeclareSessionstop,
+    getSettings,
+    updateSettings
   };
 };
 

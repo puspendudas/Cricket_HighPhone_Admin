@@ -31,6 +31,8 @@ export const Endpoints = {
     Matchdelay: `${BASE_URL}/match/delay`,
     updateStatusMInMax: `${BASE_URL}/match/session/limit`,
     AutoDeclare: `${BASE_URL}/auto-declare`,
+    SettingGet: `${BASE_URL}/admin/setting/get`,
+    SettingUpdate: `${BASE_URL}/admin/setting/update`,
     fatchdeletedBet: `${BASE_URL}/match-bets/cancel/single`,
     lenden:`${BASE_URL}/match/commission`,
     commissionSummary: `${BASE_URL}/match/commission/summary`,

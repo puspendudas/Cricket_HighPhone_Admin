@@ -14,6 +14,7 @@ import {
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useBatApi from 'src/Api/batLockApi/useBatApi';
+import useAutosettingApi from 'src/Api/Autosetting/useAutosettingApi';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -39,9 +40,23 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
     const [adminId, setAdminId] = useState<string | null>(null);
     const [isBetLockedByAdmin, setIsBetLockedByAdmin] = useState(false);
     const [isFancyLockedByAdmin, setIsFancyLockedByAdmin] = useState(false);
+    const [scoreboardProvider, setScoreboardProvider] = useState<string>('BetFair');
+    const { getSettings } = useAutosettingApi();
 
-
-
+    React.useEffect(() => {
+        const fetchGlobalSettings = async () => {
+            try {
+                const settingsData = await getSettings();
+                if (settingsData?.data?.scoreboard_provider) {
+                    setScoreboardProvider(settingsData.data.scoreboard_provider);
+                }
+            } catch (error) {
+                console.error('Error fetching global settings:', error);
+            }
+        };
+        fetchGlobalSettings();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     React.useEffect(() => {
         const checkAdminLockStatus = async () => {
@@ -228,11 +243,14 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                             backgroundColor: '#000',
                             borderRadius: 2,
                             overflow: 'hidden',
-                            height: isMobile ? 180 : 220,
+                            height: isMobile ? 200 : 200,
+                            width: '100%'
                         }}
                     >
                         <iframe
-                            src={`https://score.proexch.in/#/score1/${matchId}`}
+                            src={scoreboardProvider === 'Diamond' 
+                                ? `https://scorecard.avrkhub.in/?etid=4&gmid=${matchData?.match?.gmid || matchId}`
+                                : `https://diamondapi.avrkhub.in/score-card.html?id=${matchId}`}
                             style={{
                                 width: '100%',
                                 height: '100%',
@@ -242,7 +260,6 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                             loading="lazy"
                             title="Live Scoreboard"
                         />
-
                     </Box>
                 </Box>
 
