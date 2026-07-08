@@ -15,6 +15,8 @@ import {
   TextField,
   Typography,
   CardContent,
+  FormControlLabel,
+  Switch,
 } from '@mui/material';
 
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
@@ -44,6 +46,7 @@ export default function MatchManuallyUpdate() {
   const [betMax, setBetMax] = useState<number>(0);
   const [winner, setWinner] = useState<string>('');
   const [matchName, setMatchName] = useState<string>('N/A');
+  const [includeDraw, setIncludeDraw] = useState<boolean>(false);
 
   // Query for fetching match data (odds & teams)
   const {
@@ -126,6 +129,10 @@ export default function MatchManuallyUpdate() {
       sid: idx + 1,
       name,
     })) || [];
+
+  if (includeDraw && !teams.some(t => t.name.toLowerCase() === 'the draw')) {
+    teams.push({ sid: teams.length + 1, name: 'The Draw' });
+  }
 
 
 //  const teams: Team[] = matchData?.match?.matchOdds?.[0]?.oddDatas?.map((item: OddData, idx: number) => ({
@@ -357,7 +364,19 @@ export default function MatchManuallyUpdate() {
                 ))}
               </Select>
             </Grid>
-            <Grid item xs={12} md={8} textAlign="right">
+            <Grid item xs={12} md={3}>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={includeDraw}
+                    onChange={(e) => setIncludeDraw(e.target.checked)}
+                    disabled={matchData?.match?.declared === true}
+                  />
+                }
+                label="Include 'The Draw'"
+              />
+            </Grid>
+            <Grid item xs={12} md={5} textAlign="right">
               <Button
                 variant="contained"
                 color="primary"
