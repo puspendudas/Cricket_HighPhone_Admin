@@ -18,12 +18,12 @@ import useSuperAdminApi from 'src/Api/Client_api/useClientApi';
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 
-import LimitWDModal from './LimitWDModal';
-import { EditMemberModal } from './EditMemberModal';
-import { DeactivateModal } from './DeactivateModal';
 import { CreateMemberModal } from './CreateMemberModal';
-import { LimitUpdatesModal } from './LimitUpdatesModal';
+import { DeactivateModal } from './DeactivateModal';
+import { EditMemberModal } from './EditMemberModal';
 import { ExposureModal } from './ExposureModal';
+import { LimitUpdatesModal } from './LimitUpdatesModal';
+import LimitWDModal from './LimitWDModal';
 
 export function ClientTableData() {
   const { addClient, fetchClientList, updateTogalStatus, updateClient, ClintTogalStatus } = useSuperAdminApi();

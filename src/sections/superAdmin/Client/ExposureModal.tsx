@@ -1,21 +1,23 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
+
 import {
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
+  Box,
   Button,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Paper,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
   Typography,
-  CircularProgress,
-  Box,
 } from '@mui/material';
+
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
 
 interface ExposureModalProps {
@@ -70,35 +72,6 @@ export function ExposureModal({ open, onClose, userId, userName }: ExposureModal
     fetchData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, userId]);
-
-  const renderBetDetails = (bet: Bet) => {
-    const isBackOrYes = bet.selection?.toLowerCase() === 'back' || bet.selection?.toLowerCase() === 'yes';
-    const selectionColor = isBackOrYes ? '#1976d2' : '#d81b60'; // Blue for Yes/Back, Pink for Not/Lay
-
-    if (bet.bet_type === 'FANCY') {
-      return (
-        <Box>
-          <Typography variant="body2" fontWeight="bold" noWrap>{bet?.runner_name || 'Session'}</Typography>
-          <Typography variant="caption">
-            Run: {bet.odds_value || '-'} | Rate: {bet.odds_rate || '-'} <span style={{ color: selectionColor, fontWeight: 'bold' }}>({bet.selection})</span>
-          </Typography>
-        </Box>
-      );
-    }
-
-    if (bet.bet_type === 'BOOKMAKER') {
-      return (
-        <Box>
-          <Typography variant="body2" fontWeight="bold" noWrap>{bet.team_name || 'Team'}</Typography>
-          <Typography variant="caption">
-            Rate: {bet.odds_rate || '-'} <span style={{ color: selectionColor, fontWeight: 'bold' }}>({bet.selection})</span>
-          </Typography>
-        </Box>
-      );
-    }
-
-    return <Typography variant="body2">{bet.selection}</Typography>;
-  };
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="lg" fullWidth>

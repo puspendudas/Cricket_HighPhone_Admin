@@ -1,6 +1,8 @@
 import React from 'react';
 
-import { Box, Card, Stack, CardMedia, Typography } from '@mui/material';
+import { useNavigate } from 'react-router-dom';
+
+import { Box, Card, CardMedia, Stack, Typography } from '@mui/material';
 
 import Oneday from '../../../public/assets/dashbordimg/Image Group.png';
 import Lucky from '../../../public/assets/dashbordimg/9b0a5d8814f62081f3c1fb5988b917dc7215162a.png';
@@ -10,13 +12,16 @@ import Dregantiger from '../../../public/assets/dashbordimg/f72cf6e55fef786a25ae
 
 // Card Data
 const casinoGames = [
-  { name: 'Teen Patti', image: Teenpati },
-  { name: 'Dragon Tiger', image: Dregantiger },
-  { name: 'One Day Teen Patti', image: Oneday },
-  { name: 'Lucky 7', image: Lucky },
+  { name: 'Teen Patti', image: Teenpati, path: '/casino/teen' },
+  { name: 'Dragon Tiger', image: Dregantiger, path: '/casino/dt20' },
+  { name: 'One Day Teen Patti', image: Oneday, path: '/casino/teen20' },
+  { name: 'Lucky 7', image: Lucky, path: '/casino/lucky7eu' },
 ];
 
-const CasinoTables: React.FC = () => 
+const CasinoTables: React.FC = () => {
+    const navigate = useNavigate();
+
+    return (
     <Box
       sx={{
         borderRadius: 2,
@@ -33,6 +38,7 @@ const CasinoTables: React.FC = () =>
         {casinoGames.map((game, index) => (
           <Card
             key={index}
+            onClick={() => navigate(game.path)}
             sx={{
               minWidth: 200,
               maxWidth: 250,
@@ -52,6 +58,7 @@ const CasinoTables: React.FC = () =>
         ))}
       </Stack>
     </Box>
-
+    );
+};
 
 export default CasinoTables;

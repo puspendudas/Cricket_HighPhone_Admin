@@ -57,7 +57,7 @@ export function CricketTableData() {
   const userType = userData?.data?.type;
   const userId = userData?.data?._id;
   const parentId = userData?.data?.parent_id;
-  const userShare = userData?.data?.share || 100; // SUPERADMIN का share
+
 
   // Fetch all matches
   const { data: matchesData, isLoading: matchesLoading } = useQuery({

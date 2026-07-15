@@ -33,6 +33,10 @@ const CricketMatchLiveData = lazy(() => import('src/sections/sportsBetting/Crick
 const DeletedBets = lazy(() => import('src/sections/sportsBetting/Cricket/DeletedBets'));
 const DeletedBetsouter = lazy(() => import('src/sections/sportsBetting/Cricket/DeletedBetsouter'));
 const MatchCasinoData = lazy(() => import('src/sections/sportsBetting/Casino/MatchLiveData'));
+const CasinoDt20 = lazy(() => import('src/sections/sportsBetting/Casino/dt20/Dt20'));
+const CasinoTeen20 = lazy(() => import('src/sections/sportsBetting/Casino/teen20/Teen20'));
+const CasinoLucky7eu = lazy(() => import('src/sections/sportsBetting/Casino/lucky7eu/Lucky7eu'));
+const CasinoTeen = lazy(() => import('src/sections/sportsBetting/Casino/teen/Teen'));
 
 const MyLedger = lazy(() => import('src/pages/ledger/ledger'));
 const SuperAdmin = lazy(() => import('src/pages/ledger/allSuper'));
@@ -256,6 +260,10 @@ export const dashboardRoutes = [
       { path: '/cricket-live-match-data/:gameId', element: <CricketMatchLiveData /> },
       { path: '/deleted-bets/:gameId', element: <DeletedBets /> },
       { path: '/deleted-bet/:gameId', element: <DeletedBetsouter /> },
+      { path: '/casino/dt20', element: <CasinoDt20 /> },
+      { path: '/casino/teen20', element: <CasinoTeen20 /> },
+      { path: '/casino/lucky7eu', element: <CasinoLucky7eu /> },
+      { path: '/casino/teen', element: <CasinoTeen /> },
     ],
   },
 ];

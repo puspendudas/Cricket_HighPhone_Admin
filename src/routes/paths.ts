@@ -79,6 +79,10 @@ export const paths = {
       deletedBets: `/sport/deleted-bets/:gameId`,
       deletedBetsouter: `/sport/deleted-bet/:gameId`,
       livecasino: `/sport/live-casino`,
+      dt20: `/casino/dt20`,
+      teen20: `/casino/teen20`,
+      lucky7eu: `/casino/lucky7eu`,
+      teen: `/casino/teen`,
       // undeclaredmatch: `/sport/undeclared-match/:id`, // define if used in routes
     },
 

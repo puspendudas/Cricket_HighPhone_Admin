@@ -63,10 +63,7 @@ export default function DeletedBets() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { fetchMe } = useMeApi();
   const { FatchMatchData } = useMatchApi();
-  const {
-    fetchDeletedBetsHistory,
-    deleteBetHistory,
-  } = useBetHistroyApi();
+  const { fetchDeletedBetsHistory } = useBetHistroyApi();
   const { gameId } = useParams<{ gameId: string }>();
 
   // Fetch user data

@@ -23,25 +23,6 @@ import { Iconify } from 'src/components/iconify';
 import SettlementModal from './SettlementModal';
 
 // Interfaces define karo
-interface Bet {
-  _id?: string;
-  user_id: string;
-  bet_type: string;
-  stake_amount: string | number;
-  potential_winnings: string | number;
-  status: string;
-  selection: string;
-  immediate_child_admin?: {
-    _id: string;
-    user_name: string;
-    name: string;
-    match_commission: number;
-    session_commission: number;
-    share: number;
-  };
-  createdAt: string;
-}
-
 
 interface SettlementData {
   _id: string;

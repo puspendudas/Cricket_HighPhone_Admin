@@ -1,18 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation } from '@tanstack/react-query';
 
 import {
   Box,
   Card,
-  Grid,
-  Switch,
-  Typography,
   CardContent,
   CircularProgress,
+  FormControl,
+  FormControlLabel,
+  Grid,
   Radio,
   RadioGroup,
-  FormControlLabel,
-  FormControl,
+  Switch,
+  Typography,
 } from '@mui/material';
 
 import useAutosettingApi from 'src/Api/Autosetting/useAutosettingApi';

@@ -1,5 +1,5 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React, { useState, useEffect } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useParams, useNavigate } from 'react-router-dom';
 
 import {
@@ -33,10 +33,9 @@ import { formatUTCDateTime12H } from 'src/utils/date';
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
-import useBetHistroyApi from 'src/Api/matchApi/useBetHistroyApi';
 
-import { Iconify } from 'src/components/iconify';
 import { calculateCommission } from 'src/utils/commissionUtils';
+import { Iconify } from 'src/components/iconify';
 
 import LiveTv from './LiveTv';
 import win from '../../../../public/assets/win.png';
@@ -94,11 +93,7 @@ type FancyBet = MatchBet & {
   user: { user_name: string };
 };
 
-type MatchSummary = {
-  _id: any;
-  user?: { user_name?: string; match_commission?: number; session_commission?: number };
-  matchBets: (MatchBet | FancyBet)[];
-};
+
 
 export default function CricketMatchLiveData() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
@@ -113,7 +108,7 @@ export default function CricketMatchLiveData() {
 
   const { fetchTableData, Exposure } = useMatchApi();
   const { gameId } = useParams<{ gameId: string }>();
-  const queryClient = useQueryClient();
+
 
   const formatDateTime = (dateString: string): string => {
     const date = new Date(dateString);
@@ -139,7 +134,7 @@ export default function CricketMatchLiveData() {
   const userId = userData?.data?._id;
 
   // Match Data via Socket.IO
-  const { matchData, isLoading: matchLoading, error: matchError, betUpdate, betHistoryData } = useCricketMatchSocket(gameId);
+  const { matchData, isLoading: matchLoading, error: matchError, betHistoryData } = useCricketMatchSocket(gameId);
 
   // Extract current match ID AFTER matchData is defined
   const currentMatchId = matchData?.match?._id;

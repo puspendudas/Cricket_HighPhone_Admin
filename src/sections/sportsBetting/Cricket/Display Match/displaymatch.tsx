@@ -34,8 +34,8 @@ import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
 import useBetHistroyApi from 'src/Api/matchApi/useBetHistroyApi';
 
-import { Iconify } from 'src/components/iconify';
 import { calculateCommission } from 'src/utils/commissionUtils';
+import { Iconify } from 'src/components/iconify';
 
 import win from '../../../../../public/assets/win.png';
 
@@ -108,11 +108,7 @@ type FancyBet = MatchBet & {
   user: { user_name: string };
 };
 
-type MatchSummary = {
-  _id: any;
-  user?: { user_name?: string; match_commission?: number; session_commission?: number };
-  matchBets: (MatchBet | FancyBet)[];
-};
+
 const normalizeTeam = (name = '') => name.replace(/\./g, '').trim().toLowerCase();
 
 const DisplayMatch: React.FC = () => {
