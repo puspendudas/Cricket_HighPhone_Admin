@@ -18,6 +18,7 @@ import { formatUTCDateTime12H } from 'src/utils/date';
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
+import useCasinoApi from 'src/Api/CasinoApi/CasinoApi';
 
 import win from '../../../../public/assets/win.png';
 
@@ -32,8 +33,6 @@ interface LedgerEntry {
   client: string;
   matchName: string;
 }
-
-
 
 interface SettlementData {
   _id: string;
@@ -56,6 +55,7 @@ interface SettlementData {
 
 export function ChildTableData() {
   const { fetchTotalData, fetchSettlement } = useMatchApi();
+  const { fetchCasinoTotalData } = useCasinoApi();
   const { fetchMe } = useMeApi();
 
   const { data: userData } = useQuery({
@@ -72,11 +72,21 @@ export function ChildTableData() {
 
   const {
     data: tableData,
-    isLoading,
-    error,
+    isLoading: isCricketLoading,
+    error: cricketError,
   } = useQuery({
     queryKey: ['ledgerTableData', userId],
     queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
+    enabled: !!userId,
+  });
+
+  const {
+    data: casinoTableData,
+    isLoading: isCasinoLoading,
+    error: casinoError,
+  } = useQuery({
+    queryKey: ['casinoLedgerTableData', userId],
+    queryFn: () => (userId ? fetchCasinoTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
     enabled: !!userId,
   });
 
@@ -89,28 +99,32 @@ export function ChildTableData() {
 
   const [selectedClient, setSelectedClient] = useState<string | null>(null);
 
-  const getClientOptions = (matches: any[]): string[] => {
-    if (!matches || matches.length === 0) return [];
-
+  const getClientOptions = (cricketMatches: any[], casinoMatches: any[]): string[] => {
     const clientSet = new Set<string>();
 
-    matches.forEach((match) => {
-      const clientSummaries = match.client_summary || [];
-      clientSummaries.forEach((c: any) => {
-        const immediateAdmin = c.immediate_child_admin;
-        if (immediateAdmin && immediateAdmin._id) {
-          const name = immediateAdmin.name || '';
-          const userName = immediateAdmin.user_name || '';
+    const process = (matches: any[]) => {
+      if (!matches || !Array.isArray(matches)) return;
+      matches.forEach((match) => {
+        const clientSummaries = match.client_summary || [];
+        clientSummaries.forEach((c: any) => {
+          const immediateAdmin = c.immediate_child_admin;
+          if (immediateAdmin && immediateAdmin._id) {
+            const name = immediateAdmin.name || '';
+            const userName = immediateAdmin.user_name || '';
 
-          clientSet.add(`${name} (${userName})`);
-        }
+            clientSet.add(`${name} (${userName})`);
+          }
+        });
       });
-    });
+    };
+
+    process(cricketMatches);
+    process(casinoMatches);
 
     return Array.from(clientSet).sort();
   };
 
-  const clientOptions = tableData?.matches ? getClientOptions(tableData.matches) : [];
+  const clientOptions = getClientOptions(tableData?.matches, casinoTableData?.matches);
 
   // --------------------------------------------------
   // HELPER FUNCTION TO PARSE DATE STRINGS
@@ -122,8 +136,7 @@ export function ChildTableData() {
     const ddmmyyRegex = /^(\d{2})-(\d{2})-(\d{2}), (\d{2}):(\d{2}):(\d{2}) (AM|PM)$/;
     const match = dateStr.match(ddmmyyRegex);
     if (match) {
-      // dd-mm-yy, hh:mm:ss AM/PM
-      const [day, month, year, hour, minute, second, ampm] = match;
+      const [, day, month, year, hour, minute, second, ampm] = match;
       let h = parseInt(hour, 10);
       if (ampm === 'PM' && h < 12) h += 12;
       if (ampm === 'AM' && h === 12) h = 0;
@@ -137,7 +150,6 @@ export function ChildTableData() {
       );
     }
 
-    // Try to parse other formats
     try {
       return new Date(dateStr);
     } catch (e) {
@@ -147,16 +159,14 @@ export function ChildTableData() {
   };
 
   // --------------------------------------------------
-  // UPDATED PROCESSING LOGIC
+  // CRICKET PROCESSING LOGIC
   // --------------------------------------------------
-  const processLedgerData = (matches: any[], clientFilter = ''): LedgerEntry[] => {
+  const processCricketLedgerData = (matches: any[], clientFilter = ''): LedgerEntry[] => {
     if (!matches || matches.length === 0) return [];
 
     const normalizedFilter = clientFilter.trim().toLowerCase();
     const ledgerEntries: LedgerEntry[] = [];
-    let runningBalance = 0;
 
-    // Filter matches by client if filter is applied
     const filteredMatches = normalizedFilter
       ? matches.filter((match) => {
           const clientSummaries = match.client_summary || [];
@@ -169,15 +179,8 @@ export function ChildTableData() {
         })
       : matches;
 
-    // Sort matches by date first
-    const sortedMatches = filteredMatches.sort(
-      (a, b) => new Date(a.eventTime).getTime() - new Date(b.eventTime).getTime()
-    );
-
-    // CASE 1: Client filter is selected
     if (normalizedFilter) {
-      sortedMatches.forEach((match) => {
-        // Group summaries by client for this match
+      filteredMatches.forEach((match) => {
         const summariesByAdmin: Record<string, any[]> = {};
         const clientSummaries = match.client_summary || [];
 
@@ -193,7 +196,6 @@ export function ChildTableData() {
           summariesByAdmin[adminId].push(c);
         });
 
-        // Process each client's summaries for this match
         Object.values(summariesByAdmin).forEach((adminSummaries: any[]) => {
           if (!adminSummaries || adminSummaries.length === 0) return;
 
@@ -231,14 +233,12 @@ export function ChildTableData() {
           const debit = grandTotal > 0 ? grandTotal : 0;
 
           if (credit > 0 || debit > 0) {
-            runningBalance += debit - credit;
-
             ledgerEntries.push({
               date: formatUTCDateTime12H(match.eventTime),
               timestamp: match.eventTime ? new Date(match.eventTime).getTime() : 0,
               credit,
               debit,
-              balance: runningBalance,
+              balance: 0,
               winner: match.eventName,
               icon: win,
               client: (admin.user_name || admin.name || 'Unknown Client') as string,
@@ -247,10 +247,8 @@ export function ChildTableData() {
           }
         });
       });
-    }
-    // CASE 2: No client filter - show match totals
-    else {
-      sortedMatches.forEach((match) => {
+    } else {
+      filteredMatches.forEach((match) => {
         let matchTotal = 0;
         let matchHasData = false;
 
@@ -306,14 +304,12 @@ export function ChildTableData() {
           const credit = matchTotal < 0 ? Math.abs(matchTotal) : 0;
           const debit = matchTotal > 0 ? matchTotal : 0;
 
-          runningBalance += debit - credit;
-
           ledgerEntries.push({
             date: formatUTCDateTime12H(match.eventTime),
             timestamp: match.eventTime ? new Date(match.eventTime).getTime() : 0,
             credit,
             debit,
-            balance: runningBalance,
+            balance: 0,
             winner: match.eventName,
             icon: win,
             client: 'Match Total',
@@ -323,13 +319,180 @@ export function ChildTableData() {
       });
     }
 
-    // Return sorted entries
-    return ledgerEntries.sort((a, b) => a.timestamp - b.timestamp);
+    return ledgerEntries;
   };
 
-  const ledgerData = tableData?.matches
-    ? processLedgerData(tableData.matches, selectedClient ? extractUserName(selectedClient) : '')
+  // --------------------------------------------------
+  // CASINO PROCESSING LOGIC
+  // --------------------------------------------------
+  const processCasinoLedgerData = (matches: any[], clientFilter = ''): LedgerEntry[] => {
+    if (!matches || matches.length === 0) return [];
+
+    const normalizedFilter = clientFilter.trim().toLowerCase();
+    const ledgerEntries: LedgerEntry[] = [];
+
+    const filteredMatches = normalizedFilter
+      ? matches.filter((match) => {
+          const clientSummaries = match.client_summary || [];
+          return clientSummaries.some((c: any) => {
+            const admin = c.immediate_child_admin;
+            if (!admin) return false;
+            const adminName = (admin.user_name || admin.name || '').toString().toLowerCase();
+            return adminName.includes(normalizedFilter);
+          });
+        })
+      : matches;
+
+    if (normalizedFilter) {
+      filteredMatches.forEach((match) => {
+        const summariesByAdmin: Record<string, any[]> = {};
+        const clientSummaries = match.client_summary || [];
+
+        clientSummaries.forEach((c: any) => {
+          const admin = c.immediate_child_admin;
+          if (!admin || !admin._id) return;
+
+          const adminName = (admin.user_name || admin.name || '').toString();
+          if (!adminName.toLowerCase().includes(normalizedFilter)) return;
+
+          const adminId = admin._id;
+          if (!summariesByAdmin[adminId]) summariesByAdmin[adminId] = [];
+          summariesByAdmin[adminId].push(c);
+        });
+
+        Object.values(summariesByAdmin).forEach((adminSummaries: any[]) => {
+          if (!adminSummaries || adminSummaries.length === 0) return;
+
+          const admin = adminSummaries[0].immediate_child_admin;
+          if (!admin) return;
+
+          let casinoPL = 0;
+          let totalCommission = 0;
+          const casinoCommissionRate = admin?.casino_commission || 0;
+
+          adminSummaries.forEach((c: any) => {
+            const netCasinoPL = c.client_net_casino_pl || 0;
+            const userComm = c.client_total_casino_commission !== undefined
+              ? c.client_total_casino_commission
+              : (netCasinoPL < 0 ? Math.abs(netCasinoPL) * (casinoCommissionRate / 100) : 0);
+
+            casinoPL += netCasinoPL;
+            totalCommission += userComm;
+          });
+
+          const invertedCasinoPL = casinoPL * -1;
+          const afterCommission = invertedCasinoPL - totalCommission;
+          const share = admin?.share ?? 0;
+          const shareAmount = afterCommission * (share / 100);
+          const grandTotal = afterCommission - shareAmount;
+
+          const credit = grandTotal < 0 ? Math.abs(grandTotal) : 0;
+          const debit = grandTotal > 0 ? grandTotal : 0;
+
+          if (credit > 0 || debit > 0) {
+            ledgerEntries.push({
+              date: formatUTCDateTime12H(match.eventTime),
+              timestamp: match.eventTime ? new Date(match.eventTime).getTime() : 0,
+              credit,
+              debit,
+              balance: 0,
+              winner: match.eventName,
+              icon: win,
+              client: (admin.user_name || admin.name || 'Unknown Client') as string,
+              matchName: match.eventName,
+            });
+          }
+        });
+      });
+    } else {
+      filteredMatches.forEach((match) => {
+        let matchTotal = 0;
+        let matchHasData = false;
+
+        const summariesByAdmin: Record<string, any[]> = {};
+        const clientSummaries = match.client_summary || [];
+
+        clientSummaries.forEach((c: any) => {
+          const admin = c.immediate_child_admin;
+          if (!admin || !admin._id) return;
+          const adminId = admin._id;
+          if (!summariesByAdmin[adminId]) summariesByAdmin[adminId] = [];
+          summariesByAdmin[adminId].push(c);
+        });
+
+        Object.values(summariesByAdmin).forEach((adminSummaries: any[]) => {
+          if (!adminSummaries || adminSummaries.length === 0) return;
+
+          const admin = adminSummaries[0].immediate_child_admin;
+          if (!admin) return;
+
+          let casinoPL = 0;
+          let totalCommission = 0;
+          const casinoCommissionRate = admin?.casino_commission || 0;
+
+          adminSummaries.forEach((c: any) => {
+            const netCasinoPL = c.client_net_casino_pl || 0;
+            const userComm = c.client_total_casino_commission !== undefined
+              ? c.client_total_casino_commission
+              : (netCasinoPL < 0 ? Math.abs(netCasinoPL) * (casinoCommissionRate / 100) : 0);
+
+            casinoPL += netCasinoPL;
+            totalCommission += userComm;
+          });
+
+          const invertedCasinoPL = casinoPL * -1;
+          const afterCommission = invertedCasinoPL - totalCommission;
+          const share = admin?.share ?? 0;
+          const shareAmount = afterCommission * (share / 100);
+          const grandTotal = afterCommission - shareAmount;
+
+          matchTotal += grandTotal;
+          matchHasData = true;
+        });
+
+        if (matchHasData && Math.abs(matchTotal) > 0.01) {
+          const credit = matchTotal < 0 ? Math.abs(matchTotal) : 0;
+          const debit = matchTotal > 0 ? matchTotal : 0;
+
+          ledgerEntries.push({
+            date: formatUTCDateTime12H(match.eventTime),
+            timestamp: match.eventTime ? new Date(match.eventTime).getTime() : 0,
+            credit,
+            debit,
+            balance: 0,
+            winner: match.eventName,
+            icon: win,
+            client: 'Match Total',
+            matchName: match.eventName,
+          });
+        }
+      });
+    }
+
+    return ledgerEntries;
+  };
+
+  // Process and combine both cricket and casino ledger entries
+  const rawCricketEntries = tableData?.matches
+    ? processCricketLedgerData(tableData.matches, selectedClient ? extractUserName(selectedClient) : '')
     : [];
+
+  const rawCasinoEntries = casinoTableData?.matches
+    ? processCasinoLedgerData(casinoTableData.matches, selectedClient ? extractUserName(selectedClient) : '')
+    : [];
+
+  const allLedgerEntries = [...rawCricketEntries, ...rawCasinoEntries].sort(
+    (a, b) => a.timestamp - b.timestamp
+  );
+
+  let runningBalance = 0;
+  const ledgerData = allLedgerEntries.map((entry) => {
+    runningBalance += (entry.debit - entry.credit);
+    return {
+      ...entry,
+      balance: Number(runningBalance.toFixed(2)),
+    };
+  });
 
   const processSettlementData = (settlements: SettlementData[], clientFilter = '') => {
     if (!settlements || settlements.length === 0) return [];
@@ -374,16 +537,16 @@ export function ChildTableData() {
     (total: any, entry: any) => total + (entry.debit - entry.credit),
     0
   );
-  const finalBalance = ledgerBalance + settlementNet;
+  const finalBalance = Number((ledgerBalance + settlementNet).toFixed(2));
 
-  if (isLoading)
+  if (isCricketLoading || isCasinoLoading)
     return (
       <Box p={3} textAlign="center">
         <Typography>Loading ledger data...</Typography>
       </Box>
     );
 
-  if (error)
+  if (cricketError || casinoError)
     return (
       <Box p={3} textAlign="center">
         <Typography color="error">Error loading ledger data</Typography>
@@ -416,7 +579,7 @@ export function ChildTableData() {
         }}
       >
         <Typography variant="h6" sx={{ mb: 1 }}>
-          Ledger (Match PL)
+          Ledger (Match & Casino PL)
         </Typography>
 
         <Table>

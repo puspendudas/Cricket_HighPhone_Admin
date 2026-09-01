@@ -43,4 +43,7 @@ export default defineConfig({
     port: PORT, // Same port for preview, ensure it's a number
     host: '0.0.0.0', // Allow external access in preview as well
   },
+  build: {
+    chunkSizeWarningLimit: 500,
+  },
 });

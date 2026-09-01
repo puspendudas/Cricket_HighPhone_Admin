@@ -49,6 +49,7 @@ export const paths = {
     root: ROOTS.DASHBOARD,
 
     master: {
+      powerUser: `/master/power-user`,
       admin: `/master/admin`,
       
       miniadmin: `/master/super-master`,
@@ -68,22 +69,25 @@ export const paths = {
     },
 
     Sport: {
-      allpositions: `/sport/all-positions`,
+      all: `/sport/all`,
       cricket: `/sport/cricket`,
       casino: `/sport/casino`,
       matchsession: `/sport/match-session`,
       displaymatch: `/sport/display-match`,
+      displaycasinomatch: `/sport/display-casino-match`,
       displaymatchsession: `/sport/display-match-session`,
       livematch: `/sport/live-match-data`,
       cricketlivematch: `/sport/cricket-live-match-data/:gameId`,
       deletedBets: `/sport/deleted-bets/:gameId`,
       deletedBetsouter: `/sport/deleted-bet/:gameId`,
+      deletedCasinoBets: `/deleted-casino-bet/:gameCode`,
       livecasino: `/sport/live-casino`,
       dt20: `/casino/dt20`,
       teen20: `/casino/teen20`,
       lucky7eu: `/casino/lucky7eu`,
       teen: `/casino/teen`,
-      // undeclaredmatch: `/sport/undeclared-match/:id`, // define if used in routes
+      undeclaredmatch: `/sport/undeclared-match/:id`,
+      undeclaredcasinomatch: `/sport/undeclared-casino-match/:gameCode`,
     },
 
     ledger: {
@@ -102,6 +106,7 @@ export const paths = {
     },
 
     matchmanagement: `/match-management`,
+    casinomanagement: `/casino-management`,
     matchupdate: `/match-manuall-update/:id`,
     sessionupdate: `/session-update/:id`,
     globallocks: `/global-locks`,

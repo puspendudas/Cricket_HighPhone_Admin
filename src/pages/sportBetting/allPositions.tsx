@@ -6,7 +6,7 @@ import { AllPositionsview } from 'src/sections/sportsBetting/All Positions/AllPo
 
 // ----------------------------------------------------------------------
 
-const metadata = { title: `User profile | Dashboard - ${CONFIG.site.name}` };
+const metadata = { title: `All Betting | Dashboard - ${CONFIG.site.name}` };
 
 export default function Page() {
   return (

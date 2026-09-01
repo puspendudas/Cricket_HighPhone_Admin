@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 
 import useMeApi from 'src/Api/me/useMeApi';
+import { useAuthContext } from 'src/auth/hooks';
 import { DashboardContent } from 'src/layouts/dashboard';
 
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
@@ -16,6 +17,7 @@ type Props = {
 };
 
 export function BlankView({ title = 'Blank' }: Props) {
+  const { user } = useAuthContext();
   const [userName, setUserName] = useState<string>('Robert');
   const { fetchMe } = useMeApi();
 
@@ -33,6 +35,8 @@ export function BlankView({ title = 'Blank' }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const isPowerUser = user?.type === 'power_user';
+
   return (
     <DashboardContent>
       <CustomBreadcrumbs
@@ -42,7 +46,7 @@ export function BlankView({ title = 'Blank' }: Props) {
         ]}
         sx={{ mb: { xs: 3, md: 5 } }}
       />
-      <DashboardContant />
+      {!isPowerUser && <DashboardContant />}
       <CasinoTables />
       <TodaysLiveEvents />
       <UpcomingLiveEvents/>

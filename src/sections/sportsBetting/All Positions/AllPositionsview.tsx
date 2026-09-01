@@ -12,7 +12,7 @@ export function AllPositionsview() {
   return (
     <DashboardContent>
       <CustomBreadcrumbs
-        heading="All Positions "
+        heading="All Betting"
         links={[
           { name: ''},
         ]}

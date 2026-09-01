@@ -12,6 +12,7 @@ export const Endpoints = {
     fetchTableData: `${BASE_URL}/match/admin/all/declared/true`,
     fetchUndeclaredBets: `${BASE_URL}/match/all/declared/false`,
     fetchTotalData: `${BASE_URL}/match/admin/all/total`,
+    fetchCasinoTotalData: `${BASE_URL}/casino-bets/admin/all/total`,
     Settlement: `${BASE_URL}/admin/settlement`,
     Exposure: `${BASE_URL}/match/admin/exposure`,
     FatchUpdateData: `${BASE_URL}/match/odds/fancy`,

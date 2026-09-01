@@ -12,7 +12,8 @@ export const getUserHierarchyLabel = (role: UserRole): string => {
     super_master: 'Super Master',
     master: 'Master',
     super_agent: 'Super Agent',
-    agent: 'Agent'
+    agent: 'Agent',
+    power_user: 'Power User',
   };
   
   return labels[role] || role;

@@ -1,7 +1,7 @@
 import type { UserRole } from 'src/auth/types';
 
 import { lazy, Suspense } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useParams } from 'react-router-dom';
 
 import { CONFIG } from 'src/config-global';
 import { DashboardLayout } from 'src/layouts/dashboard';
@@ -10,10 +10,12 @@ import { LoadingScreen } from 'src/components/loading-screen';
 
 import { useAuthContext } from 'src/auth/hooks';
 import { AuthGuard, RoleBasedGuard } from 'src/auth/guard';
+import { isCasinoGame } from 'src/utils/casino';
 
 // ----------------------------------------------------------------------
 
 const IndexPage = lazy(() => import('src/pages/dashboard/Dashboard'));
+const PowerUserview = lazy(() => import('src/pages/SuperAdmin/powerUser'));
 const Adminview = lazy(() => import('src/pages/SuperAdmin/admin'));
 const SuperMasterview = lazy(() => import('src/pages/SuperAdmin/superMaster'));
 const Masterview = lazy(() => import('src/pages/SuperAdmin/master'));
@@ -26,12 +28,15 @@ const AllPositions = lazy(() => import('src/pages/sportBetting/allPositions'));
 
 const MatchSessionTable = lazy(() => import('src/sections/sportsBetting/All Positions/MatchSessionAction/MatchSessionTable'));
 const DisplayMatch = lazy(() => import('src/sections/sportsBetting/Cricket/Display Match/displaymatch'));
+const DisplayCasinoMatch = lazy(() => import('src/sections/sportsBetting/Casino/DisplayCasinoMatch'));
 const UnDeclaredMatch = lazy(() => import('src/sections/sportsBetting/Cricket/Display Match/UnDeclaredMatch/UnDeclaredMatch'));
+const CasinoUnDeclaredMatch = lazy(() => import('src/sections/sportsBetting/Casino/CasinoUnDeclaredMatch'));
 const MatchsessionDisplay = lazy(() => import('src/sections/sportsBetting/All Positions/Display Match/displaySessionMatch'));
 const MatchLiveData = lazy(() => import('src/sections/sportsBetting/MatchLiveData'));
 const CricketMatchLiveData = lazy(() => import('src/sections/sportsBetting/Cricket/CricketMatchLiveData'));
 const DeletedBets = lazy(() => import('src/sections/sportsBetting/Cricket/DeletedBets'));
 const DeletedBetsouter = lazy(() => import('src/sections/sportsBetting/Cricket/DeletedBetsouter'));
+const CasinoDeletedBets = lazy(() => import('src/sections/sportsBetting/Casino/CasinoDeletedBets'));
 const MatchCasinoData = lazy(() => import('src/sections/sportsBetting/Casino/MatchLiveData'));
 const CasinoDt20 = lazy(() => import('src/sections/sportsBetting/Casino/dt20/Dt20'));
 const CasinoTeen20 = lazy(() => import('src/sections/sportsBetting/Casino/teen20/Teen20'));
@@ -53,6 +58,7 @@ const MatchManuallyUpdate = lazy(() => import('src/sections/matchmanagement/Matc
 const SessionUpdate = lazy(() => import('src/sections/matchmanagement/SessionUpdate'));
 
 const Lockedcasino = lazy(() => import('src/pages/lockedcasino/lockedcasino'));
+const CasinoManagement = lazy(() => import('src/pages/casinoManagement/casinoManagement'));
 const Autosetting = lazy(() => import('src/pages/Autosetting/Autosetting'));
 
 type Props = {
@@ -70,6 +76,21 @@ export const RoleProtectedRoute = ({ children, allowedRoles }: Props) => {
       {children}
     </RoleBasedGuard>
   );
+};
+
+const SmartDeletedBets = () => {
+  const { gameId } = useParams<{ gameId?: string }>();
+  return isCasinoGame(gameId) ? <CasinoDeletedBets /> : <DeletedBets />;
+};
+
+const SmartDeletedBetsouter = () => {
+  const { gameId } = useParams<{ gameId?: string }>();
+  return isCasinoGame(gameId) ? <CasinoDeletedBets /> : <DeletedBetsouter />;
+};
+
+const SmartUnDeclaredMatch = () => {
+  const { id } = useParams<{ id?: string }>();
+  return isCasinoGame(id) ? <CasinoUnDeclaredMatch /> : <UnDeclaredMatch />;
 };
 
 const layoutContent = (
@@ -91,6 +112,14 @@ export const dashboardRoutes = [
       {
         path: 'master',
         children: [
+          {
+            path: 'power-user',
+            element: (
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <PowerUserview />
+              </RoleProtectedRoute>
+            ),
+          },
           {
             path: 'admin',
             element: (
@@ -186,16 +215,33 @@ export const dashboardRoutes = [
       {
         path: 'sport',
         children: [
-          { path: 'all-positions', element: <AllPositions /> },
+          { path: 'all', element: <AllPositions /> },
           { path: 'cricket', element: <Cricketview /> },
           { path: 'casino', element: <Casinoview /> },
           { path: 'match-session', element: <MatchSessionTable /> },
           { path: '/sport/display-match/:gameId', element: <DisplayMatch /> },
+          { path: '/sport/display-casino-match/:gameCode', element: <DisplayCasinoMatch /> },
           {
             path: '/sport/undeclared-match/:id',
             element: (
               <RoleProtectedRoute allowedRoles={['super_admin']}>
-                <UnDeclaredMatch />
+                <SmartUnDeclaredMatch />
+              </RoleProtectedRoute>
+            ),
+          },
+          {
+            path: '/sport/undeclared-casino-match/:gameCode',
+            element: (
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <CasinoUnDeclaredMatch />
+              </RoleProtectedRoute>
+            ),
+          },
+          {
+            path: '/sport/undeclared-casino/:gameCode',
+            element: (
+              <RoleProtectedRoute allowedRoles={['super_admin']}>
+                <CasinoUnDeclaredMatch />
               </RoleProtectedRoute>
             ),
           },
@@ -219,14 +265,14 @@ export const dashboardRoutes = [
 
       { path: 'all-super-admin-report', element: <AdminReport /> },
 
-      // ---------------- Settings (Only Super Admin) ----------------
+      // ---------------- Settings (Super Admin & Power User) ----------------
       {
         path: 'setting',
         children: [
           {
             path: 'announcement',
             element: (
-              <RoleProtectedRoute allowedRoles={['super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'power_user']}>
                 <Announcement />
               </RoleProtectedRoute>
             ),
@@ -234,7 +280,7 @@ export const dashboardRoutes = [
           {
             path: 'sync-used-wallet',
             element: (
-              <RoleProtectedRoute allowedRoles={['super_admin']}>
+              <RoleProtectedRoute allowedRoles={['super_admin', 'power_user']}>
                 <SuperAdmin />
               </RoleProtectedRoute>
             ),
@@ -244,11 +290,11 @@ export const dashboardRoutes = [
       { path: 'auto-setting', element: <Autosetting /> },
 
 
-      // ---------------- Match Management (Only Super Admin) ----------------
+      // ---------------- Match Management (Super Admin & Power User) ----------------
       {
         path: 'match-management',
         element: (
-          <RoleProtectedRoute allowedRoles={['super_admin']}>
+          <RoleProtectedRoute allowedRoles={['super_admin', 'power_user']}>
             <MatchManagement />
           </RoleProtectedRoute>
         ),
@@ -256,10 +302,36 @@ export const dashboardRoutes = [
 
       { path: 'match-manuall-update/:id', element: <MatchManuallyUpdate /> },
       { path: '/session-update/:id', element: <SessionUpdate /> },
+      {
+        path: 'casino-management',
+        element: (
+          <RoleProtectedRoute allowedRoles={['super_admin']}>
+            <CasinoManagement />
+          </RoleProtectedRoute>
+        ),
+      },
       { path: 'global-locks', element: <Lockedcasino /> },
       { path: '/cricket-live-match-data/:gameId', element: <CricketMatchLiveData /> },
-      { path: '/deleted-bets/:gameId', element: <DeletedBets /> },
-      { path: '/deleted-bet/:gameId', element: <DeletedBetsouter /> },
+      { path: '/deleted-bets/:gameId', element: <SmartDeletedBets /> },
+      { path: '/deleted-bet/:gameId', element: <SmartDeletedBetsouter /> },
+      { path: '/deleted-casino-bet/:gameCode', element: <CasinoDeletedBets /> },
+      { path: '/deleted-casino-bets/:gameCode', element: <CasinoDeletedBets /> },
+      {
+        path: '/undeclared-match/:id',
+        element: (
+          <RoleProtectedRoute allowedRoles={['super_admin']}>
+            <SmartUnDeclaredMatch />
+          </RoleProtectedRoute>
+        ),
+      },
+      {
+        path: '/undeclared-casino-match/:gameCode',
+        element: (
+          <RoleProtectedRoute allowedRoles={['super_admin']}>
+            <CasinoUnDeclaredMatch />
+          </RoleProtectedRoute>
+        ),
+      },
       { path: '/casino/dt20', element: <CasinoDt20 /> },
       { path: '/casino/teen20', element: <CasinoTeen20 /> },
       { path: '/casino/lucky7eu', element: <CasinoLucky7eu /> },

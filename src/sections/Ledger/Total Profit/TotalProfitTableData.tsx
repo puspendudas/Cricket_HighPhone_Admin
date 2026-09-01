@@ -17,6 +17,7 @@ import { formatUTCDateTime12H } from 'src/utils/date';
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
+import useCasinoApi from 'src/Api/CasinoApi/CasinoApi';
 
 import win from '../../../../public/assets/win.png';
 
@@ -32,10 +33,9 @@ interface LedgerEntry {
   matchName: string;
 }
 
-
-
 export function TotalProfitTableData() {
   const { fetchTotalData } = useMatchApi();
+  const { fetchCasinoTotalData } = useCasinoApi();
   const { fetchMe } = useMeApi();
 
   const { data: userData } = useQuery({
@@ -47,18 +47,22 @@ export function TotalProfitTableData() {
   const AdminuserId = userData?.data?.parent_id; // My Ledger ke liye
   const adminId = userData?.data?._id; // Current admin ID
 
-  // Child Ledger Data
-  const { data: childTableData } = useQuery({
+  // Child Cricket Data
+  const {
+    data: childTableData,
+    isLoading: isChildCricketLoading,
+    error: childCricketError,
+  } = useQuery({
     queryKey: ['childLedgerTableData', userId],
     queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
     enabled: !!userId,
   });
 
-  // My Ledger Data
+  // Parent Cricket Data (My Ledger)
   const {
     data: parentData,
-    isLoading,
-    error,
+    isLoading: isParentCricketLoading,
+    error: parentCricketError,
   } = useQuery({
     queryKey: ['ledgerTableData', AdminuserId],
     queryFn: () =>
@@ -66,9 +70,30 @@ export function TotalProfitTableData() {
     enabled: !!AdminuserId,
   });
 
+  // Child Casino Data
+  const {
+    data: childCasinoData,
+    isLoading: isChildCasinoLoading,
+    error: childCasinoError,
+  } = useQuery({
+    queryKey: ['childCasinoLedgerTableData', userId],
+    queryFn: () => (userId ? fetchCasinoTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
+    enabled: !!userId,
+  });
 
+  // Parent Casino Data (My Ledger)
+  const {
+    data: parentCasinoData,
+    isLoading: isParentCasinoLoading,
+    error: parentCasinoError,
+  } = useQuery({
+    queryKey: ['parentCasinoLedgerTableData', AdminuserId],
+    queryFn: () =>
+      AdminuserId ? fetchCasinoTotalData(AdminuserId) : Promise.reject(new Error('Missing user ID')),
+    enabled: !!AdminuserId,
+  });
 
-  // Calculate net amount for a client in a match
+  // ------------------ CRICKET CALCULATIONS ------------------
   const calculateClientNetAmount = (clientSummaries: any[], immediateChildAdmin: any, match: any) => {
     const matchCommissionRate = immediateChildAdmin?.match_commission || 0;
     const sessionCommissionRate = immediateChildAdmin?.session_commission || 0;
@@ -94,13 +119,12 @@ export function TotalProfitTableData() {
     const totalCommission = matchCommission + sessionCommission;
 
     const netAmount = totalPL - totalCommission;
-    const shareAmount = netAmount * (immediateChildAdmin.share / 100);
+    const shareAmount = netAmount * ((immediateChildAdmin.share || 0) / 100);
     const grandTotal = netAmount - shareAmount;
 
     return grandTotal;
   };
 
-  // Get MyLedger net amounts by match
   const getMyLedgerNetByMatch = (matches: any[]): Record<string, number> => {
     if (!matches || matches.length === 0) return {};
 
@@ -124,22 +148,20 @@ export function TotalProfitTableData() {
       Object.entries(summariesByClient).forEach(([clientId, adminSummaries]) => {
         const immediateChildAdmin = adminSummaries[0]?.immediate_child_admin;
 
-        // MyLedger mein sirf current admin ke data ko consider karo
         if (!immediateChildAdmin || immediateChildAdmin._id !== adminId) return;
 
         const grandTotal = calculateClientNetAmount(adminSummaries, immediateChildAdmin, match);
 
-        if (!matchNet[match.eventName]) {
-          matchNet[match.eventName] = 0;
+        if (!matchNet[match._id]) {
+          matchNet[match._id] = 0;
         }
-        matchNet[match.eventName] += grandTotal;
+        matchNet[match._id] += grandTotal;
       });
     });
 
     return matchNet;
   };
 
-  // Get Child net amounts by match
   const getChildNetByMatch = (matches: any[]): Record<string, number> => {
     if (!matches || matches.length === 0) return {};
 
@@ -167,42 +189,52 @@ export function TotalProfitTableData() {
 
         const grandTotal = calculateClientNetAmount(adminSummaries, immediateChildAdmin, match);
 
-        if (!matchNet[match.eventName]) {
-          matchNet[match.eventName] = 0;
+        if (!matchNet[match._id]) {
+          matchNet[match._id] = 0;
         }
-        matchNet[match.eventName] += grandTotal;
+        matchNet[match._id] += grandTotal;
       });
     });
 
     return matchNet;
   };
 
-  // Helper function to parse date strings
-  // const parseDateString = (dateStr: string): Date => {
-  //   if (!dateStr || dateStr === 'N/A') return new Date(0); // Return epoch for invalid dates
+  // ------------------ CASINO CALCULATIONS ------------------
+  const calculateCasinoClientNetAmount = (clientSummaries: any[], immediateChildAdmin: any, match: any) => {
+    const casinoCommissionRate = immediateChildAdmin?.casino_commission || 0;
 
-  //   try {
-  //     // Try to parse the date string
-  //     return new Date(dateStr);
-  //   } catch (e) {
-  //     console.error('Error parsing date:', dateStr, e);
-  //     return new Date(0);
-  //   }
-  // };
+    let casinoPL = 0;
+    let totalCommission = 0;
 
-  // Process ledger entries for Total Profit
-  const processLedgerData = (matches: any[]): LedgerEntry[] => {
-    if (!matches || matches.length === 0) return [];
+    clientSummaries.forEach((c: any) => {
+      const netCasinoPL = c.client_net_casino_pl || 0;
+      const userComm = c.client_total_casino_commission !== undefined
+        ? c.client_total_casino_commission
+        : (netCasinoPL < 0 ? Math.abs(netCasinoPL) * (casinoCommissionRate / 100) : 0);
 
-    const ledgerEntries: LedgerEntry[] = [];
+      casinoPL += netCasinoPL;
+      totalCommission += userComm;
+    });
 
-    const myLedgerNet = parentData?.matches ? getMyLedgerNetByMatch(parentData.matches) : {};
-    const childNet = childTableData?.matches ? getChildNetByMatch(childTableData.matches) : {};
+    const invertedCasinoPL = casinoPL * -1;
+    const netAmount = invertedCasinoPL - totalCommission;
+    const shareAmount = netAmount * ((immediateChildAdmin.share || 0) / 100);
+    const grandTotal = netAmount - shareAmount;
 
-    const processedEvents = new Set<string>();
+    return grandTotal;
+  };
 
-    // STEP 1: sirf entries banao (NO balance)
-    matches.forEach((match) => {
+  const getMyLedgerCasinoNetByMatch = (matches: any[]): Record<string, number> => {
+    if (!matches || matches.length === 0) return {};
+
+    const matchNet: Record<string, number> = {};
+    const processedMatches = new Set<string>();
+
+    matches.forEach((match: any) => {
+      const key = match._id;
+      if (processedMatches.has(key)) return;
+      processedMatches.add(key);
+
       const summariesByClient: Record<string, any[]> = {};
       const clientSummaries = match.client_summary || [];
 
@@ -217,52 +249,145 @@ export function TotalProfitTableData() {
 
         if (!immediateChildAdmin || immediateChildAdmin._id !== adminId) return;
 
-        const key = `${match.eventName}-${clientId}`;
-        if (processedEvents.has(key)) return;
-        processedEvents.add(key);
+        const grandTotal = calculateCasinoClientNetAmount(adminSummaries, immediateChildAdmin, match);
 
-        const myLedgerAmount = myLedgerNet[match.eventName] || 0;
-        const childAmount = childNet[match.eventName] || 0;
-
-        const totalProfit = childAmount - myLedgerAmount;
-
-        const credit = totalProfit < 0 ? Math.abs(totalProfit) : 0;
-        const debit = totalProfit > 0 ? totalProfit : 0;
-
-        if (credit === 0 && debit === 0) return;
-
-        ledgerEntries.push({
-          date: formatUTCDateTime12H(match.eventTime),
-          timestamp: new Date(match.eventTime).getTime(),
-          credit,
-          debit,
-          balance: 0, // temporary
-          winner: match.eventName,
-          icon: win,
-          client: immediateChildAdmin.user_name || 'Unknown Client',
-          matchName: match.eventName,
-        });
+        if (!matchNet[match._id]) {
+          matchNet[match._id] = 0;
+        }
+        matchNet[match._id] += grandTotal;
       });
     });
 
-    // STEP 2: sort
-    const sortedLedgerEntries = ledgerEntries.sort((a, b) => a.timestamp - b.timestamp);
-
-    // STEP 3: cumulative balance (ACCOUNTING STYLE)
-    let runningBalance = 0;
-
-    sortedLedgerEntries.forEach((entry) => {
-      runningBalance += entry.debit - entry.credit;
-      entry.balance = runningBalance;
-    });
-
-    return sortedLedgerEntries;
+    return matchNet;
   };
 
-  const ledgerData = parentData?.matches ? processLedgerData(parentData.matches) : [];
+  const getChildCasinoNetByMatch = (matches: any[]): Record<string, number> => {
+    if (!matches || matches.length === 0) return {};
 
-  // Calculate totals
+    const matchNet: Record<string, number> = {};
+    const processedMatches = new Set<string>();
+
+    matches.forEach((match: any) => {
+      const key = match._id;
+      if (processedMatches.has(key)) return;
+      processedMatches.add(key);
+
+      const summariesByClient: Record<string, any[]> = {};
+      const clientSummaries = match.client_summary || [];
+
+      clientSummaries.forEach((c: any) => {
+        const clientId = c.immediate_child_admin?._id || 'unknown';
+        if (!summariesByClient[clientId]) summariesByClient[clientId] = [];
+        summariesByClient[clientId].push(c);
+      });
+
+      Object.entries(summariesByClient).forEach(([clientId, adminSummaries]) => {
+        const immediateChildAdmin = adminSummaries[0]?.immediate_child_admin;
+
+        if (!immediateChildAdmin) return;
+
+        const grandTotal = calculateCasinoClientNetAmount(adminSummaries, immediateChildAdmin, match);
+
+        if (!matchNet[match._id]) {
+          matchNet[match._id] = 0;
+        }
+        matchNet[match._id] += grandTotal;
+      });
+    });
+
+    return matchNet;
+  };
+
+  // ------------------ BUILD COMBINED TOTAL PROFIT ENTRIES ------------------
+  const myLedgerNet = parentData?.matches ? getMyLedgerNetByMatch(parentData.matches) : {};
+  const childNet = childTableData?.matches ? getChildNetByMatch(childTableData.matches) : {};
+
+  const myLedgerCasinoNet = parentCasinoData?.matches ? getMyLedgerCasinoNetByMatch(parentCasinoData.matches) : {};
+  const childCasinoNet = childCasinoData?.matches ? getChildCasinoNetByMatch(childCasinoData.matches) : {};
+
+  const allCricketMatchesMap = new Map<string, any>();
+  (parentData?.matches || []).forEach((m: any) => allCricketMatchesMap.set(m._id, m));
+  (childTableData?.matches || []).forEach((m: any) => {
+    if (!allCricketMatchesMap.has(m._id)) {
+      allCricketMatchesMap.set(m._id, m);
+    }
+  });
+
+  const allCasinoMatchesMap = new Map<string, any>();
+  (parentCasinoData?.matches || []).forEach((m: any) => allCasinoMatchesMap.set(m._id, m));
+  (childCasinoData?.matches || []).forEach((m: any) => {
+    if (!allCasinoMatchesMap.has(m._id)) {
+      allCasinoMatchesMap.set(m._id, m);
+    }
+  });
+
+  const cricketEntries: LedgerEntry[] = [];
+  allCricketMatchesMap.forEach((match, matchId) => {
+    const myLedgerAmount = myLedgerNet[matchId] || 0;
+    const childAmount = childNet[matchId] || 0;
+    const totalProfit = childAmount - myLedgerAmount;
+
+    const credit = totalProfit < 0 ? Math.abs(totalProfit) : 0;
+    const debit = totalProfit > 0 ? totalProfit : 0;
+
+    if (Math.abs(totalProfit) > 0.01) {
+      cricketEntries.push({
+        date: formatUTCDateTime12H(match.eventTime),
+        timestamp: match.eventTime ? new Date(match.eventTime).getTime() : 0,
+        credit,
+        debit,
+        balance: 0,
+        winner: match.eventName,
+        icon: win,
+        client: userData?.data?.user_name || 'Client',
+        matchName: match.eventName,
+      });
+    }
+  });
+
+  const casinoEntries: LedgerEntry[] = [];
+  allCasinoMatchesMap.forEach((match, matchId) => {
+    const myLedgerAmount = myLedgerCasinoNet[matchId] || 0;
+    const childAmount = childCasinoNet[matchId] || 0;
+    const totalProfit = childAmount - myLedgerAmount;
+
+    const credit = totalProfit < 0 ? Math.abs(totalProfit) : 0;
+    const debit = totalProfit > 0 ? totalProfit : 0;
+
+    if (Math.abs(totalProfit) > 0.01) {
+      casinoEntries.push({
+        date: formatUTCDateTime12H(match.eventTime),
+        timestamp: match.eventTime ? new Date(match.eventTime).getTime() : 0,
+        credit,
+        debit,
+        balance: 0,
+        winner: match.eventName,
+        icon: win,
+        client: userData?.data?.user_name || 'Client',
+        matchName: match.eventName,
+      });
+    }
+  });
+
+  const allLedgerEntries = [...cricketEntries, ...casinoEntries].sort(
+    (a, b) => a.timestamp - b.timestamp
+  );
+
+  let runningBalance = 0;
+  const ledgerData = allLedgerEntries.map((entry) => {
+    runningBalance += entry.debit - entry.credit;
+    return {
+      ...entry,
+      balance: Number(runningBalance.toFixed(2)),
+    };
+  });
+
   const finalBalance = ledgerData.length > 0 ? ledgerData[ledgerData.length - 1].balance : 0;
+
+  const isLoading =
+    isChildCricketLoading || isParentCricketLoading || isChildCasinoLoading || isParentCasinoLoading;
+  const hasError =
+    childCricketError || parentCricketError || childCasinoError || parentCasinoError;
 
   if (isLoading) {
     return (
@@ -272,7 +397,7 @@ export function TotalProfitTableData() {
     );
   }
 
-  if (error) {
+  if (hasError) {
     return (
       <Box p={3} textAlign="center">
         <Typography color="error">Error loading ledger data</Typography>

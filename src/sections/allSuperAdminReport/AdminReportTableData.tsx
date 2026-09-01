@@ -25,6 +25,7 @@ import {
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
+import useCasinoApi from 'src/Api/CasinoApi/CasinoApi';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -34,9 +35,11 @@ interface ReportRow {
   superAdmin: string;
   match: number;
   session: number;
+  casino: number;
   total: number;
   mCom: number;
   sCom: number;
+  cCom: number;
   tCom: number;
   netAmount: number;
   shareAmount: number;
@@ -99,9 +102,11 @@ const processAdminReportData = (matches: MatchSummary[]): ReportRow[] => {
           superAdmin: displayName,
           match: 0,
           session: 0,
+          casino: 0,
           total: 0,
           mCom: 0,
           sCom: 0,
+          cCom: 0,
           tCom: 0,
           netAmount: 0,
           shareAmount: 0,
@@ -113,21 +118,27 @@ const processAdminReportData = (matches: MatchSummary[]): ReportRow[] => {
 
       const invertedMatchPL = (c.client_net_match_pl || 0) * -1;
       const invertedSessionPL = (c.client_net_session_pl || 0) * -1;
+      const invertedCasinoPL = (c.client_net_casino_pl || 0) * -1;
 
       const totalSessionStake = c.client_total_session_stake || 0;
 
       const matchCommissionRate = immediate.match_commission || 0;
       const sessionCommissionRate = immediate.session_commission || 0;
+      const casinoCommissionRate = immediate.casino_commission || 0;
 
       let matchCommission = 0;
       if (c.client_net_match_pl < 0) {
         matchCommission = Math.abs(c.client_net_match_pl) * (matchCommissionRate / 100);
       }
+      
+      const casinoCommission = c.client_total_casino_commission !== undefined
+        ? c.client_total_casino_commission
+        : (c.client_net_casino_pl < 0 ? Math.abs(c.client_net_casino_pl) * (casinoCommissionRate / 100) : 0);
 
       const sessionCommission = totalSessionStake * (sessionCommissionRate / 100);
-      const totalCommission = matchCommission + sessionCommission;
+      const totalCommission = matchCommission + sessionCommission + casinoCommission;
 
-      const total = invertedMatchPL + invertedSessionPL;
+      const total = invertedMatchPL + invertedSessionPL + invertedCasinoPL;
       const netAmount = total - totalCommission;
 
       const sharePercentage = immediate.share || 0;
@@ -137,9 +148,11 @@ const processAdminReportData = (matches: MatchSummary[]): ReportRow[] => {
 
       adminRow.match += invertedMatchPL;
       adminRow.session += invertedSessionPL;
+      adminRow.casino += invertedCasinoPL;
       adminRow.total += total;
       adminRow.mCom += matchCommission;
       adminRow.sCom += sessionCommission;
+      adminRow.cCom += casinoCommission;
       adminRow.tCom += totalCommission;
       adminRow.netAmount += netAmount;
       adminRow.shareAmount += shareAmount;
@@ -159,6 +172,7 @@ export function AdminReportTableData() {
   const [selectedRow, setSelectedRow] = React.useState<ReportRow | null>(null);
 
   const { fetchTotalData } = useMatchApi();
+  const { fetchCasinoTotalData } = useCasinoApi();
   const { fetchMe } = useMeApi();
 
   const { data: userData } = useQuery({
@@ -170,20 +184,34 @@ export function AdminReportTableData() {
 
   const {
     data: tableData,
-    isLoading,
-    error,
+    isLoading: isCricketLoading,
+    error: cricketError,
   } = useQuery({
     queryKey: ['adminReportTableData', userId],
     queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
     enabled: !!userId,
-    refetchInterval: 3000,
+    refetchOnWindowFocus: false,
   });
 
-  const allMatches = tableData?.matches || [];
+  const {
+    data: casinoTableData,
+    isLoading: isCasinoLoading,
+    error: casinoError,
+  } = useQuery({
+    queryKey: ['adminReportCasinoTableData', userId],
+    queryFn: () => (userId ? fetchCasinoTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
+    enabled: !!userId,
+    refetchOnWindowFocus: false,
+  });
+
+  const allMatches = [
+    ...(tableData?.matches || []),
+    ...(casinoTableData?.matches || []),
+  ];
 
   // ✅ Filter matches based on selected date range
-  const filteredMatches = allMatches.filter((match: MatchSummary) => {
-    const matchDate = dayjs(match.createdAt);
+  const filteredMatches = allMatches.filter((match: any) => {
+    const matchDate = dayjs(match.createdAt || match.eventTime);
     if (startDate && matchDate.isBefore(startDate, 'day')) return false;
     if (endDate && matchDate.isAfter(endDate, 'day')) return false;
     return true;
@@ -209,14 +237,14 @@ export function AdminReportTableData() {
     setSelectedRow(null);
   };
 
-  if (isLoading)
+  if (isCricketLoading || isCasinoLoading)
     return (
       <Box p={3} textAlign="center">
         <Typography>Loading admin report data...</Typography>
       </Box>
     );
 
-  if (error)
+  if (cricketError || casinoError)
     return (
       <Box p={3} textAlign="center">
         <Typography color="error">Error loading admin report data</Typography>
@@ -231,7 +259,7 @@ export function AdminReportTableData() {
             <DatePicker
               label="Start Date"
               value={startDate}
-              onChange={(newValue) => setStartDate(newValue)}
+              onChange={(newValue: any) => setStartDate(newValue)}
               slots={{ openPickerIcon: () => <Iconify icon="solar:calendar-bold" width={20} /> }}
               slotProps={{ textField: { fullWidth: true } }}
             />
@@ -240,7 +268,7 @@ export function AdminReportTableData() {
             <DatePicker
               label="End Date"
               value={endDate}
-              onChange={(newValue) => setEndDate(newValue)}
+              onChange={(newValue: any) => setEndDate(newValue)}
               slots={{ openPickerIcon: () => <Iconify icon="solar:calendar-bold" width={20} /> }}
               slotProps={{ textField: { fullWidth: true } }}
             />
@@ -251,7 +279,7 @@ export function AdminReportTableData() {
               select
               fullWidth
               value={selectedAdmin}
-              onChange={(e) => setSelectedAdmin(e.target.value)}
+              onChange={(e: any) => setSelectedAdmin(e.target.value)}
             >
               <MenuItem value="">All Admins</MenuItem>
               {superAdmins.map((admin) => (
@@ -270,9 +298,11 @@ export function AdminReportTableData() {
                 <TableCell>Super Admin</TableCell>
                 <TableCell>Match</TableCell>
                 <TableCell>Session</TableCell>
+                <TableCell>Casino</TableCell>
                 <TableCell>Total</TableCell>
                 <TableCell>M. Comm</TableCell>
                 <TableCell>S. Comm</TableCell>
+                <TableCell>C. Comm</TableCell>
                 <TableCell>T. Comm</TableCell>
                 <TableCell>NET.AMT</TableCell>
                 <TableCell>SHR.AMT</TableCell>
@@ -286,26 +316,38 @@ export function AdminReportTableData() {
                 filteredRows.map((row, index) => (
                   <TableRow key={index}>
                     <TableCell>{row.superAdmin}</TableCell>
-                    <TableCell sx={{ color: row.match >= 0 ? 'green' : 'red' }}>
-                      ₹{Math.abs(row.match).toFixed(2)}
+                    <TableCell sx={{ whiteSpace: "nowrap", color: row.match >= 0 ? 'green' : 'red' }}>
+                      {row.match >= 0 ? '+' : '-'} ₹{Math.abs(row.match).toFixed(2)}
                     </TableCell>
-                    <TableCell sx={{ color: row.session >= 0 ? 'green' : 'red' }}>
-                      ₹{Math.abs(row.session).toFixed(2)}
+                    <TableCell sx={{ whiteSpace: "nowrap", color: row.session >= 0 ? 'green' : 'red' }}>
+                      {row.session >= 0 ? '+' : '-'} ₹{Math.abs(row.session).toFixed(2)}
                     </TableCell>
-                    <TableCell sx={{ color: row.total >= 0 ? 'green' : 'red' }}>
-                      ₹{Math.abs(row.total).toFixed(2)}
+                    <TableCell sx={{ whiteSpace: "nowrap", color: row.casino >= 0 ? 'green' : 'red' }}>
+                      {row.casino >= 0 ? '+' : '-'} ₹{Math.abs(row.casino).toFixed(2)}
                     </TableCell>
-                    <TableCell>₹{row.mCom.toFixed(2)}</TableCell>
-                    <TableCell>₹{row.sCom.toFixed(2)}</TableCell>
-                    <TableCell>₹{row.tCom.toFixed(2)}</TableCell>
-                    <TableCell sx={{ color: row.netAmount >= 0 ? 'green' : 'red' }}>
-                      ₹{Math.abs(row.netAmount).toFixed(2)}
+                    <TableCell sx={{ whiteSpace: "nowrap", color: row.total >= 0 ? 'green' : 'red' }}>
+                      {row.total >= 0 ? '+' : '-'} ₹{Math.abs(row.total).toFixed(2)}
                     </TableCell>
-                    <TableCell sx={{ color: row.shareAmount >= 0 ? 'green' : 'red' }}>
-                      ₹{Math.abs(row.shareAmount).toFixed(2)}
+                    <TableCell sx={{ whiteSpace: "nowrap", color: 'red' }}>
+                      -₹{row.mCom.toFixed(2)}
                     </TableCell>
-                    <TableCell sx={{ color: row.gTotal >= 0 ? 'green' : 'red' }}>
-                      ₹{Math.abs(row.gTotal).toFixed(2)}
+                    <TableCell sx={{ whiteSpace: "nowrap", color: 'red' }}>
+                      -₹{row.sCom.toFixed(2)}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap", color: 'red' }}>
+                      -₹{row.cCom.toFixed(2)}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap", color: 'red' }}>
+                      -₹{row.tCom.toFixed(2)}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap", color: row.netAmount >= 0 ? 'green' : 'red' }}>
+                      {row.netAmount >= 0 ? '+' : '-'} ₹{Math.abs(row.netAmount).toFixed(2)}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap", color: row.shareAmount >= 0 ? 'green' : 'red' }}>
+                      {row.shareAmount >= 0 ? '+' : '-'} ₹{Math.abs(row.shareAmount).toFixed(2)}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: "nowrap", color: row.gTotal >= 0 ? 'green' : 'red' }}>
+                      {row.gTotal >= 0 ? '+' : '-'} ₹{Math.abs(row.gTotal).toFixed(2)}
                     </TableCell>
                     <TableCell>
                       <IconButton onClick={() => handleOpenModal(row)}>
@@ -326,7 +368,12 @@ export function AdminReportTableData() {
         </TableContainer>
       </Paper>
 
-      <AdminReportModal open={modalOpen} onClose={handleCloseModal} rowData={selectedRow} />
+      <AdminReportModal
+        open={modalOpen}
+        onClose={handleCloseModal}
+        rowData={selectedRow}
+        matches={filteredMatches}
+      />
     </LocalizationProvider>
   );
 }

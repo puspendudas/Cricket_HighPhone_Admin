@@ -132,6 +132,8 @@ export default function CricketMatchLiveData() {
 
   // Extract user ID
   const userId = userData?.data?._id;
+  const userType = userData?.data?.type;
+  const isPowerUser = userType === 'power_user';
 
   // Match Data via Socket.IO
   const { matchData, isLoading: matchLoading, error: matchError, betHistoryData } = useCricketMatchSocket(gameId);
@@ -248,6 +250,9 @@ export default function CricketMatchLiveData() {
           <Typography>Loading summary data...</Typography>
         </Box>
       );
+    }
+    if (isPowerUser) {
+      return null;
     }
     return (
       <>
@@ -453,7 +458,17 @@ export default function CricketMatchLiveData() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginated.length > 0 ? (
+              {isPowerUser ? (
+                <TableRow sx={{ backgroundColor: '#FFC107' }}>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Total ({formattedBetHistory.length} Bets)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>
+                    ₹{formattedBetHistory.reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0).toLocaleString()}
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                </TableRow>
+              ) : paginated.length > 0 ? (
                 paginated.map((row: any, index: any) => (
                   <TableRow key={`${row.client}-${index}`} hover>
                     <TableCell>
@@ -853,52 +868,64 @@ export default function CricketMatchLiveData() {
                               </TableRow>
                             </TableHead>
                             <TableBody>
-                              {bets.map((bet) => (
-                                <TableRow key={bet.id}>
-                                  <TableCell>
-                                    {bet.user?.name || '-'} ({bet.user?.user_name || '-'})
+                              {isPowerUser ? (
+                                <TableRow sx={{ backgroundColor: '#FFC107' }}>
+                                  <TableCell sx={{ fontWeight: 'bold' }}>Total ({bets.length} Bets)</TableCell>
+                                  <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                  <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                  <TableCell sx={{ fontWeight: 'bold' }}>
+                                    ₹{bets.reduce((sum: number, b: BetData) => sum + (Number(b.stake_amount) || 0), 0).toLocaleString()}
                                   </TableCell>
-                                  <TableCell>
-                                    {parseInt(bet.odds_value || bet.odds_rate, 10)}
-                                  </TableCell>
-                                  <TableCell>
-                                    <Box
-                                      sx={{
-                                        display: 'inline-flex',
-                                        alignItems: 'center',
-                                        px: 2,
-                                        py: 0.5,
-                                        borderRadius: '20px',
-                                        fontWeight: 'bold',
-                                        color: '#fff',
-                                        backgroundColor:
-                                          bet.selection === 'Yes' ? '#83c2fc' : '#fda4b4',
-                                      }}
-                                    >
-                                      <Typography
-                                        variant="body2"
-                                        sx={{ fontWeight: 'bold', mr: 0.5, color: '#000' }}
-                                      >
-                                        {bet.selection}
-                                      </Typography>
-                                      <Typography
-                                        variant="body2"
+                                  <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                </TableRow>
+                              ) : (
+                                bets.map((bet) => (
+                                  <TableRow key={bet.id}>
+                                    <TableCell>
+                                      {bet.user?.name || '-'} ({bet.user?.user_name || '-'})
+                                    </TableCell>
+                                    <TableCell>
+                                      {parseInt(bet.odds_value || bet.odds_rate, 10)}
+                                    </TableCell>
+                                    <TableCell>
+                                      <Box
                                         sx={{
-                                          fontWeight: 'bold',
-                                          background: '#fff',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          px: 2,
+                                          py: 0.5,
                                           borderRadius: '20px',
-                                          color: '#000',
-                                          padding: '1px 8px',
+                                          fontWeight: 'bold',
+                                          color: '#fff',
+                                          backgroundColor:
+                                            bet.selection === 'Yes' ? '#83c2fc' : '#fda4b4',
                                         }}
                                       >
-                                        {Number(bet.odds_rate).toFixed(0)}
-                                      </Typography>
-                                    </Box>
-                                  </TableCell>
-                                  <TableCell>₹{bet.stake_amount.toLocaleString()}</TableCell>
-                                  <TableCell>{formatDateTime(bet.createdAt)}</TableCell>
-                                </TableRow>
-                              ))}
+                                        <Typography
+                                          variant="body2"
+                                          sx={{ fontWeight: 'bold', mr: 0.5, color: '#000' }}
+                                        >
+                                          {bet.selection}
+                                        </Typography>
+                                        <Typography
+                                          variant="body2"
+                                          sx={{
+                                            fontWeight: 'bold',
+                                            background: '#fff',
+                                            borderRadius: '20px',
+                                            color: '#000',
+                                            padding: '1px 8px',
+                                          }}
+                                        >
+                                          {Number(bet.odds_rate).toFixed(0)}
+                                        </Typography>
+                                      </Box>
+                                    </TableCell>
+                                    <TableCell>₹{bet.stake_amount.toLocaleString()}</TableCell>
+                                    <TableCell>{formatDateTime(bet.createdAt)}</TableCell>
+                                  </TableRow>
+                                ))
+                              )}
                             </TableBody>
                           </Table>
                         </TableContainer>
@@ -935,7 +962,19 @@ export default function CricketMatchLiveData() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {last10UndeclaredBets.length === 0 ? (
+                  {isPowerUser ? (
+                    <TableRow sx={{ backgroundColor: '#FFC107' }}>
+                      <TableCell sx={{ fontWeight: 'bold' }}>Total ({last10UndeclaredBets.length} Bets)</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>
+                        ₹{last10UndeclaredBets.reduce((sum: number, b: BetData) => sum + (Number(b.stake_amount) || 0), 0).toLocaleString()}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                    </TableRow>
+                  ) : last10UndeclaredBets.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={7} align="center">No undeclared bets available</TableCell>
                     </TableRow>
@@ -1229,52 +1268,64 @@ export default function CricketMatchLiveData() {
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {bets.map((bet) => (
-                                  <TableRow key={bet.id}>
-                                    <TableCell>
-                                      {bet.user?.name || '-'} ({bet.user?.user_name || '-'})
+                                {isPowerUser ? (
+                                  <TableRow sx={{ backgroundColor: '#FFC107' }}>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Total ({bets.length} Bets)</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>
+                                      ₹{bets.reduce((sum: number, b: BetData) => sum + (Number(b.stake_amount) || 0), 0).toLocaleString()}
                                     </TableCell>
-                                    <TableCell>
-                                      {parseInt(bet.odds_value || bet.odds_rate, 10)}
-                                    </TableCell>
-                                    <TableCell>
-                                      <Box
-                                        sx={{
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          px: 2,
-                                          py: 0.5,
-                                          borderRadius: '20px',
-                                          fontWeight: 'bold',
-                                          color: '#fff',
-                                          backgroundColor:
-                                            bet.selection === 'Yes' ? '#83c2fc' : '#fda4b4',
-                                        }}
-                                      >
-                                        <Typography
-                                          variant="body2"
-                                          sx={{ fontWeight: 'bold', mr: 0.5, color: '#000' }}
-                                        >
-                                          {bet.selection}
-                                        </Typography>
-                                        <Typography
-                                          variant="body2"
+                                    <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                  </TableRow>
+                                ) : (
+                                  bets.map((bet) => (
+                                    <TableRow key={bet.id}>
+                                      <TableCell>
+                                        {bet.user?.name || '-'} ({bet.user?.user_name || '-'})
+                                      </TableCell>
+                                      <TableCell>
+                                        {parseInt(bet.odds_value || bet.odds_rate, 10)}
+                                      </TableCell>
+                                      <TableCell>
+                                        <Box
                                           sx={{
-                                            fontWeight: 'bold',
-                                            background: '#fff',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            px: 2,
+                                            py: 0.5,
                                             borderRadius: '20px',
-                                            color: '#000',
-                                            padding: '1px 8px',
+                                            fontWeight: 'bold',
+                                            color: '#fff',
+                                            backgroundColor:
+                                              bet.selection === 'Yes' ? '#83c2fc' : '#fda4b4',
                                           }}
                                         >
-                                          {Number(bet.odds_rate).toFixed(0)}
-                                        </Typography>
-                                      </Box>
-                                    </TableCell>
-                                    <TableCell>₹{bet.stake_amount.toLocaleString()}</TableCell>
-                                    <TableCell>{formatDateTime(bet.createdAt)}</TableCell>
-                                  </TableRow>
-                                ))}
+                                          <Typography
+                                            variant="body2"
+                                            sx={{ fontWeight: 'bold', mr: 0.5, color: '#000' }}
+                                          >
+                                            {bet.selection}
+                                          </Typography>
+                                          <Typography
+                                            variant="body2"
+                                            sx={{
+                                              fontWeight: 'bold',
+                                              background: '#fff',
+                                              borderRadius: '20px',
+                                              color: '#000',
+                                              padding: '1px 8px',
+                                            }}
+                                          >
+                                            {Number(bet.odds_rate).toFixed(0)}
+                                          </Typography>
+                                        </Box>
+                                      </TableCell>
+                                      <TableCell>₹{bet.stake_amount.toLocaleString()}</TableCell>
+                                      <TableCell>{formatDateTime(bet.createdAt)}</TableCell>
+                                    </TableRow>
+                                  ))
+                                )}
                               </TableBody>
                             </Table>
                           </TableContainer>
@@ -1322,7 +1373,19 @@ export default function CricketMatchLiveData() {
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {last10UndeclaredBets.length === 0 ? (
+                            {isPowerUser ? (
+                              <TableRow sx={{ backgroundColor: '#FFC107' }}>
+                                <TableCell sx={{ fontWeight: 'bold' }}>Total ({last10UndeclaredBets.length} Bets)</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>
+                                  ₹{last10UndeclaredBets.reduce((sum: number, b: BetData) => sum + (Number(b.stake_amount) || 0), 0).toLocaleString()}
+                                </TableCell>
+                                <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                              </TableRow>
+                            ) : last10UndeclaredBets.length === 0 ? (
                               <TableRow>
                                 <TableCell colSpan={7} align="center">No undeclared bets available</TableCell>
                               </TableRow>

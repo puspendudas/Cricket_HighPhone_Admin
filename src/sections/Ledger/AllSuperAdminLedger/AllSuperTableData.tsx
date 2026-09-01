@@ -17,6 +17,7 @@ import {
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
+import useCasinoApi from 'src/Api/CasinoApi/CasinoApi';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -49,9 +50,10 @@ interface ViewStackItem {
   level: number;
 }
 
-// ChildTableData ka final balance get karne wala hook - MULTIPLE ADMINS SUPPORT
+// ChildTableData ka final balance get karne wala hook - MULTIPLE ADMINS SUPPORT (Cricket + Casino)
 const useChildTableFinalBalance = (targetUserId?: string) => {
   const { fetchTotalData, fetchSettlement } = useMatchApi();
+  const { fetchCasinoTotalData } = useCasinoApi();
   const { fetchMe } = useMeApi();
 
   const { data: userData } = useQuery({
@@ -62,12 +64,22 @@ const useChildTableFinalBalance = (targetUserId?: string) => {
   // Use targetUserId if provided, otherwise use current user's ID
   const userId = targetUserId || userData?.data?._id;
 
-  // Fetch table data directly
+  // Fetch cricket table data directly
   const { data: tableData } = useQuery({
     queryKey: ['ledgerTableData', userId],
     queryFn: () =>
       userId
         ? fetchTotalData(userId)
+        : Promise.reject(new Error('Missing user ID')),
+    enabled: !!userId,
+  });
+
+  // Fetch casino table data directly
+  const { data: casinoTableData } = useQuery({
+    queryKey: ['casinoLedgerTableData', userId],
+    queryFn: () =>
+      userId
+        ? fetchCasinoTotalData(userId)
         : Promise.reject(new Error('Missing user ID')),
     enabled: !!userId,
   });
@@ -110,35 +122,39 @@ const useChildTableFinalBalance = (targetUserId?: string) => {
     ? calculateSettledAmountByAdmin(settlementData.data)
     : {};
 
-  // Get ALL unique immediate_child_admins from table data
+  // Get ALL unique immediate_child_admins from both cricket and casino table data
   const getAllImmediateChildAdmins = () => {
-    if (!tableData?.matches || tableData.matches.length === 0) return [];
-
     const allAdmins: Record<string, any> = {};
 
-    tableData.matches.forEach((match: any) => {
-      const clientSummaries = match.client_summary || [];
-      clientSummaries.forEach((c: any) => {
-        const immediate = c.immediate_child_admin;
-        if (immediate && immediate._id) {
-          if (!allAdmins[immediate._id]) {
-            allAdmins[immediate._id] = {
-              ...immediate,
-              user_name: immediate.user_name || 'S1(SUPERADMIN)',
-              name: immediate.name || immediate.user_name
-            };
+    const processMatches = (matches: any[]) => {
+      if (!matches || !Array.isArray(matches)) return;
+      matches.forEach((match: any) => {
+        const clientSummaries = match.client_summary || [];
+        clientSummaries.forEach((c: any) => {
+          const immediate = c.immediate_child_admin;
+          if (immediate && immediate._id) {
+            if (!allAdmins[immediate._id]) {
+              allAdmins[immediate._id] = {
+                ...immediate,
+                user_name: immediate.user_name || 'S1(SUPERADMIN)',
+                name: immediate.name || immediate.user_name
+              };
+            }
           }
-        }
+        });
       });
-    });
+    };
+
+    processMatches(tableData?.matches);
+    processMatches(casinoTableData?.matches);
 
     return Object.values(allAdmins);
   };
 
   const allImmediateChildAdmins = getAllImmediateChildAdmins();
 
-  // Process ledger data and get final balance for EACH admin
-  const getFinalBalanceByAdmin = (matches: any[]) => {
+  // Process cricket ledger data and get final balance for EACH admin
+  const getCricketFinalBalanceByAdmin = (matches: any[]) => {
     if (!matches || matches.length === 0) return {};
 
     const balanceByAdmin: Record<string, number> = {};
@@ -198,24 +214,84 @@ const useChildTableFinalBalance = (targetUserId?: string) => {
     return balanceByAdmin;
   };
 
-  const finalBalanceByAdmin = tableData?.matches
-    ? getFinalBalanceByAdmin(tableData.matches)
+  // Process casino ledger data and get final balance for EACH admin
+  const getCasinoFinalBalanceByAdmin = (matches: any[]) => {
+    if (!matches || matches.length === 0) return {};
+
+    const balanceByAdmin: Record<string, number> = {};
+
+    matches.forEach((match: any) => {
+      const summariesByAdmin: Record<string, any[]> = {};
+      const clientSummaries = match.client_summary || [];
+
+      clientSummaries.forEach((c: any) => {
+        const adminId = c.immediate_child_admin?._id || 'unknown';
+        if (!summariesByAdmin[adminId]) summariesByAdmin[adminId] = [];
+        summariesByAdmin[adminId].push(c);
+      });
+
+      Object.entries(summariesByAdmin).forEach(([adminId, adminSummaries]) => {
+        if (!balanceByAdmin[adminId]) {
+          balanceByAdmin[adminId] = 0;
+        }
+
+        const immediate = adminSummaries[0]?.immediate_child_admin;
+        const casinoCommissionRate = immediate?.casino_commission || 0;
+
+        let casinoPL = 0;
+        let totalCommission = 0;
+
+        adminSummaries.forEach((c: any) => {
+          const netCasinoPL = c.client_net_casino_pl || 0;
+          const userComm = c.client_total_casino_commission !== undefined
+            ? c.client_total_casino_commission
+            : (netCasinoPL < 0 ? Math.abs(netCasinoPL) * (casinoCommissionRate / 100) : 0);
+
+          casinoPL += netCasinoPL;
+          totalCommission += userComm;
+        });
+
+        const invertedCasinoPL = casinoPL * -1;
+        const netAmount = invertedCasinoPL - totalCommission;
+        const share = immediate?.share ?? 0;
+        const shareAmount = netAmount * (share / 100);
+        const grandTotal = netAmount - shareAmount;
+
+        balanceByAdmin[adminId] += grandTotal;
+      });
+    });
+
+    return balanceByAdmin;
+  };
+
+  const cricketBalanceByAdmin = tableData?.matches
+    ? getCricketFinalBalanceByAdmin(tableData.matches)
     : {};
 
-  // Combine all data for each admin
-  const getAllAdminData = () => allImmediateChildAdmins.map(admin => ({
-    adminId: admin._id,
-    clientUserName: admin.user_name,
-    clientName: admin.name,
-    finalBalance: finalBalanceByAdmin[admin._id] || 0,
-    settledAmount: settledAmountByAdmin[admin._id] || 0,
-    immediateChildAdmin: admin
-  }));
+  const casinoBalanceByAdmin = casinoTableData?.matches
+    ? getCasinoFinalBalanceByAdmin(casinoTableData.matches)
+    : {};
+
+  // Combine all data for each admin (Cricket + Casino)
+  const getAllAdminData = () => allImmediateChildAdmins.map(admin => {
+    const cricketBal = cricketBalanceByAdmin[admin._id] || 0;
+    const casinoBal = casinoBalanceByAdmin[admin._id] || 0;
+    const totalBalance = Number((cricketBal + casinoBal).toFixed(2));
+
+    return {
+      adminId: admin._id,
+      clientUserName: admin.user_name,
+      clientName: admin.name,
+      finalBalance: totalBalance,
+      settledAmount: settledAmountByAdmin[admin._id] || 0,
+      immediateChildAdmin: admin
+    };
+  });
 
   const allAdminData = getAllAdminData();
 
   return {
-    allAdminData, // This will contain data for ALL admins
+    allAdminData, // This will contain combined Cricket + Casino data for ALL admins
     currentUserId: userId, // Current user ID being used
     isViewingClient: !!targetUserId, // Flag to indicate if viewing a client
     userType: userData?.data?.type || ''

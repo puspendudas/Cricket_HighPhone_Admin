@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import {
   Box,
@@ -47,7 +47,7 @@ interface Member {
   casinoCommission: number;
 }
 
-interface MemberFormData {
+export interface MemberFormData {
   code: string;
   name: string;
   password: string;
@@ -62,11 +62,39 @@ interface MemberFormData {
   user_name?: string;
 }
 
+interface MemberFormState {
+  code: string;
+  name: string;
+  password: string;
+  status: boolean;
+  share: string | number;
+  matchCommission: string;
+  sessionCommission: string;
+  casinoCommission: string;
+  wallet: string;
+  exposure: number | string;
+  agent_id?: string;
+  user_name?: string;
+}
+
 interface CreateMemberModalProps {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: MemberFormData) => void;
 }
+
+const INITIAL_FORM_STATE: MemberFormState = {
+  code: '',
+  name: '',
+  password: '',
+  status: true,
+  share: '0',
+  matchCommission: '0',
+  sessionCommission: '0',
+  casinoCommission: '0',
+  wallet: '0',
+  exposure: 0,
+};
 
 export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModalProps) {
   const { fetchAgent, GetClientid } = useSuperAdminApi();
@@ -83,39 +111,17 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
     password: '',
   });
 
+  const [formData, setFormData] = useState<MemberFormState>(INITIAL_FORM_STATE);
+
   const resetForm = () => {
     setSelectedAdmin(null);
     setSelectedAdminWallet(0);
-    setFormData({
-      code: '',
-      name: '',
-      password: '',
-      status: true,
-      share: 0,
-      matchCommission: 0,
-      sessionCommission: 0,
-      casinoCommission: 0,
-      wallet: 0,
-      exposure: 0,
-    });
+    setFormData(INITIAL_FORM_STATE);
     setErrors({
       name: '',
       password: '',
     });
   };
-
-  const [formData, setFormData] = useState<MemberFormData>({
-    code: '',
-    name: '',
-    password: '',
-    status: true,
-    share: 0,
-    matchCommission: 0,
-    sessionCommission: 0,
-    casinoCommission: 0,
-    wallet: 0,
-    exposure: 0,
-  });
 
   useEffect(() => {
     const loadData = async () => {
@@ -157,9 +163,9 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
             setAdminOptions([currentUserAsAdmin]);
             setSelectedAdmin(currentUserAsAdmin);
             setSelectedAdminWallet(currentUser.wallet || 0);
-            setFormData((prev: MemberFormData) => ({
+            setFormData((prev: MemberFormState) => ({
               ...prev,
-              share: 0,
+              share: '0',
               agent_id: currentUser._id,
             }));
           } else {
@@ -177,7 +183,7 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
 
         const res = await GetClientid();
         if (res?.user_name) {
-          setFormData((prev: MemberFormData) => ({
+          setFormData((prev: MemberFormState) => ({
             ...prev,
             code: res.user_name,
           }));
@@ -238,7 +244,7 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
       }));
     }
 
-    setFormData((prev: MemberFormData) => ({
+    setFormData((prev: MemberFormState) => ({
       ...prev,
       [name]: value,
     }));
@@ -247,16 +253,83 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (/^\d*$/.test(value)) {
-      setFormData((prev: MemberFormData) => ({
+      setFormData((prev: MemberFormState) => ({
         ...prev,
-        [name]: value === '' ? 0 : Number(value),
+        [name]: value,
+      }));
+    }
+  };
+
+  const handleWalletChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    if (value === '') {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: '',
+      }));
+      return;
+    }
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
+    const numericValue = Number(value);
+
+    if (selectedAdmin) {
+      if (selectedAdminWallet > 0) {
+        if (numericValue <= selectedAdminWallet) {
+          setFormData((prev: MemberFormState) => ({
+            ...prev,
+            wallet: value,
+          }));
+        }
+      } else if (selectedAdminWallet === 0) {
+        if (numericValue === 0) {
+          setFormData((prev: MemberFormState) => ({
+            ...prev,
+            wallet: value,
+          }));
+        }
+      }
+    } else {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: value,
+      }));
+    }
+  };
+
+  const handleWalletBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    if (value === '') {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: '0',
+      }));
+      return;
+    }
+    const numericValue = Number(value);
+
+    if (Number.isNaN(numericValue) || numericValue < 0) {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: '0',
+      }));
+    } else if (selectedAdmin && selectedAdminWallet > 0 && numericValue > selectedAdminWallet) {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: String(selectedAdminWallet),
+      }));
+    } else if (selectedAdmin && selectedAdminWallet === 0 && numericValue !== 0) {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: '0',
       }));
     }
   };
 
   const handleGeneratePassword = () => {
     const newPassword = Math.floor(100000 + Math.random() * 900000).toString();
-    setFormData((prev: MemberFormData) => ({
+    setFormData((prev: MemberFormState) => ({
       ...prev,
       password: newPassword,
     }));
@@ -276,6 +349,12 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
 
     const payload: MemberFormData = {
       ...formData,
+      wallet: Number(formData.wallet || 0),
+      share: Number(formData.share || 0),
+      matchCommission: Number(formData.matchCommission || 0),
+      sessionCommission: Number(formData.sessionCommission || 0),
+      casinoCommission: Number(formData.casinoCommission || 0),
+      exposure: Number(formData.exposure || 0),
       user_name: formData.code,
       // status is already boolean (true/false)
     };
@@ -294,14 +373,15 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
     if (newValue) {
       const adminWallet = Number(newValue.currentBal.replace(/[^0-9.-]+/g, ''));
       setSelectedAdminWallet(adminWallet);
-      setFormData((prev: MemberFormData) => ({
+      setFormData((prev: MemberFormState) => ({
         ...prev,
         agent_id: newValue._id,
       }));
     } else {
       setSelectedAdminWallet(0);
-      setFormData((prev: MemberFormData) => ({
+      setFormData((prev: MemberFormState) => ({
         ...prev,
+        wallet: '0',
         agent_id: undefined,
       }));
     }
@@ -401,49 +481,9 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
                   fullWidth
                   value={formData.wallet}
                   name="wallet"
-                  type="number"
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-
-                    // Handle negative values first
-                    if (!Number.isNaN(value) && value >= 0) {
-                      // If agent's wallet is 0, only allow 0
-                      if (selectedAdminWallet === 0) {
-                        setFormData((prev: MemberFormData) => ({
-                          ...prev,
-                          wallet: 0,
-                        }));
-                      }
-                      // If agent's wallet > 0, allow up to selectedAdminWallet
-                      else if (value <= selectedAdminWallet) {
-                        setFormData((prev: MemberFormData) => ({
-                          ...prev,
-                          wallet: value,
-                        }));
-                      }
-                    }
-                  }}
-                  onBlur={(e) => {
-                    // Final validation on blur
-                    const value = Number(e.target.value);
-
-                    if (Number.isNaN(value) || value < 0) {
-                      setFormData((prev: MemberFormData) => ({
-                        ...prev,
-                        wallet: 0
-                      }));
-                    } else if (selectedAdminWallet === 0 && value !== 0) {
-                      setFormData((prev: MemberFormData) => ({
-                        ...prev,
-                        wallet: 0
-                      }));
-                    } else if (selectedAdminWallet > 0 && value > selectedAdminWallet) {
-                      setFormData((prev: MemberFormData) => ({
-                        ...prev,
-                        wallet: selectedAdminWallet
-                      }));
-                    }
-                  }}
+                  type="text"
+                  onChange={handleWalletChange}
+                  onBlur={handleWalletBlur}
                   helperText={
                     selectedAdmin
                       ? selectedAdminWallet > 0
@@ -455,8 +495,7 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
                     startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                   }}
                   inputProps={{
-                    min: 0,
-                    max: selectedAdminWallet > 0 ? selectedAdminWallet : 0,
+                    inputMode: 'numeric',
                   }}
                 />
               </Grid>
@@ -474,9 +513,13 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
                 fullWidth
                 value={formData.matchCommission}
                 name="matchCommission"
+                type="text"
                 onChange={handleNumberChange}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                }}
+                inputProps={{
+                  inputMode: 'numeric',
                 }}
               />
             </Grid>
@@ -486,9 +529,13 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
                 fullWidth
                 value={formData.sessionCommission}
                 name="sessionCommission"
+                type="text"
                 onChange={handleNumberChange}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                }}
+                inputProps={{
+                  inputMode: 'numeric',
                 }}
               />
             </Grid>
@@ -498,9 +545,13 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
                 fullWidth
                 value={formData.casinoCommission}
                 name="casinoCommission"
+                type="text"
                 onChange={handleNumberChange}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                }}
+                inputProps={{
+                  inputMode: 'numeric',
                 }}
               />
             </Grid>

@@ -81,6 +81,7 @@ const CommissionHistoryView = ({ client, onBack }: { client: { id: string, name:
             {historyList.map((row: any, i: number) => {
               const mComm = row.lena_h?.m_com || 0;
               const sComm = row.lena_h?.s_com || 0;
+              const cComm = row.lena_h?.c_com || row.lena_h?.casino_com || 0;
               const tComm = row.lena_h?.t_com || 0;
               
               return (
@@ -90,7 +91,7 @@ const CommissionHistoryView = ({ client, onBack }: { client: { id: string, name:
                   </TableCell>
                   <TableCell sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(mComm, false)}</TableCell>
                   <TableCell sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(sComm, false)}</TableCell>
-                  <TableCell sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(0, false)}</TableCell>
+                  <TableCell sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(cComm, false)}</TableCell>
                   <TableCell sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(tComm, false)}</TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>
                     Comm Submitted For {client.name}
@@ -159,10 +160,12 @@ const ClientMatchCommissionView = ({
   matchList.forEach((row: any) => {
     totalMila.m += row.match_lena || 0;
     totalMila.s += row.session_lena || 0;
+    totalMila.c += row.casino_lena || 0;
     totalMila.t += row.total_lena || 0;
     
     totalDena.m += row.match_dena || 0;
     totalDena.s += row.session_dena || 0;
+    totalDena.c += row.casino_dena || 0;
     totalDena.t += row.total_dena || 0;
   });
 
@@ -206,13 +209,13 @@ const ClientMatchCommissionView = ({
                 {/* MILA HAI */}
                 <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.match_lena, false)}</TableCell>
                 <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.session_lena, false)}</TableCell>
-                <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(0, false)}</TableCell>
+                <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.casino_lena || 0, false)}</TableCell>
                 <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0', fontWeight: 'bold' }}>{renderCell(row.total_lena, false)}</TableCell>
 
                 {/* DENA HAI */}
                 <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.match_dena, true)}</TableCell>
                 <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.session_dena, true)}</TableCell>
-                <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(0, true)}</TableCell>
+                <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.casino_dena || 0, true)}</TableCell>
                 <TableCell align="center" sx={{ fontWeight: 'bold' }}>{renderCell(row.total_dena, true)}</TableCell>
               </TableRow>
             ))}
@@ -304,12 +307,12 @@ export function AllCommissionData() {
   filteredClients.forEach((row: any) => {
     totalMilaHai.mComm += row.match_lena || 0;
     totalMilaHai.sComm += row.session_lena || 0;
-    totalMilaHai.cComm += 0;
+    totalMilaHai.cComm += row.casino_lena || 0;
     totalMilaHai.tComm += row.total_lena || 0;
 
     totalDenaHai.mComm += row.match_dena || 0;
     totalDenaHai.sComm += row.session_dena || 0;
-    totalDenaHai.cComm += 0;
+    totalDenaHai.cComm += row.casino_dena || 0;
     totalDenaHai.tComm += row.total_dena || 0;
   });
 
@@ -453,12 +456,12 @@ export function AllCommissionData() {
                 
                 <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.match_lena, false)}</TableCell>
                 <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.session_lena, false)}</TableCell>
-                <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(0, false)}</TableCell>
+                <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.casino_lena || 0, false)}</TableCell>
                 <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.total_lena, false, true)}</TableCell>
                 
                 <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.match_dena, true)}</TableCell>
                 <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.session_dena, true)}</TableCell>
-                <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(0, true)}</TableCell>
+                <TableCell align="center" sx={{ borderRight: '1px solid #e0e0e0' }}>{renderCell(row.casino_dena || 0, true)}</TableCell>
                 <TableCell align="center">{renderCell(row.total_dena, true, true)}</TableCell>
               </TableRow>
             ))}

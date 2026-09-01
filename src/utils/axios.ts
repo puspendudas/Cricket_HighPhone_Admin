@@ -57,4 +57,16 @@ export const endpoints = {
     details: '/api/product/details',
     search: '/api/product/search',
   },
+  casino: {
+    reports: '/casino-bets/admin/reports',
+    commissions: '/casino-bets/admin/commissions',
+    declareResult: '/casino-bets/admin/declare-result',
+    gameBets: '/casino-bets/admin/game-bets',
+    allTotal: '/casino-bets/admin/all/total',
+    deleteBet: '/casino-bets/admin/delete-bet',
+    deleteBets: '/casino-bets/admin/delete-bets',
+    streamUrl: '/casino-bets/stream-url',
+    resultDetail: '/casino-bets/result-detail',
+  },
 };
+

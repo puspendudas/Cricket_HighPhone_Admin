@@ -143,6 +143,8 @@ const DisplayMatch: React.FC = () => {
 
   // Extract user ID
   const userId = userData?.data?._id;
+  const userType = userData?.data?.type;
+  const isPowerUser = userType === 'power_user';
 
   // Fetch match data
   const {
@@ -286,6 +288,9 @@ const DisplayMatch: React.FC = () => {
           <Typography>Loading summary data...</Typography>
         </Box>
       );
+    }
+    if (isPowerUser) {
+      return null;
     }
     return (
       <>
@@ -474,7 +479,17 @@ const DisplayMatch: React.FC = () => {
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginated.length > 0 ? (
+              {isPowerUser ? (
+                <TableRow sx={{ backgroundColor: '#FFC107' }}>
+                  <TableCell sx={{ fontWeight: 'bold' }}>Total ({formattedBetHistory.length} Bets)</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>
+                    ₹{formattedBetHistory.reduce((sum: number, r: any) => sum + (Number(r.amount) || 0), 0).toLocaleString()}
+                  </TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                  <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                </TableRow>
+              ) : paginated.length > 0 ? (
                 paginated.map((row, index) => (
                   <TableRow key={`${row.client}-${index}`} hover>
                     <TableCell>
@@ -608,50 +623,62 @@ const DisplayMatch: React.FC = () => {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {bets.map((bet) => (
-                      <TableRow key={bet.id} hover>
-                        <TableCell>
-                          {' '}
-                          {bet.user.name} ({bet.user.user_name})
+                    {isPowerUser ? (
+                      <TableRow sx={{ backgroundColor: '#FFC107' }}>
+                        <TableCell sx={{ fontWeight: 'bold' }}>Total ({bets.length} Bets)</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                        <TableCell sx={{ fontWeight: 'bold' }}>
+                          ₹{bets.reduce((sum: number, b: BetData) => sum + (Number(b.stake_amount) || 0), 0).toLocaleString()}
                         </TableCell>
-                        <TableCell>{bet.odds_value || bet.odds_rate}</TableCell>
-                        <TableCell>
-                          <Box
-                            sx={{
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              px: 2,
-                              py: 0.5,
-                              borderRadius: '20px',
-                              fontWeight: 'bold',
-                              color: '#fff',
-                              backgroundColor: bet.selection === 'Yes' ? '#83c2fc' : '#fda4b4',
-                            }}
-                          >
-                            <Typography
-                              variant="body2"
-                              sx={{ fontWeight: 'bold', mr: 0.5, color: '#000' }}
-                            >
-                              {bet.selection}
-                            </Typography>
-                            <Typography
-                              variant="body2"
+                        <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                      </TableRow>
+                    ) : (
+                      bets.map((bet) => (
+                        <TableRow key={bet.id} hover>
+                          <TableCell>
+                            {' '}
+                            {bet.user.name} ({bet.user.user_name})
+                          </TableCell>
+                          <TableCell>{bet.odds_value || bet.odds_rate}</TableCell>
+                          <TableCell>
+                            <Box
                               sx={{
-                                fontWeight: 'bold',
-                                background: '#fff',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                px: 2,
+                                py: 0.5,
                                 borderRadius: '20px',
-                                color: '#000',
-                                padding: '1px 8px',
+                                fontWeight: 'bold',
+                                color: '#fff',
+                                backgroundColor: bet.selection === 'Yes' ? '#83c2fc' : '#fda4b4',
                               }}
                             >
-                              {Number(bet.odds_rate).toFixed(0)}
-                            </Typography>
-                          </Box>
-                        </TableCell>
-                        <TableCell>₹{bet.stake_amount.toLocaleString()}</TableCell>
-                        <TableCell>{formatDateTime(bet.createdAt)}</TableCell>
-                      </TableRow>
-                    ))}
+                              <Typography
+                                variant="body2"
+                                sx={{ fontWeight: 'bold', mr: 0.5, color: '#000' }}
+                              >
+                                {bet.selection}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  fontWeight: 'bold',
+                                  background: '#fff',
+                                  borderRadius: '20px',
+                                  color: '#000',
+                                  padding: '1px 8px',
+                                }}
+                              >
+                                {Number(bet.odds_rate).toFixed(0)}
+                              </Typography>
+                            </Box>
+                          </TableCell>
+                          <TableCell>₹{bet.stake_amount.toLocaleString()}</TableCell>
+                          <TableCell>{formatDateTime(bet.createdAt)}</TableCell>
+                        </TableRow>
+                      ))
+                    )}
                   </TableBody>
                 </Table>
               </Collapse>
@@ -874,50 +901,62 @@ const DisplayMatch: React.FC = () => {
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {bets.map((bet) => (
-                                  <TableRow key={bet.id}>
-                                    <TableCell>
-                                      {bet.user.name} ({bet.user.user_name})
+                                {isPowerUser ? (
+                                  <TableRow sx={{ backgroundColor: '#FFC107' }}>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>Total ({bets.length} Bets)</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold' }}>
+                                      ₹{bets.reduce((sum: number, b: BetData) => sum + (Number(b.stake_amount) || 0), 0).toLocaleString()}
                                     </TableCell>
-                                    <TableCell>{bet.odds_value || bet.odds_rate}</TableCell>
-                                    <TableCell>
-                                      <Box
-                                        sx={{
-                                          display: 'inline-flex',
-                                          alignItems: 'center',
-                                          px: 2,
-                                          py: 0.5,
-                                          borderRadius: '20px',
-                                          fontWeight: 'bold',
-                                          color: '#fff',
-                                          backgroundColor:
-                                            bet.selection === 'Yes' ? '#83c2fc' : '#fda4b4',
-                                        }}
-                                      >
-                                        <Typography
-                                          variant="body2"
-                                          sx={{ fontWeight: 'bold', mr: 0.5, color: '#000' }}
-                                        >
-                                          {bet.selection}
-                                        </Typography>
-                                        <Typography
-                                          variant="body2"
+                                    <TableCell sx={{ fontWeight: 'bold' }}>--</TableCell>
+                                  </TableRow>
+                                ) : (
+                                  bets.map((bet) => (
+                                    <TableRow key={bet.id}>
+                                      <TableCell>
+                                        {bet.user.name} ({bet.user.user_name})
+                                      </TableCell>
+                                      <TableCell>{bet.odds_value || bet.odds_rate}</TableCell>
+                                      <TableCell>
+                                        <Box
                                           sx={{
-                                            fontWeight: 'bold',
-                                            background: '#fff',
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            px: 2,
+                                            py: 0.5,
                                             borderRadius: '20px',
-                                            color: '#000',
-                                            padding: '1px 8px',
+                                            fontWeight: 'bold',
+                                            color: '#fff',
+                                            backgroundColor:
+                                              bet.selection === 'Yes' ? '#83c2fc' : '#fda4b4',
                                           }}
                                         >
-                                          {Number(bet.odds_rate).toFixed(0)}
-                                        </Typography>
-                                      </Box>
-                                    </TableCell>
-                                    <TableCell>₹{bet.stake_amount.toLocaleString()}</TableCell>
-                                    <TableCell>{formatDateTime(bet.createdAt)}</TableCell>
-                                  </TableRow>
-                                ))}
+                                          <Typography
+                                            variant="body2"
+                                            sx={{ fontWeight: 'bold', mr: 0.5, color: '#000' }}
+                                          >
+                                            {bet.selection}
+                                          </Typography>
+                                          <Typography
+                                            variant="body2"
+                                            sx={{
+                                              fontWeight: 'bold',
+                                              background: '#fff',
+                                              borderRadius: '20px',
+                                              color: '#000',
+                                              padding: '1px 8px',
+                                            }}
+                                          >
+                                            {Number(bet.odds_rate).toFixed(0)}
+                                          </Typography>
+                                        </Box>
+                                      </TableCell>
+                                      <TableCell>₹{bet.stake_amount.toLocaleString()}</TableCell>
+                                      <TableCell>{formatDateTime(bet.createdAt)}</TableCell>
+                                    </TableRow>
+                                  ))
+                                )}
                               </TableBody>
                             </Table>
                           </TableContainer>

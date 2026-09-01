@@ -57,6 +57,7 @@ export const USER_HIERARCHY: Record<UserRole, number> = {
   master: 3,
   super_agent: 2,
   agent: 1,
+  power_user: 0,
 };
 
 // Map each role to a menu item (label + path)
@@ -66,14 +67,16 @@ const ROLE_TO_ITEM: Record<UserRole, NavItem> = {
   super_master: { title: 'Super Master', path: paths.dashboard.master.miniadmin },
   master: { title: 'Master', path: paths.dashboard.master.masters },
   super_agent: { title: 'Super Agent', path: paths.dashboard.master.superagent },
-  agent: { title: 'Agent', path: paths.dashboard.master.agent }, // requires paths fix
+  agent: { title: 'Agent', path: paths.dashboard.master.agent },
+  power_user: { title: 'Power User', path: paths.dashboard.master.powerUser },
 };
 
 // Get roles below current (optionally excluding self)
 export const getAccessibleRoles = (currentUserRole: UserRole, includeSelf = true): UserRole[] => {
+  if (currentUserRole === 'power_user') return [];
   const currentLevel = USER_HIERARCHY[currentUserRole];
   const roles = Object.entries(USER_HIERARCHY)
-    .filter(([_, level]) => level <= currentLevel)
+    .filter(([r, level]) => r !== 'power_user' && level <= currentLevel)
     .map(([role]) => role as UserRole);
 
   return includeSelf ? roles : roles.filter((r) => r !== currentUserRole);
@@ -81,6 +84,10 @@ export const getAccessibleRoles = (currentUserRole: UserRole, includeSelf = true
 
 // Build role-based nav children
 const getRoleBasedNavItems = (currentRole: UserRole): NavItem[] => {
+  if (currentRole === 'power_user') {
+    return [];
+  }
+
   // Agent users manage only clients
   if (currentRole === 'agent') {
     return [{ title: 'Client', path: paths.dashboard.master.client }];
@@ -88,6 +95,11 @@ const getRoleBasedNavItems = (currentRole: UserRole): NavItem[] => {
 
   const accessibleRoles = getAccessibleRoles(currentRole, false);
   const items: NavItem[] = [];
+
+  // Super Admin can manage Power Users
+  if (currentRole === 'super_admin') {
+    items.push({ title: 'Power User', path: paths.dashboard.master.powerUser });
+  }
 
   accessibleRoles.forEach((role) => {
     const mapped = ROLE_TO_ITEM[role];
@@ -134,60 +146,63 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
     items: [
       {
         title: "Sport's Betting",
-        path: paths.dashboard.Sport.allpositions,
+        path: paths.dashboard.Sport.all,
         icon: ICONS.Sport,
         children: [
-          // { title: 'All Positions', path: paths.dashboard.Sport.allpositions },
+          { title: 'All', path: paths.dashboard.Sport.all },
           { title: 'Cricket', path: paths.dashboard.Sport.cricket },
-          // { title: 'Casino', path: paths.dashboard.Sport.casino },
-          { title: 'Dragon Tiger 20 20', path: paths.dashboard.Sport.dt20 },
-          { title: 'TeenPatti 20 20', path: paths.dashboard.Sport.teen20 },
-          { title: 'Lucky 7 B', path: paths.dashboard.Sport.lucky7eu },
-          { title: 'Teen Patti 1 Day', path: paths.dashboard.Sport.teen },
+          { title: 'Casino', path: paths.dashboard.Sport.casino },
         ],
       },
     ],
   });
 
-  // Ledger
-  navData.push({
-    items: [
-      {
-        title: 'Ledger',
-        path: paths.dashboard.ledger.myledger,
-        icon: ICONS.ledger,
-        children: [
-          { title: 'Settlement', path: paths.dashboard.ledger.allsuperadmin },
-          { title: 'Child Ledger', path: paths.dashboard.ledger.superadmindata },
+  // Ledger (Not for power_user)
+  if (currentRole !== 'power_user') {
+    const isSuperAdmin = currentRole === 'super_admin';
 
-          ...(currentRole === 'agent'
-            ? [{ title: 'कमीशन लेन देन', path: paths.dashboard.ledger.commission }]
-            : []),
-
-          ...(currentRole !== 'super_admin'
+    navData.push({
+      items: [
+        {
+          title: 'Ledger',
+          path: isSuperAdmin ? paths.dashboard.ledger.allsuperadmin : paths.dashboard.ledger.myledger,
+          icon: ICONS.ledger,
+          children: isSuperAdmin
             ? [
-              { title: 'My Ledger', path: paths.dashboard.ledger.myledger },
-              { title: 'Total Profit', path: paths.dashboard.ledger.totalprofit },
-            ]
-            : []),
-        ],
-      },
-    ],
-  });
+                { title: 'Settlement', path: paths.dashboard.ledger.allsuperadmin },
+                { title: 'Child Ledger', path: paths.dashboard.ledger.superadmindata },
+              ]
+            : [
+                { title: 'Settlement', path: paths.dashboard.ledger.allsuperadmin },
+                { title: 'Child Ledger', path: paths.dashboard.ledger.superadmindata },
 
-  // All Super Admin Report (visible to all as per original)
-  navData.push({
-    items: [
-      {
-        title: 'All Child Report',
-        path: paths.dashboard.adminreport,
-        icon: ICONS.admin,
-      },
-    ],
-  });
+                ...(currentRole === 'agent'
+                  ? [{ title: 'कमीशन लेन देन', path: paths.dashboard.ledger.commission }]
+                  : []),
 
-  // Super Admin only
-  if (currentRole === 'super_admin') {
+                { title: 'My Ledger', path: paths.dashboard.ledger.myledger },
+                { title: 'Total Profit', path: paths.dashboard.ledger.totalprofit },
+              ],
+        },
+      ],
+    });
+  }
+
+  // All Super Admin Report (Not for power_user)
+  if (currentRole !== 'power_user') {
+    navData.push({
+      items: [
+        {
+          title: 'All Child Report',
+          path: paths.dashboard.adminreport,
+          icon: ICONS.admin,
+        },
+      ],
+    });
+  }
+
+  // Settings & Match Management (Super Admin & Power User)
+  if (currentRole === 'super_admin' || currentRole === 'power_user') {
     navData.push({
       items: [
         {
@@ -215,7 +230,20 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
   }
 
 
-  // Locked Casino (visible to all)
+  // Casino Management (super_admin only)
+  if (currentRole === 'super_admin') {
+    navData.push({
+      items: [
+        {
+          title: 'Casino Management',
+          path: paths.dashboard.casinomanagement,
+          icon: ICONS.game,
+        },
+      ],
+    });
+  }
+
+  // Global Locks (visible to all)
   navData.push({
     items: [
       {

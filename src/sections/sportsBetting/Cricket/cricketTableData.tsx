@@ -398,10 +398,14 @@ export function CricketTableData() {
                       </Typography>
                     </TableCell>
 
-                    <TableCell align="center" onClick={(e) => e.stopPropagation()}>
-                      <IconButton onClick={(e) => handleClick(e, match)}>
-                        <Iconify icon="material-symbols:more-vert" />
-                      </IconButton>
+                    <TableCell align="center" onClick={(e: React.MouseEvent) => e.stopPropagation()}>
+                      {userType === 'super_admin' ? (
+                        <IconButton onClick={(e: React.MouseEvent<HTMLElement>) => handleClick(e, match)}>
+                          <Iconify icon="material-symbols:more-vert" />
+                        </IconButton>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">--</Typography>
+                      )}
                     </TableCell>
                   </TableRow>
                 );
@@ -420,26 +424,26 @@ export function CricketTableData() {
       </Box>
 
       {/* Menu Actions */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={handleClose}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
-      >
-        <MenuItem
-          onClick={() => {
-            if (selectedMatch) {
-              navigate(`/deleted-bet/${selectedMatch.gameId}`);
-              handleClose();
-            }
-          }}
+      {userType === 'super_admin' && (
+        <Menu
+          anchorEl={anchorEl}
+          open={Boolean(anchorEl)}
+          onClose={handleClose}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+          transformOrigin={{ vertical: 'top', horizontal: 'right' }}
         >
-          <Iconify icon="material-symbols:delete" sx={{ mr: 1 }} />
-          Deleted Bet
-        </MenuItem>
+          <MenuItem
+            onClick={() => {
+              if (selectedMatch) {
+                navigate(`/deleted-bet/${selectedMatch.gameId}`);
+                handleClose();
+              }
+            }}
+          >
+            <Iconify icon="material-symbols:delete" sx={{ mr: 1 }} />
+            Deleted Bet
+          </MenuItem>
 
-        {userType === 'super_admin' && (
           <MenuItem
             onClick={() => {
               if (selectedMatch) {
@@ -451,8 +455,8 @@ export function CricketTableData() {
             <Iconify icon="material-symbols:visibility-outline" sx={{ mr: 1 }} />
             Un Declared Bet
           </MenuItem>
-        )}
-      </Menu>
+        </Menu>
+      )}
     </Paper>
   );
 }

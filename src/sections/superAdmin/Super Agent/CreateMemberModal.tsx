@@ -1,7 +1,7 @@
 import type { Member, MemberFormData } from 'src/Interface/super_agent.interface';
 
-import { useState, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
 
 import {
   Box,
@@ -28,6 +28,35 @@ interface CreateMemberModalProps {
   onSubmit: (data: MemberFormData) => void;
 }
 
+interface MemberFormState {
+  code: string;
+  name: string;
+  password: string;
+  status: string;
+  share: string;
+  matchCommission: string;
+  sessionCommission: string;
+  casinoCommission: string;
+  type: string;
+  wallet: string;
+  exposure: number | string;
+  parent_id?: string;
+}
+
+const INITIAL_FORM_STATE: MemberFormState = {
+  code: '',
+  name: '',
+  password: '',
+  status: 'Active',
+  share: '0',
+  matchCommission: '0',
+  sessionCommission: '0',
+  casinoCommission: '0',
+  type: 'super_agent',
+  wallet: '0',
+  exposure: 0,
+};
+
 export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModalProps) {
   const { fetchMaster, GetSuperAgnetid } = useSuperAdminApi();
   const { fetchMe } = useMeApi();
@@ -44,40 +73,15 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
   const [selectedAdminWallet, setSelectedAdminWallet] = useState(0);
   // Track selected master's share limit
   const [selectedAdminShare, setSelectedAdminShare] = useState<number>(90);
+
+  const [formData, setFormData] = useState<MemberFormState>(INITIAL_FORM_STATE);
+
   const resetForm = () => {
     setSelectedAdmin(null);
     setSelectedAdminWallet(0);
     setSelectedAdminShare(90);
-
-    setFormData({
-      code: '',
-      name: '',
-      password: '',
-      status: 'Active',
-      share: 0,
-      matchCommission: 0,
-      sessionCommission: 0,
-      casinoCommission: 0,
-      type: 'super_agent',
-      wallet: 0,
-      exposure: 0,
-    });
+    setFormData(INITIAL_FORM_STATE);
   };
-
-  const [formData, setFormData] = useState<MemberFormData>({
-    code: '',
-    name: '',
-    password: '',
-    status: 'Active',
-    share: 0,
-    matchCommission: 0,
-    sessionCommission: 0,
-    casinoCommission: 0,
-    // mobile: '8005753265',
-    type: 'super_agent',
-    wallet: 0,
-    exposure: 0,
-  });
 
   useEffect(() => {
     const loadAdmins = async () => {
@@ -101,7 +105,7 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
       try {
         const res = await GetSuperAgnetid();
         if (res?.user_name) {
-          setFormData((prev) => ({
+          setFormData((prev: MemberFormState) => ({
             ...prev,
             code: res.user_name,
           }));
@@ -150,24 +154,24 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
         setSelectedAdminShare(userData.share || 0);
         setSelectedAdminWallet(userData.wallet || 0);
 
-        setFormData(prev => ({
+        setFormData((prev: MemberFormState) => ({
           ...prev,
-          share: userData.share || 0,
-          matchCommission: userData.match_commission || 0,
-          sessionCommission: userData.session_commission || 0,
-          casinoCommission: userData.casino_commission || 0,
+          share: String(userData.share || 0),
+          matchCommission: String(userData.match_commission || 0),
+          sessionCommission: String(userData.session_commission || 0),
+          casinoCommission: String(userData.casino_commission || 0),
           // wallet: userData.wallet || 0, // REMOVED - wallet should remain 0
           exposure: 0,
           parent_id: userData._id,
         }));
       } else {
         // For other users, set defaults but don't auto-select parent
-        setFormData(prev => ({
+        setFormData((prev: MemberFormState) => ({
           ...prev,
-          share: userData.share || 0,
-          matchCommission: userData.match_commission || 0,
-          sessionCommission: userData.session_commission || 0,
-          casinoCommission: userData.casino_commission || 0,
+          share: String(userData.share || 0),
+          matchCommission: String(userData.match_commission || 0),
+          sessionCommission: String(userData.session_commission || 0),
+          casinoCommission: String(userData.casino_commission || 0),
           // wallet: userData.wallet || 0, // REMOVED - wallet should remain 0
           exposure: 0,
         }));
@@ -178,7 +182,7 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({
+    setFormData((prev: MemberFormState) => ({
       ...prev,
       [name]: value,
     }));
@@ -187,9 +191,9 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     if (/^\d*$/.test(value)) {
-      setFormData((prev) => ({
+      setFormData((prev: MemberFormState) => ({
         ...prev,
-        [name]: value === '' ? 0 : Number(value),
+        [name]: value,
       }));
     }
   };
@@ -197,34 +201,31 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
   const handleShareChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { value } = e.target;
     const maxShare = getMaxShare();
-    if (/^\d*$/.test(value) && Number(value) <= maxShare) {
-      setFormData((prev) => ({
+    if (/^\d*$/.test(value) && Number(value || 0) <= maxShare) {
+      setFormData((prev: MemberFormState) => ({
         ...prev,
-        share: value === '' ? 0 : Number(value),
+        share: value,
       }));
     }
   };
 
-  // const handleStatusChange = (event: any, newValue: string | null) => {
-  //   if (newValue) {
-  //     setFormData((prev) => ({
-  //       ...prev,
-  //       status: newValue as 'Active' | 'Inactive',
-  //     }));
-  //   }
-  // };
-
   const handleGeneratePassword = () => {
     const newPassword = Math.floor(100000 + Math.random() * 900000).toString();
-    setFormData((prev) => ({
+    setFormData((prev: MemberFormState) => ({
       ...prev,
       password: newPassword,
     }));
   };
 
   const handleSubmit = () => {
-    const payload = {
+    const payload: MemberFormData = {
       ...formData,
+      wallet: Number(formData.wallet || 0),
+      share: Number(formData.share || 0),
+      matchCommission: Number(formData.matchCommission || 0),
+      sessionCommission: Number(formData.sessionCommission || 0),
+      casinoCommission: Number(formData.casinoCommission || 0),
+      exposure: Number(formData.exposure || 0),
       user_name: formData.code,
       status: formData.status === 'Active',
     };
@@ -239,19 +240,19 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
       const adminWallet = Number(newValue.currentBal.replace(/[^0-9.-]+/g, ''));
       setSelectedAdminWallet(adminWallet);
       setSelectedAdminShare(newValue.share || 0); // Set the selected master's share limit
-      setFormData((prev) => ({
+      setFormData((prev: MemberFormState) => ({
         ...prev,
         // wallet: adminWallet, // REMOVED - wallet should not auto-set
-        share: 0, // Set initial share value to master's share
+        share: '0', // Set initial share value to master's share
         parent_id: newValue._id,
       }));
     } else {
       setSelectedAdminWallet(0);
       setSelectedAdminShare(90); // Reset to default max share when no master is selected
-      setFormData((prev) => ({
+      setFormData((prev: MemberFormState) => ({
         ...prev,
-        wallet: 0,
-        share: 0,
+        wallet: '0',
+        share: '0',
         parent_id: undefined,
       }));
     }
@@ -266,6 +267,85 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
       return currentUser.data.share || 0;
     }
     return selectedAdminShare;
+  };
+
+  // Get max wallet based on user type
+  const getMaxWallet = () => {
+    if (currentUser?.data?.type === 'master') {
+      return currentUser.data.wallet || 0;
+    }
+    return selectedAdminWallet;
+  };
+
+  const handleWalletChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    if (value === '') {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: '',
+      }));
+      return;
+    }
+    if (!/^\d*$/.test(value)) {
+      return;
+    }
+    const numericValue = Number(value);
+    const maxWallet = getMaxWallet();
+    const isParentMaster = currentUser?.data?.type === 'master';
+
+    if (isParentMaster || selectedAdmin) {
+      if (maxWallet > 0) {
+        if (numericValue <= maxWallet) {
+          setFormData((prev: MemberFormState) => ({
+            ...prev,
+            wallet: value,
+          }));
+        }
+      } else if (maxWallet === 0) {
+        if (numericValue === 0) {
+          setFormData((prev: MemberFormState) => ({
+            ...prev,
+            wallet: value,
+          }));
+        }
+      }
+    } else {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: value,
+      }));
+    }
+  };
+
+  const handleWalletBlur = (e: React.FocusEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    if (value === '') {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: '0',
+      }));
+      return;
+    }
+    const numericValue = Number(value);
+    const maxWallet = getMaxWallet();
+    const isParentMaster = currentUser?.data?.type === 'master';
+
+    if (Number.isNaN(numericValue) || numericValue < 0) {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: '0',
+      }));
+    } else if ((isParentMaster || selectedAdmin) && maxWallet > 0 && numericValue > maxWallet) {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: String(maxWallet),
+      }));
+    } else if ((isParentMaster || selectedAdmin) && maxWallet === 0 && numericValue !== 0) {
+      setFormData((prev: MemberFormState) => ({
+        ...prev,
+        wallet: '0',
+      }));
+    }
   };
 
   // Get wallet helper text based on user type
@@ -287,8 +367,6 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
       ? selectedAdminShare.toString()
       : '';
   };
-
-  const maxShare = getMaxShare();
 
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
@@ -381,55 +459,15 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
                   fullWidth
                   value={formData.wallet}
                   name="wallet"
-                  type="number"
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    const maxWallet = currentUser?.data?.type === 'master'
-                      ? (currentUser.data.wallet || 0)
-                      : selectedAdminWallet;
-
-                    // Fix the validation logic
-                    if (!Number.isNaN(value) && value >= 0) {
-                      // If max wallet is 0, only allow 0
-                      if (maxWallet === 0) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          wallet: 0,
-                        }));
-                      }
-                      // If max wallet > 0, allow up to maxWallet
-                      else if (value <= maxWallet) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          wallet: value,
-                        }));
-                      }
-                    }
-                  }}
-                  onBlur={(e) => {
-                    // Final validation on blur
-                    const value = Number(e.target.value);
-                    const maxWallet = currentUser?.data?.type === 'master'
-                      ? (currentUser.data.wallet || 0)
-                      : selectedAdminWallet;
-
-                    if (Number.isNaN(value) || value < 0) {
-                      setFormData((prev) => ({ ...prev, wallet: 0 }));
-                    } else if (maxWallet > 0 && value > maxWallet) {
-                      setFormData((prev) => ({ ...prev, wallet: maxWallet }));
-                    } else if (maxWallet === 0 && value !== 0) {
-                      setFormData((prev) => ({ ...prev, wallet: 0 }));
-                    }
-                  }}
+                  type="text"
+                  onChange={handleWalletChange}
+                  onBlur={handleWalletBlur}
                   helperText={getWalletHelperText()}
                   InputProps={{
                     startAdornment: <InputAdornment position="start">₹</InputAdornment>,
                   }}
                   inputProps={{
-                    min: 0,
-                    max: currentUser?.data?.type === 'master'
-                      ? (currentUser.data.wallet || 0)
-                      : selectedAdminWallet,
+                    inputMode: 'numeric',
                   }}
                 />
               </Grid>
@@ -463,6 +501,7 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
                 fullWidth
                 value={formData.share}
                 name="share"
+                type="text"
                 onChange={handleShareChange}
                 helperText={
                   currentUser?.data?.type === 'master'
@@ -472,7 +511,7 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
-                inputProps={{ min: 0, max: maxShare }}
+                inputProps={{ inputMode: 'numeric' }}
               />
             </Grid>
           </Grid>
@@ -488,10 +527,12 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
                 fullWidth
                 value={formData.matchCommission}
                 name="matchCommission"
+                type="text"
                 onChange={handleNumberChange}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
+                inputProps={{ inputMode: 'numeric' }}
               />
             </Grid>
             <Grid item xs={4}>
@@ -500,10 +541,12 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
                 fullWidth
                 value={formData.sessionCommission}
                 name="sessionCommission"
+                type="text"
                 onChange={handleNumberChange}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
+                inputProps={{ inputMode: 'numeric' }}
               />
             </Grid>
             <Grid item xs={4}>
@@ -512,10 +555,12 @@ export function CreateMemberModal({ open, onClose, onSubmit }: CreateMemberModal
                 fullWidth
                 value={formData.casinoCommission}
                 name="casinoCommission"
+                type="text"
                 onChange={handleNumberChange}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
+                inputProps={{ inputMode: 'numeric' }}
               />
             </Grid>
           </Grid>

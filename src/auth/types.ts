@@ -1,4 +1,4 @@
-export type UserRole = 'super_admin' | 'admin' | 'super_master' | 'master' | 'super_agent' | 'agent' ;
+export type UserRole = 'super_admin' | 'admin' | 'super_master' | 'master' | 'super_agent' | 'agent' | 'power_user';
 
 export type UserType = {
   _id: string;
@@ -29,7 +29,8 @@ export const USER_HIERARCHY: Record<UserRole, number> = {
   super_master: 4,
   master: 3,
   super_agent: 2,
-  agent: 1
+  agent: 1,
+  power_user: 0,
 };
 
 // Check access by hierarchy

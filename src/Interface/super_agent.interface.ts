@@ -38,6 +38,7 @@ export interface MemberFormData {
   wallet: number;
   exposure: number;
   parent_id?: string;
+  user_name?: string;
 }
 
 export interface AdminApiPayload {

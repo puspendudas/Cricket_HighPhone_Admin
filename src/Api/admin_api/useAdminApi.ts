@@ -12,7 +12,7 @@ import { toast } from 'src/components/snackbar';
 const useAdminApi = () => {
   const { get, post, put } = useApi();
 
-  const fetchAdminList = async () => {
+  const fetchAdminList = useCallback(async () => {
     try {
       const response = await get(`${Endpoints.superadmin}/get?type=admin`);
       return response;
@@ -21,9 +21,9 @@ const useAdminApi = () => {
       toast.error('Failed to fetch admin list');
       throw error;
     }
-  };
+  }, [get]);
 
-  const fetchAdmin = async () => {
+  const fetchAdmin = useCallback(async () => {
     try {
       const response = await get(`${Endpoints.superadmin}/get?type=super_admin`);
       return response;
@@ -32,7 +32,7 @@ const useAdminApi = () => {
       toast.error('Failed to fetch super admin');
       throw error;
     }
-  };
+  }, [get]);
 
   const addadmin = useCallback(
     async (admin: AdminApiPayload) => {
@@ -49,7 +49,7 @@ const useAdminApi = () => {
     [post]
   );
 
-  const GetAdminid = async () => {
+  const GetAdminid = useCallback(async () => {
     try {
       const response = await get(`${Endpoints.superadmin}/getid/admin`);
       return response;
@@ -58,7 +58,7 @@ const useAdminApi = () => {
       toast.error('Failed to get admin ID');
       throw error;
     }
-  };
+  }, [get]);
 
   const updateAdmin = useCallback(
     async (id: string, updatePayload: Updatepaylod) => {
@@ -76,7 +76,29 @@ const useAdminApi = () => {
     [put]
   );
 
-  return { addadmin, fetchAdminList, fetchAdmin, GetAdminid, updateAdmin };
+  const fetchPowerUserList = useCallback(async () => {
+    try {
+      const response = await get(`${Endpoints.superadmin}/get?type=power_user`);
+      return response;
+    } catch (error) {
+      console.error('Error fetchPowerUserList', error);
+      toast.error('Failed to fetch power user list');
+      throw error;
+    }
+  }, [get]);
+
+  const GetPowerUserid = useCallback(async () => {
+    try {
+      const response = await get(`${Endpoints.superadmin}/getid/power_user`);
+      return response;
+    } catch (error) {
+      console.error('Error GetPowerUserid', error);
+      toast.error('Failed to get power user ID');
+      throw error;
+    }
+  }, [get]);
+
+  return { addadmin, fetchAdminList, fetchAdmin, fetchPowerUserList, GetAdminid, GetPowerUserid, updateAdmin };
 };
 
 export default useAdminApi;
