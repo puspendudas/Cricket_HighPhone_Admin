@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 
 import {
     Box,
@@ -9,10 +10,43 @@ import {
     Typography,
 } from '@mui/material';
 
+import useApi from 'src/server/axios/index';
 import { Iconify } from 'src/components/iconify';
+import { Endpoints } from 'src/server/endpoints_configuration/Endpoints';
 
 const LiveTv = () => {
+    const { gameId } = useParams<{ gameId: string }>();
     const [isLiveTvExpanded, setIsLiveTvExpanded] = useState(false);
+    const [scorecardUrl, setScorecardUrl] = useState<string>('');
+    const { get } = useApi();
+
+    const targetId = gameId || '34154017';
+
+    useEffect(() => {
+        let isMounted = true;
+
+        if (targetId) {
+            const defaultUrl = `https://scorecard.daimond-api.site/?etid=4&gmid=${targetId}`;
+            setScorecardUrl(defaultUrl);
+
+            const fetchScorecard = async () => {
+                try {
+                    const res = await get(`${Endpoints.PublicScorecard}?gmid=${targetId}&etid=4`);
+                    if (res?.scorecard_url && isMounted) {
+                        setScorecardUrl(res.scorecard_url);
+                    }
+                } catch (err) {
+                    console.error('Error fetching scorecard url:', err);
+                }
+            };
+
+            fetchScorecard();
+        }
+
+        return () => {
+            isMounted = false;
+        };
+    }, [targetId, get]);
 
     const toggleLiveTv = () => {
         setIsLiveTvExpanded(!isLiveTvExpanded);
@@ -106,7 +140,7 @@ const LiveTv = () => {
                         }}
                     >
                         <iframe
-                            src="https://apis.professorji.in/api/scorecard?eventId=34154017&sport=cricket"
+                            src={scorecardUrl || `https://scorecard.daimond-api.site/?etid=4&gmid=${targetId}`}
                             style={{
                                 width: '100%',
                                 height: '100%',
@@ -135,7 +169,7 @@ const LiveTv = () => {
                         }}
                     >
                         <iframe
-                            src="https://apis.professorji.in/api/tv?eventId=34154017&sport=cricket"
+                            src={`https://video.proexch.in/tv/v4/stream/${gameId}`}
                             style={{
                                 width: '100%',
                                 height: '100%',
