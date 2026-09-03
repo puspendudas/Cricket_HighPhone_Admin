@@ -14,7 +14,9 @@ import {
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useBatApi from 'src/Api/batLockApi/useBatApi';
+import useApi from 'src/server/axios/index';
 import useAutosettingApi from 'src/Api/Autosetting/useAutosettingApi';
+import { Endpoints } from 'src/server/endpoints_configuration/Endpoints';
 
 import { Iconify } from 'src/components/iconify';
 
@@ -28,6 +30,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
     const [isLiveTvExpanded, setIsLiveTvExpanded] = useState(false);
     const { MatchOddsBetLock, FancyBetLock } = useBatApi();
     const { fetchMe } = useMeApi();
+    const { get } = useApi();
     const theme = useTheme();
     const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
 
@@ -36,11 +39,14 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
     };
     const marketId = matchData?.match?.marketId;
     const gameid = matchData?.match?.gameId
+    const gmId = matchData?.match?.gmid || matchData?.gmid || matchData?.match?.gameId || matchData?.gameId || matchId;
+
     // Get current admin ID and check lock status
     const [adminId, setAdminId] = useState<string | null>(null);
     const [isBetLockedByAdmin, setIsBetLockedByAdmin] = useState(false);
     const [isFancyLockedByAdmin, setIsFancyLockedByAdmin] = useState(false);
     const [scoreboardProvider, setScoreboardProvider] = useState<string>('BetFair');
+    const [diamondScorecardUrl, setDiamondScorecardUrl] = useState<string>('');
     const { getSettings } = useAutosettingApi();
 
     React.useEffect(() => {
@@ -57,6 +63,34 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
         fetchGlobalSettings();
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    React.useEffect(() => {
+        let isMounted = true;
+
+        if (gmId) {
+            const defaultUrl = `https://scorecard.daimond-api.site/?etid=4&gmid=${gmId}`;
+            setDiamondScorecardUrl(defaultUrl);
+
+            if (scoreboardProvider === 'Diamond') {
+                const fetchScorecardUrl = async () => {
+                    try {
+                        const res = await get(`${Endpoints.PublicScorecard}?gmid=${gmId}&etid=4`);
+                        if (res?.scorecard_url && isMounted) {
+                            setDiamondScorecardUrl(res.scorecard_url);
+                        }
+                    } catch (err) {
+                        console.error('Error fetching scorecard url:', err);
+                    }
+                };
+
+                fetchScorecardUrl();
+            }
+        }
+
+        return () => {
+            isMounted = false;
+        };
+    }, [gmId, scoreboardProvider, get]);
 
     React.useEffect(() => {
         const checkAdminLockStatus = async () => {
@@ -249,7 +283,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                     >
                         <iframe
                             src={scoreboardProvider === 'Diamond' 
-                                ? `https://scorecard.avrkhub.in/?etid=4&gmid=${matchData?.match?.gmid || matchId}`
+                                ? (diamondScorecardUrl || `https://scorecard.daimond-api.site/?etid=4&gmid=${gmId}`)
                                 : `https://diamondapi.avrkhub.in/score-card.html?id=${matchId}`}
                             style={{
                                 width: '100%',
@@ -280,7 +314,6 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                     >
                         <iframe
                             src={`https://video.proexch.in/tv/v4/stream/${matchId}`}
-
                             style={{
                                 width: '100%',
                                 height: '100%',

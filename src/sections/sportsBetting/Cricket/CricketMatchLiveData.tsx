@@ -182,14 +182,15 @@ export default function CricketMatchLiveData() {
 
       Object.entries(admin.potential_profitloss || {}).forEach(
         ([teamName, teamPL]: [string, any]) => {
-          if (!teamWisePL[teamName]) {
-            teamWisePL[teamName] = 0;
+          const trimmedTeamName = String(teamName || '').trim();
+          if (!teamWisePL[trimmedTeamName]) {
+            teamWisePL[trimmedTeamName] = 0;
           }
 
           // Apply share percentage to each team's P/L and INVERT SIGN
           const shareAmount = (shareDiff / 100) * teamPL;
           const invertedShareAmount = shareAmount * -1; // SIGN INVERT (- becomes +, + becomes -)
-          teamWisePL[teamName] += invertedShareAmount;
+          teamWisePL[trimmedTeamName] += invertedShareAmount;
         }
       );
     });
@@ -564,7 +565,7 @@ export default function CricketMatchLiveData() {
               const isBackSusp = Number(row.b1) >= 100;
               const isLaySusp = Number(row.l1) >= 100;
 
-              const teamName = row.rname;
+              const teamName = String(row.rname || '').trim();
               const teamPL = teamWisePotentialPL[teamName] || 0;
 
               return (

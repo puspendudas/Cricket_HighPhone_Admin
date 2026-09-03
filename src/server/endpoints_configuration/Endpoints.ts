@@ -41,9 +41,8 @@ export const Endpoints = {
     commissionClients: `${BASE_URL}/match/commission/clients`,
     commissionLedgerHistory: `${BASE_URL}/match/commission/ledger-history`,
     commissionAgentSettle: `${BASE_URL}/match/commission/agent-settle`,
-    commissionHistory: `${BASE_URL}/match/commission/history`
-
-
+    commissionHistory: `${BASE_URL}/match/commission/history`,
+    PublicScorecard: `${BASE_URL}/public/scorecard`
 
 }
 
