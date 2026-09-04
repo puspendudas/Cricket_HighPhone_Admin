@@ -356,7 +356,6 @@ export function MatchManagementTableData() {
                       Date
                     </TableSortLabel>
                   </TableCell>
-                  <TableCell>Time</TableCell>
                   <TableCell>Declared</TableCell>
                   <TableCell>Won By</TableCell>
                   <TableCell>Status</TableCell>

@@ -1,1 +1,1 @@
-export const BASE_URL = 'https://server.highphone11.com/api/v1';
+export const BASE_URL = 'https://server.testingexch.com/api/v1';
