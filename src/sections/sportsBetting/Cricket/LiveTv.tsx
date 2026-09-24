@@ -46,6 +46,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
     const [isBetLockedByAdmin, setIsBetLockedByAdmin] = useState(false);
     const [isFancyLockedByAdmin, setIsFancyLockedByAdmin] = useState(false);
     const [scoreboardProvider, setScoreboardProvider] = useState<string>('BetFair');
+    const [streamProvider, setStreamProvider] = useState<string>('BetFair');
     const [diamondScorecardUrl, setDiamondScorecardUrl] = useState<string>('');
     const { getSettings } = useAutosettingApi();
 
@@ -55,6 +56,9 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 const settingsData = await getSettings();
                 if (settingsData?.data?.scoreboard_provider) {
                     setScoreboardProvider(settingsData.data.scoreboard_provider);
+                }
+                if (settingsData?.data?.stream_provider) {
+                    setStreamProvider(settingsData.data.stream_provider);
                 }
             } catch (error) {
                 console.error('Error fetching global settings:', error);
@@ -313,7 +317,9 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                         }}
                     >
                         <iframe
-                            src={`https://video.proexch.in/tv/v4/stream/${matchId}`}
+                            src={streamProvider === 'Diamond'
+                                ? `https://stream-s-43.uhdmovies.online/sports-stream?id=${gmId || matchId}`
+                                : `https://video.proexch.in/tv/v4/stream/${matchId}`}
                             style={{
                                 width: '100%',
                                 height: '100%',

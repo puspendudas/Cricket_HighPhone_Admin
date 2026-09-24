@@ -2,31 +2,35 @@
 import type { OddData } from 'src/Interface/matchManagement.interface';
 
 import { useParams } from 'react-router-dom';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 import {
+  Alert,
   Box,
   Button,
   Card,
   CardContent,
+  Chip,
+  FormControl,
   FormControlLabel,
   Grid,
+  InputLabel,
   MenuItem,
   Select,
+  Stack,
   Switch,
   TextField,
   Typography,
 } from '@mui/material';
 
+import type { ExtractedTeam } from 'src/utils/extractTeams';
+
+import { extractTeamsFromMatchData } from 'src/utils/extractTeams';
+
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
 
 import { toast } from 'src/components/snackbar';
-
-interface Team {
-  sid: number;
-  name: string;
-}
 
 interface OddTeam {
   name: string;
@@ -45,6 +49,8 @@ export default function MatchManuallyUpdate() {
   const [betMin, setBetMin] = useState<number>(0);
   const [betMax, setBetMax] = useState<number>(0);
   const [winner, setWinner] = useState<string>('');
+  const [customTeamName, setCustomTeamName] = useState<string>('');
+  const [customSid, setCustomSid] = useState<number>(1);
   const [matchName, setMatchName] = useState<string>('N/A');
   const [includeDraw, setIncludeDraw] = useState<boolean>(false);
 
@@ -83,8 +89,7 @@ export default function MatchManuallyUpdate() {
 
     fetchBetDetails();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [matchData?.match?._id,]);
-
+  }, [matchData?.match?._id]);
 
   // Mutations
   const declareMutation = useMutation({
@@ -123,24 +128,16 @@ export default function MatchManuallyUpdate() {
 
   // Derived state
   const matchId = matchData?.match?._id || null;
+  const isDeclared = matchData?.match?.declared === true;
+  const declaredWinner = matchData?.match?.wonby;
 
-  const teams: Team[] =
-    matchData?.match?.teams?.map((name: string, idx: number) => ({
-      sid: idx + 1,
-      name,
-    })) || [];
+  // Extract teams from match data using all available sources
+  const teams: ExtractedTeam[] = useMemo(
+    () => extractTeamsFromMatchData(matchData?.match, includeDraw),
+    [matchData?.match, includeDraw]
+  );
 
-  if (includeDraw && !teams.some(t => t.name.toLowerCase() === 'the draw')) {
-    teams.push({ sid: teams.length + 1, name: 'The Draw' });
-  }
-
-
-//  const teams: Team[] = matchData?.match?.matchOdds?.[0]?.oddDatas?.map((item: OddData, idx: number) => ({
-//     sid: item.sid || idx + 1,
-//     name: item.rname
-//   })) || [];
-  const bookMakerOddsObj =
-    matchData?.match?.bookMakerOdds?.[0] || {};
+  const bookMakerOddsObj = matchData?.match?.bookMakerOdds?.[0] || {};
 
   const bookmakerMarket =
     bookMakerOddsObj.bm1 ||
@@ -156,8 +153,6 @@ export default function MatchManuallyUpdate() {
       status: item.status,
     })) || [];
 
-
-
   const matchOdds: OddTeam[] =
     matchData?.match?.matchOdds?.[0]?.oddDatas?.map((item: OddData) => ({
       name: item.rname || 'Unknown',
@@ -168,16 +163,38 @@ export default function MatchManuallyUpdate() {
 
   // Handlers
   const handleDeclare = async () => {
-    if (!winner || !matchId) {
+    if (!matchId) {
+      toast.error('Match ID not found!');
+      return;
+    }
+
+    let selectedTeamName = '';
+    let selectedSid = 1;
+
+    if (winner === '__custom__') {
+      if (!customTeamName.trim()) {
+        toast.error('Please enter the custom winning team name!');
+        return;
+      }
+      selectedTeamName = customTeamName.trim();
+      selectedSid = Number(customSid) || 1;
+    } else if (winner) {
+      try {
+        const parsed = JSON.parse(winner) as ExtractedTeam;
+        selectedTeamName = parsed.name;
+        selectedSid = parsed.sid;
+      } catch {
+        selectedTeamName = winner;
+      }
+    } else {
       toast.error('Please select a team first!');
       return;
     }
 
-    const selectedTeam = JSON.parse(winner) as Team;
     const payload = {
       isWon: true,
-      sid: selectedTeam.sid,
-      team: selectedTeam.name,
+      sid: selectedSid,
+      team: selectedTeamName,
     };
 
     declareMutation.mutate({ matchId, payload });
@@ -216,9 +233,25 @@ export default function MatchManuallyUpdate() {
   // UI render
   return (
     <Box p={1}>
-      <Typography variant="h4" mb={2}>
-        Match Name : {matchName}
-      </Typography>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={1}>
+        <Typography variant="h4">
+          Match Name : {matchName || matchData?.match?.eventName || 'N/A'}
+        </Typography>
+        {isDeclared && (
+          <Chip
+            label={`DECLARED (Winner: ${declaredWinner || 'N/A'})`}
+            color="success"
+            sx={{ fontWeight: 'bold', fontSize: '1rem', py: 2 }}
+          />
+        )}
+      </Stack>
+
+      {isDeclared && (
+        <Alert severity="success" sx={{ mb: 3 }}>
+          This match has already been declared. Winning Team:{' '}
+          <strong>{declaredWinner || 'N/A'}</strong>
+        </Alert>
+      )}
 
       {/* Book Maker Section */}
       <Card variant="outlined" sx={{ mb: 4 }}>
@@ -307,7 +340,6 @@ export default function MatchManuallyUpdate() {
                   <MenuItem value={betDelay}>{betDelay}</MenuItem>
                 )}
               </Select>
-
             </Grid>
             <Grid item xs={12} md={4}>
               <TextField
@@ -349,20 +381,29 @@ export default function MatchManuallyUpdate() {
           </Typography>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} md={4}>
-              <Select
-                fullWidth
-                displayEmpty
-                value={winner}
-                onChange={(e) => setWinner(e.target.value as string)}
-                disabled={matchData?.match?.declared === true}>
-
-                <MenuItem value="">Select Team</MenuItem>
-                {teams.map((team: Team, idx: number) => (
-                  <MenuItem key={idx} value={JSON.stringify(team)}>
-                    {team.name}
+              <FormControl fullWidth>
+                <InputLabel id="declare-team-select-label">Select Team</InputLabel>
+                <Select
+                  labelId="declare-team-select-label"
+                  label="Select Team"
+                  displayEmpty
+                  value={winner}
+                  onChange={(e) => setWinner(e.target.value as string)}
+                  disabled={isDeclared}
+                >
+                  <MenuItem value="">
+                    <em>Select Team</em>
                   </MenuItem>
-                ))}
-              </Select>
+                  {teams.map((team: ExtractedTeam, idx: number) => (
+                    <MenuItem key={idx} value={JSON.stringify(team)}>
+                      {team.name} (SID: {team.sid})
+                    </MenuItem>
+                  ))}
+                  <MenuItem value="__custom__">
+                    <em>+ Enter Custom Team Name</em>
+                  </MenuItem>
+                </Select>
+              </FormControl>
             </Grid>
             <Grid item xs={12} md={3}>
               <FormControlLabel
@@ -370,7 +411,7 @@ export default function MatchManuallyUpdate() {
                   <Switch
                     checked={includeDraw}
                     onChange={(e) => setIncludeDraw(e.target.checked)}
-                    disabled={matchData?.match?.declared === true}
+                    disabled={isDeclared}
                   />
                 }
                 label="Include 'The Draw'"
@@ -383,9 +424,10 @@ export default function MatchManuallyUpdate() {
                 sx={{ mr: 2 }}
                 onClick={handleDeclare}
                 disabled={
-                  matchData?.match?.declared === true ||
+                  isDeclared ||
                   !winner ||
                   !matchId ||
+                  (winner === '__custom__' && !customTeamName.trim()) ||
                   declareMutation.isPending
                 }
               >
@@ -395,11 +437,44 @@ export default function MatchManuallyUpdate() {
                 variant="contained"
                 color="error"
                 onClick={handleCancelMatch}
-                disabled={cancelMutation.isPending}
+                disabled={cancelMutation.isPending || isDeclared}
               >
                 {cancelMutation.isPending ? 'Cancelling...' : 'Cancel Match'}
               </Button>
             </Grid>
+
+            {/* Custom Team Name Inputs */}
+            {winner === '__custom__' && (
+              <Grid item xs={12}>
+                <Card variant="outlined" sx={{ p: 2, bgcolor: 'background.neutral' }}>
+                  <Typography variant="subtitle2" mb={1}>
+                    Enter Custom Winning Team:
+                  </Typography>
+                  <Grid container spacing={2}>
+                    <Grid item xs={12} md={8}>
+                      <TextField
+                        fullWidth
+                        label="Winning Team Name"
+                        value={customTeamName}
+                        onChange={(e) => setCustomTeamName(e.target.value)}
+                        placeholder="e.g. England U19"
+                        disabled={isDeclared}
+                      />
+                    </Grid>
+                    <Grid item xs={12} md={4}>
+                      <TextField
+                        fullWidth
+                        label="Selection ID (SID)"
+                        type="number"
+                        value={customSid}
+                        onChange={(e) => setCustomSid(Number(e.target.value) || 1)}
+                        disabled={isDeclared}
+                      />
+                    </Grid>
+                  </Grid>
+                </Card>
+              </Grid>
+            )}
           </Grid>
         </CardContent>
       </Card>

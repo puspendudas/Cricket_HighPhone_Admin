@@ -36,7 +36,7 @@ import useCasinoApi from 'src/Api/CasinoApi/CasinoApi';
 
 import { useCasinoSocket } from 'src/hooks/useCasinoSocket';
 import { Iconify } from 'src/components/iconify';
-import { formatUTCDateTime12H } from 'src/utils/date';
+import { formatUTCDateTimeSec } from 'src/utils/date';
 import {
   adjustCasinoOdds,
   adjustDt20Odds,
@@ -342,14 +342,43 @@ export default function CasinoGameLiveData({ gtype, title }: CasinoGameLiveDataP
   };
 
   const getWinnerName = (res: any) => {
-    const r = String(res.result || res.win || '').toUpperCase();
-    if (r === '1' || r === 'D' || r === 'DRAGON' || r === 'A') return 'A';
-    if (r === '2' || r === 'T' || r === 'TIGER' || r === 'B') return 'B';
-    if (r === '3' || r === 'TIE') return '-';
-    return r || '?';
+    const raw = String(res.result ?? res.win ?? res.winnat ?? res.desc ?? res.rdesc ?? '').trim().toUpperCase();
+
+    if (gtype === 'dt20') {
+      if (raw === '1' || raw === 'D' || raw === 'DRAGON') return 'D';
+      if (raw === '2' || raw === 'T' || raw === 'TIGER') return 'T';
+      if (raw === '3' || raw === 'TIE' || raw === '-' || raw.includes('TIE')) return '-';
+      return raw || '?';
+    }
+
+    if (gtype === 'lucky7eu' || gtype.toLowerCase().includes('lucky7')) {
+      if (raw === '1' || raw === 'L' || raw.includes('LOW')) return 'L';
+      if (raw === '2' || raw === 'H' || raw.includes('HIGH')) return 'H';
+      if (raw === '0' || raw === '3' || raw === '7' || raw === 'T' || raw.includes('TIE')) return 'T';
+      return raw || '?';
+    }
+
+    if (raw === '1' || raw === 'A' || raw.includes('PLAYER A')) return 'A';
+    if (raw === '2' || raw === 'B' || raw.includes('PLAYER B')) return 'B';
+    if (raw === '3' || raw === 'TIE' || raw === '-') return '-';
+    return raw || '?';
   };
 
   const getWinnerColor = (winner: string) => {
+    if (gtype === 'lucky7eu' || gtype.toLowerCase().includes('lucky7')) {
+      if (winner === 'L') return '#16C75A';
+      if (winner === 'H') return '#5B3DF5';
+      if (winner === 'T') return '#FF9F43';
+      return '#757575';
+    }
+
+    if (gtype === 'dt20') {
+      if (winner === 'D') return '#FF4B4B';
+      if (winner === 'T') return '#FF9F43';
+      if (winner === '-') return '#16C75A';
+      return '#757575';
+    }
+
     if (winner === 'A' || winner === 'D') return '#FF4B4B';
     if (winner === 'B' || winner === 'T') return '#FF9F43';
     if (winner === '-') return '#16C75A';
@@ -1166,7 +1195,7 @@ export default function CasinoGameLiveData({ gtype, title }: CasinoGameLiveDataP
             <Typography variant="h6" fontWeight="bold">
               Last Results
             </Typography>
-            <Stack direction="row" spacing={0.5} sx={{ minWidth: 'max-content', py: 0.5 }}>
+            <Stack direction="row-reverse" spacing={0.5} sx={{ minWidth: 'max-content', py: 0.5 }}>
               {(resultsData || []).slice(0, 10).map((res: any, idx: number) => {
                 const winner = getWinnerName(res);
                 const roundMid = res.mid || res.rid || res.roundId;
@@ -1293,7 +1322,7 @@ export default function CasinoGameLiveData({ gtype, title }: CasinoGameLiveDataP
                             </TableCell>
                             <TableCell sx={{ whiteSpace: 'nowrap' }}>{bet.rate || 0}</TableCell>
                             <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>₹{bet.amount}</TableCell>
-                            <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatUTCDateTime12H(bet.createdAt)}</TableCell>
+                            <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatUTCDateTimeSec(bet.createdAt)}</TableCell>
                             {betTab === 1 && (
                               <>
                                 <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap', color: pnl >= 0 ? 'green' : 'red' }}>
@@ -1441,7 +1470,7 @@ export default function CasinoGameLiveData({ gtype, title }: CasinoGameLiveDataP
                       />
                     </TableCell>
                     <TableCell sx={{ fontWeight: 'bold' }}>₹{bet.amount}</TableCell>
-                    <TableCell>{formatUTCDateTime12H(bet.createdAt)}</TableCell>
+                    <TableCell>{formatUTCDateTimeSec(bet.createdAt)}</TableCell>
                   </TableRow>
                 ))
               ) : (

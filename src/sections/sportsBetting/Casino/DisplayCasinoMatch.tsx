@@ -26,7 +26,7 @@ import {
 import useMeApi from 'src/Api/me/useMeApi';
 import useCasinoApi from 'src/Api/CasinoApi/CasinoApi';
 import { Iconify } from 'src/components/iconify';
-import { formatUTCDateTime12H } from 'src/utils/date';
+import { formatUTCDateTimeSec } from 'src/utils/date';
 
 interface SummaryRow {
   client: string;
@@ -324,7 +324,7 @@ export default function DisplayCasinoMatch() {
                             </TableCell>
                             <TableCell sx={{ whiteSpace: 'nowrap' }}>{bet.rate || 0}</TableCell>
                             <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>₹{bet.amount}</TableCell>
-                            <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatUTCDateTime12H(bet.createdAt)}</TableCell>
+                            <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatUTCDateTimeSec(bet.createdAt)}</TableCell>
                             <TableCell sx={{ fontWeight: 'bold', whiteSpace: 'nowrap', color: pnl >= 0 ? 'green' : 'red' }}>
                               {pnl >= 0 ? '+' : ''}{pnl.toFixed(2)}
                             </TableCell>

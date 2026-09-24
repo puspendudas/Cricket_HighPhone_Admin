@@ -12,9 +12,9 @@ import Dregantiger from '../../../public/assets/dashbordimg/f72cf6e55fef786a25ae
 
 // Card Data
 const casinoGames = [
-  { name: 'Teen Patti', image: Teenpati, path: '/casino/teen' },
+  { name: 'Teen Patti', image: Oneday, path: '/casino/teen' },
   { name: 'Dragon Tiger', image: Dregantiger, path: '/casino/dt20' },
-  { name: 'One Day Teen Patti', image: Oneday, path: '/casino/teen20' },
+  { name: 'One Day Teen Patti', image: Teenpati, path: '/casino/teen20' },
   { name: 'Lucky 7', image: Lucky, path: '/casino/lucky7eu' },
 ];
 

@@ -23,7 +23,7 @@ import {
 import useMeApi from 'src/Api/me/useMeApi';
 import useCasinoApi from 'src/Api/CasinoApi/CasinoApi';
 import { Iconify } from 'src/components/iconify';
-import { formatUTCDateTime12H } from 'src/utils/date';
+import { formatUTCDateTimeSec } from 'src/utils/date';
 import { getCasinoGameTitle } from 'src/utils/casino';
 
 interface CasinoDeletedBetRow {
@@ -170,7 +170,7 @@ export default function CasinoDeletedBets() {
                     </Box>
                   </TableCell>
                   <TableCell sx={{ fontWeight: 'bold' }}>₹{Number(row.amount || 0).toLocaleString()}</TableCell>
-                  <TableCell>{row.createdAt ? formatUTCDateTime12H(row.createdAt) : '-'}</TableCell>
+                  <TableCell>{row.createdAt ? formatUTCDateTimeSec(row.createdAt) : '-'}</TableCell>
                   <TableCell>
                     <Chip
                       label="DELETED"

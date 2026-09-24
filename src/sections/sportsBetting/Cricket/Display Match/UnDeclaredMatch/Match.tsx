@@ -31,6 +31,8 @@ import {
   DialogContentText,
 } from '@mui/material';
 
+import { extractTeamsFromMatchData } from 'src/utils/extractTeams';
+
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
 import useBetHistroyApi from 'src/Api/matchApi/useBetHistroyApi';
 
@@ -41,7 +43,7 @@ const Match = () => {
   const queryClient = useQueryClient();
   const { id: gameId } = useParams();
   const [team, setTeam] = useState('');
-  const [bets, setBets] = useState('');
+  const [bets, setBets] = useState<string>('FAIR');
   const [fromDate1, setFromDate1] = useState<Dayjs | null>(null);
   const [fromTime1, setFromTime1] = useState<Dayjs | null>(null);
   const [fromDate2, setFromDate2] = useState<Dayjs | null>(null);
@@ -65,7 +67,7 @@ const Match = () => {
 
   // Extract teams from match data
   const teams = useMemo<string[]>(
-    () => matchData?.match?.teams || [],
+    () => extractTeamsFromMatchData(matchData?.match).map((t) => t.name),
     [matchData]
   );
 

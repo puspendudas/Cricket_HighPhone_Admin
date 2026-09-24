@@ -18,9 +18,24 @@ const LiveTv = () => {
     const { gameId } = useParams<{ gameId: string }>();
     const [isLiveTvExpanded, setIsLiveTvExpanded] = useState(false);
     const [scorecardUrl, setScorecardUrl] = useState<string>('');
+    const [streamProvider, setStreamProvider] = useState<string>('BetFair');
     const { get } = useApi();
 
     const targetId = gameId || '34154017';
+
+    useEffect(() => {
+        const fetchSettings = async () => {
+            try {
+                const res = await get(Endpoints.SettingGet);
+                if (res?.data?.stream_provider) {
+                    setStreamProvider(res.data.stream_provider);
+                }
+            } catch (err) {
+                console.error('Error fetching stream settings:', err);
+            }
+        };
+        fetchSettings();
+    }, [get]);
 
     useEffect(() => {
         let isMounted = true;
@@ -169,7 +184,9 @@ const LiveTv = () => {
                         }}
                     >
                         <iframe
-                            src={`https://video.proexch.in/tv/v4/stream/${gameId}`}
+                            src={streamProvider === 'Diamond'
+                                ? `https://stream-s-43.uhdmovies.online/sports-stream?id=${targetId}`
+                                : `https://video.proexch.in/tv/v4/stream/${gameId}`}
                             style={{
                                 width: '100%',
                                 height: '100%',

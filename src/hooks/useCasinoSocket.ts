@@ -5,7 +5,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 
 import { STORAGE_KEY } from 'src/auth/context/jwt/constant';
 
-const SOCKET_URL = 'https://server.testingexch.com';
+const SOCKET_URL = 'https://server.highphone11.com';
 
 interface UseCasinoSocketReturn {
   oddsData: any | null;
@@ -34,20 +34,20 @@ export function useCasinoSocket(gtype: string | undefined): UseCasinoSocketRetur
   const [casinoMinBet, setCasinoMinBet] = useState<number | undefined>(undefined);
   const [casinoMaxBet, setCasinoMaxBet] = useState<number | undefined>(undefined);
   const [casinoSettings, setCasinoSettings] = useState<any>({});
-  
+
   const socketRef = useRef<Socket | null>(null);
 
   const getToken = useCallback(() => sessionStorage.getItem(STORAGE_KEY), []);
 
   useEffect(() => {
-    if (!gtype) return () => {};
+    if (!gtype) return () => { };
 
     const token = getToken();
 
     if (!token) {
       setError(new Error('No JWT token available'));
       setIsLoading(false);
-      return () => {};
+      return () => { };
     }
 
     if (socketRef.current) {
@@ -101,7 +101,7 @@ export function useCasinoSocket(gtype: string | undefined): UseCasinoSocketRetur
         }
         return null;
       };
-      
+
       const actualData = extractArray(data) || [];
       setResultsData(actualData);
     });

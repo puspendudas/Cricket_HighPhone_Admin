@@ -31,6 +31,7 @@ export function AutosettingData() {
   ]);
 
   const [scoreboardProvider, setScoreboardProvider] = useState<string>('BetFair');
+  const [streamProvider, setStreamProvider] = useState<string>('BetFair');
 
   // ✅ Fetch initial settings
   const { data: settingsData, isLoading: isSettingsLoading } = useQuery({
@@ -46,6 +47,9 @@ export function AutosettingData() {
       }
       if (settings.scoreboard_provider) {
         setScoreboardProvider(settings.scoreboard_provider);
+      }
+      if (settings.stream_provider) {
+        setStreamProvider(settings.stream_provider);
       }
     }
   }, [settingsData]);
@@ -88,6 +92,12 @@ export function AutosettingData() {
     const newValue = (event.target as HTMLInputElement).value;
     setScoreboardProvider(newValue);
     updateSettingsMutation.mutate({ scoreboard_provider: newValue });
+  };
+
+  const handleStreamChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = (event.target as HTMLInputElement).value;
+    setStreamProvider(newValue);
+    updateSettingsMutation.mutate({ stream_provider: newValue });
   };
 
   const isLoading = startMutation.isPending || stopMutation.isPending;
@@ -168,6 +178,48 @@ export function AutosettingData() {
                     name="scoreboard-provider"
                     value={scoreboardProvider}
                     onChange={handleScoreboardChange}
+                  >
+                    <FormControlLabel 
+                      value="BetFair" 
+                      control={<Radio color="primary" />} 
+                      label="BetFair" 
+                      disabled={updateSettingsMutation.isPending}
+                    />
+                    <FormControlLabel 
+                      value="Diamond" 
+                      control={<Radio color="primary" />} 
+                      label="Diamond" 
+                      disabled={updateSettingsMutation.isPending}
+                    />
+                  </RadioGroup>
+                  {updateSettingsMutation.isPending && (
+                    <Box mt={1} display="flex" alignItems="center" gap={1}>
+                      <CircularProgress size={16} />
+                      <Typography variant="caption">Updating...</Typography>
+                    </Box>
+                  )}
+                </FormControl>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3 }}>
+            <CardContent>
+              <Box display="flex" justifyContent="space-between" alignItems="center" mb={2}>
+                <Typography variant="h6">Manage Stream</Typography>
+              </Box>
+              
+              {isSettingsLoading ? (
+                <CircularProgress size={20} />
+              ) : (
+                <FormControl component="fieldset">
+                  <RadioGroup
+                    row
+                    name="stream-provider"
+                    value={streamProvider}
+                    onChange={handleStreamChange}
                   >
                     <FormControlLabel 
                       value="BetFair" 

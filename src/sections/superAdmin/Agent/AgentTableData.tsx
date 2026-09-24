@@ -241,7 +241,7 @@ export function AgentTableData() {
                         if (!selectedMember) return;
 
                         const loginDetails = `
-https://cricket.testingexch.com/
+https://cricket.highphone11.com/
 UserName: ${selectedMember.user}
 Password: ${selectedMember.password}
     `;
