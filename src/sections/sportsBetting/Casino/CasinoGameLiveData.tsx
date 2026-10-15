@@ -48,6 +48,7 @@ import {
 import CasinoLiveTv from './CasinoLiveTv';
 import CasinoRulesModal from './CasinoRulesModal';
 import CasinoResultDetailModal from './CasinoResultDetailModal';
+import { CasinoResultHistoryModal } from './CasinoResultHistoryModal';
 
 interface SummaryRow {
   client: string;
@@ -102,6 +103,7 @@ export default function CasinoGameLiveData({ gtype, title }: CasinoGameLiveDataP
   const [betTab, setBetTab] = useState(0);
   const [selectedMid, setSelectedMid] = useState<string | null>(null);
   const [resultDetailOpen, setResultDetailOpen] = useState<boolean>(false);
+  const [resultHistoryOpen, setResultHistoryOpen] = useState<boolean>(false);
   const [rulesOpen, setRulesOpen] = useState<boolean>(false);
 
   const roundId = oddsData?.mid || 'Waiting...';
@@ -1192,11 +1194,21 @@ export default function CasinoGameLiveData({ gtype, title }: CasinoGameLiveDataP
 
           {/* Last Results */}
           <Box sx={{ mb: 3, overflowX: 'auto' }}>
-            <Typography variant="h6" fontWeight="bold">
-              Last Results
-            </Typography>
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+              <Typography variant="h6" fontWeight="bold">
+                Last Results
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<Iconify icon="eva:calendar-outline" />}
+                onClick={() => setResultHistoryOpen(true)}
+              >
+                View More
+              </Button>
+            </Box>
             <Stack direction="row-reverse" spacing={0.5} sx={{ minWidth: 'max-content', py: 0.5 }}>
-              {(resultsData || []).slice(0, 10).map((res: any, idx: number) => {
+              {(resultsData || []).slice(0, 10).reverse().map((res: any, idx: number) => {
                 const winner = getWinnerName(res);
                 const roundMid = res.mid || res.rid || res.roundId;
                 return (
@@ -1509,6 +1521,17 @@ export default function CasinoGameLiveData({ gtype, title }: CasinoGameLiveDataP
         open={rulesOpen}
         onClose={() => setRulesOpen(false)}
         gtype={gtype}
+      />
+
+      {/* 10-Day Result History Modal with Date Filter */}
+      <CasinoResultHistoryModal
+        open={resultHistoryOpen}
+        onClose={() => setResultHistoryOpen(false)}
+        gameCode={gtype}
+        onSelectRound={(selectedRoundId) => {
+          setSelectedMid(selectedRoundId);
+          setResultDetailOpen(true);
+        }}
       />
     </Box>
   );

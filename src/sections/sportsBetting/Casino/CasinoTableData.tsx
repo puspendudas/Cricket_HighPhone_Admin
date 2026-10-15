@@ -26,6 +26,7 @@ import useCasinoApi from 'src/Api/CasinoApi/CasinoApi';
 
 import { formatUTCDateTime12H } from 'src/utils/date';
 import { Iconify } from 'src/components/iconify';
+import { ManualDeclareCasinoModal } from './ManualDeclareCasinoModal';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -57,6 +58,7 @@ export function CasinoTableData() {
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedCasino, setSelectedCasino] = useState<CasinoItem | null>(null);
+  const [declareModalOpen, setDeclareModalOpen] = useState<boolean>(false);
 
   // Fetch current logged in admin info
   const { data: userData } = useQuery({
@@ -416,7 +418,24 @@ export function CasinoTableData() {
             Un Declared Bet
           </MenuItem>
         )}
+
+        <MenuItem
+          onClick={() => {
+            setDeclareModalOpen(true);
+            setAnchorEl(null);
+          }}
+          sx={{ color: 'error.main' }}
+        >
+          <Iconify icon="material-symbols:gavel" sx={{ mr: 1 }} />
+          Declare Result
+        </MenuItem>
       </Menu>
+
+      <ManualDeclareCasinoModal
+        open={declareModalOpen}
+        onClose={() => setDeclareModalOpen(false)}
+        initialGameCode={selectedCasino?.gameCode}
+      />
     </Paper>
   );
 }

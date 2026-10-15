@@ -13,6 +13,8 @@ import {
   Autocomplete,
   DialogContent,
   DialogActions,
+  Checkbox,
+  FormControlLabel,
 } from '@mui/material';
 
 import useAdminApi from 'src/Api/admin_api/useAdminApi';
@@ -46,6 +48,13 @@ export function CreatePowerUserModal({ open, onClose, onSubmit }: CreatePowerUse
     exposure: 0,
   });
 
+  const [permissions, setPermissions] = useState({
+    rollback_match: false,
+    cancel_match: false,
+    rollback_session: false,
+    cancel_session: false,
+  });
+
   const resetForm = () => {
     setSelectedAdmin(null);
     setFormData({
@@ -61,6 +70,12 @@ export function CreatePowerUserModal({ open, onClose, onSubmit }: CreatePowerUse
       type: 'power_user',
       wallet: 0,
       exposure: 0,
+    });
+    setPermissions({
+      rollback_match: false,
+      cancel_match: false,
+      rollback_session: false,
+      cancel_session: false,
     });
   };
 
@@ -137,6 +152,7 @@ export function CreatePowerUserModal({ open, onClose, onSubmit }: CreatePowerUse
       sessionCommission: 0,
       casinoCommission: 0,
       status: formData.status === 'Active',
+      permissions,
     };
     onSubmit(payload);
     resetForm();
@@ -203,6 +219,59 @@ export function CreatePowerUserModal({ open, onClose, onSubmit }: CreatePowerUse
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField label="Password" fullWidth value={formData.password} name="password" onChange={handleChange} />
+            </Grid>
+          </Grid>
+        </Box>
+
+        {/* Permissions */}
+        <Box mb={3} p={2} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1 }}>
+          <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>
+            Permissions
+          </Typography>
+          <Grid container spacing={1}>
+            <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={permissions.rollback_match}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPermissions((p) => ({ ...p, rollback_match: e.target.checked }))}
+                  />
+                }
+                label="Rollback Match"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={permissions.cancel_match}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPermissions((p) => ({ ...p, cancel_match: e.target.checked }))}
+                  />
+                }
+                label="Cancel Match"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={permissions.rollback_session}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPermissions((p) => ({ ...p, rollback_session: e.target.checked }))}
+                  />
+                }
+                label="Rollback Session"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={permissions.cancel_session}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPermissions((p) => ({ ...p, cancel_session: e.target.checked }))}
+                  />
+                }
+                label="Cancel Session"
+              />
             </Grid>
           </Grid>
         </Box>

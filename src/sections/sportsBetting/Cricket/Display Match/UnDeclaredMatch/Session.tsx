@@ -131,8 +131,8 @@ const Session = () => {
       if (team && row.runner_name !== team) return false;
 
       // Apply bets filter
-      if (bets === "FAIR" && row.status !== "FAIR") return false;
-      if (bets === "DELETED" && row.status !== "DELETED") return false;
+      if (bets === 'FAIR' && row.status === 'DELETED') return false;
+      if (bets === 'DELETED' && row.status !== 'DELETED') return false;
 
       // Apply date/time filters
       const rowDate = dayjs(row.createdAt);
@@ -364,8 +364,12 @@ const Session = () => {
                       </TableCell>
                       <TableCell>{row.user?.user_name || '-'}</TableCell>
                       <TableCell>{row.odds_rate}</TableCell>
-                      <TableCell>{row.odds_value}</TableCell>
-                      <TableCell>{row.stake_amount}</TableCell>
+                      <TableCell>
+                        {row.odds_value != null && row.odds_value !== '' && !Number.isNaN(Number(row.odds_value))
+                          ? Math.round(Number(row.odds_value))
+                          : (row.odds_value || '-')}
+                      </TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.stake_amount}</TableCell>
                       <TableCell>{row.selection}</TableCell>
                       <TableCell>{row.runner_name}</TableCell>
                       <TableCell>{dayjs(row.createdAt).format('DD/MM/YYYY HH:mm:ss')}</TableCell>

@@ -23,6 +23,7 @@ import { EditAdminModal } from './EditAdminModal';
 import { DeactivateModal } from './DeactivateModal';
 import { CreateMemberModal } from './CreateMemberModal';
 import { LimitUpdatesModal } from './LimitUpdatesModal';
+import { ChainViewModal } from '../ChainViewModal';
 
 export function SuperMasterTable() {
   const { addSuperMaster, fetchSuperMasterList, updateSuperMaster } = useSuperAdminApi();
@@ -34,6 +35,8 @@ export function SuperMasterTable() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [chainViewModal, setChainViewModal] = useState(false);
+  const [chainMember, setChainMember] = useState<{ id: string; name: string; user: string } | null>(null);
   const navigate = useNavigate();
   const { id } = useParams();
 
@@ -77,6 +80,8 @@ export function SuperMasterTable() {
         casinoCommission: a.casino_commission,
         wallet: a.wallet,
         parentWallet: a.parent_id?.wallet || 0,
+        parentShare: a.parent_id?.share !== undefined ? a.parent_id?.share : 100,
+        maxShare: a.parent_id?.share !== undefined ? a.parent_id?.share : 100,
       }));
       if (id) {
         const matched = formatted.filter(
@@ -126,10 +131,11 @@ export function SuperMasterTable() {
     }
   };
 
-  const filtered = members.filter(({ name, admin }) =>
-    name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    admin.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 2.1 Table Search should work on "Name" & "User" fields case-insensitively
+  const filtered = members.filter(({ name, user }) => {
+    const term = searchTerm.trim().toLowerCase();
+    return (name?.toLowerCase() || '').includes(term) || (user?.toLowerCase() || '').includes(term);
+  });
 
   const currentRows = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
@@ -246,7 +252,7 @@ export function SuperMasterTable() {
                         if (!selectedMember) return;
 
                         const loginDetails = `
-https://cricket.highphone11.com/
+https://cricket.testingexch.com/
 UserName: ${selectedMember.user}
 Password: ${selectedMember.password}
     `;
@@ -267,6 +273,15 @@ Password: ${selectedMember.password}
                     </MenuItem>
                     <MenuItem onClick={() => { setModalState(p => ({ ...p, memberForWD: member })); setModals(p => ({ ...p, wdLimit: true })); handleMenuClose(); }}>
                       <Iconify icon="material-symbols:folder-limited-outline-sharp" sx={{ mr: 1 }} /> Limit W/D
+                    </MenuItem>
+                    <MenuItem
+                      onClick={() => {
+                        setChainMember({ id: member._id, name: member.name, user: member.user });
+                        setChainViewModal(true);
+                        handleMenuClose();
+                      }}
+                    >
+                      <Iconify icon="material-symbols:account-tree-outline" sx={{ mr: 1 }} /> Chain View
                     </MenuItem>
                   </Menu>
                 </TableCell>
@@ -318,6 +333,8 @@ Password: ${selectedMember.password}
             sessionCommission: selectedMember.sessionCommission,
             casinoCommission: selectedMember.casinoCommission,
             share: selectedMember.share,
+            maxShare: selectedMember.maxShare ?? selectedMember.parentShare ?? 100,
+            parentShare: selectedMember.parentShare ?? 100,
           }}
           onSubmit={handleEditSave}
         />
@@ -363,6 +380,17 @@ Password: ${selectedMember.password}
         onClose={() => setModals(p => ({ ...p, updateLimit: false }))}
         userName={modalState.memberForLimitUpdates}
         userId={modalState.memberForLimitUpdatesId}
+      />
+
+      <ChainViewModal
+        open={chainViewModal}
+        onClose={() => {
+          setChainViewModal(false);
+          setChainMember(null);
+        }}
+        memberId={chainMember?.id || ''}
+        memberName={chainMember?.name}
+        memberUser={chainMember?.user}
       />
     </Paper>
   );

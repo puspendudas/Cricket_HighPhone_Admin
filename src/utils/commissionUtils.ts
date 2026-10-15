@@ -3,6 +3,7 @@
 export interface CommissionResult {
   matchPL: number;
   sessionPL: number;
+  tossPL: number;
   total: number;
   matchCommission: number;
   sessionCommission: number;
@@ -22,6 +23,7 @@ export const calculateCommission = (
     return {
       matchPL: 0,
       sessionPL: 0,
+      tossPL: 0,
       total: 0,
       matchCommission: 0,
       sessionCommission: 0,
@@ -33,18 +35,20 @@ export const calculateCommission = (
   }
 
   const admin = clientSummaries[0]?.immediate_child_admin;
-  const matchCommissionRate = admin?.match_commission || 0;
-  const sessionCommissionRate = admin?.session_commission || 0;
-  const shareRate = (admin?.share || 0) / 100;
+  const matchCommissionRate = admin?.match_commission ?? clientSummaries[0]?.agent_match_commission_rate ?? 0;
+  const sessionCommissionRate = admin?.session_commission ?? clientSummaries[0]?.agent_session_commission_rate ?? 0;
+  const shareRate = (admin?.share ?? clientSummaries[0]?.agent_share_rate ?? 0) / 100;
 
   let matchPL = 0;
   let sessionPL = 0;
+  let tossPL = 0;
   let totalSessionStake = 0;
   let matchCommission = 0;
 
   clientSummaries.forEach((c: any) => {
     matchPL += c.client_net_match_pl || 0;
     sessionPL += c.client_net_session_pl || 0;
+    tossPL += c.client_net_toss_pl || 0;
     totalSessionStake += c.client_total_session_stake || 0;
 
     const clientMatchPL = c.client_net_match_pl || 0;
@@ -56,7 +60,8 @@ export const calculateCommission = (
   // ADMIN VIEW INVERTS
   const invertedMatchPL = matchPL * -1;
   const invertedSessionPL = sessionPL * -1;
-  const total = invertedMatchPL + invertedSessionPL;
+  const invertedTossPL = tossPL * -1;
+  const total = invertedMatchPL + invertedSessionPL + invertedTossPL;
 
   const sessionCommission = totalSessionStake * (sessionCommissionRate / 100);
   const totalCommission = matchCommission + sessionCommission;
@@ -69,6 +74,7 @@ export const calculateCommission = (
   return {
     matchPL: invertedMatchPL,
     sessionPL: invertedSessionPL,
+    tossPL: invertedTossPL,
     total,
     matchCommission,
     sessionCommission,

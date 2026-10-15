@@ -78,7 +78,6 @@ const CasinoLiveTv: React.FC<CasinoLiveTvProps> = ({ gtype }) => {
                         height: '100%',
                         border: 'none',
                     }}
-                    referrerPolicy="no-referrer"
                     allowFullScreen
                     allow="autoplay; encrypted-media; fullscreen"
                     loading="lazy"

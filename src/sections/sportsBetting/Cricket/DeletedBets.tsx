@@ -123,24 +123,16 @@ export default function DeletedBets() {
   );
 
   const formattedBetHistory = matchBetsRaw.map((bet: any) => {
-    let displayTeam = bet.team_name || 'N/A';
-
-    if (bet.selection === 'Lay' && teams.length === 2) {
-      const betTeam = normalizeTeam(bet.team_name);
-      const t0 = normalizeTeam(teams[0]);
-      const t1 = normalizeTeam(teams[1]);
-
-      if (betTeam === t0) displayTeam = teams[1];
-      else if (betTeam === t1) displayTeam = teams[0];
-    }
-
+    const displayTeam = bet.team_name || 'N/A';
     const date = formatUTCDateTime12H(bet.createdAt);
+    const oddsNum = Number(bet.odds_rate) || 0;
+    const rate = oddsNum > 10 ? (oddsNum / 100).toFixed(2) : oddsNum.toFixed(2);
 
     return {
       client: bet.user.user_name,
       userName: bet.user.name || bet.user.user_name,
       amount: bet.stake_amount,
-      rate: (Number(bet.odds_rate) / 100).toFixed(2),
+      rate,
       selection: bet.selection,
       team: displayTeam,
       date,
@@ -368,7 +360,10 @@ export default function DeletedBets() {
                         >
                           <img src={win} alt="win" style={{ width: 20, marginRight: 8 }} />
                           <Typography color="#000" fontWeight="bold" fontSize="0.8rem">
-                            {bets.find((b) => b.result)?.result ?? wonby}
+                            {(() => {
+                              const res = bets.find((b) => b.result)?.result ?? wonby;
+                              return res != null && !Number.isNaN(Number(res)) ? Math.round(Number(res)) : (res ?? '');
+                            })()}
                           </Typography>
                         </Box>
                       )}
@@ -410,8 +405,8 @@ export default function DeletedBets() {
                                   <TableCell>
                                     {bet.user.name} ({bet.user.user_name})
                                   </TableCell>
-                                  <TableCell>
-                                    {parseInt(bet.odds_value || bet.odds_rate, 10)}
+                                  <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                    {bet.odds_value || bet.odds_rate ? (!Number.isNaN(Number(bet.odds_value || bet.odds_rate)) ? Math.round(Number(bet.odds_value || bet.odds_rate)) : (bet.odds_value || bet.odds_rate)) : '-'}
                                   </TableCell>
                                   <TableCell>
                                     <Box
@@ -566,7 +561,10 @@ export default function DeletedBets() {
                                 style={{ width: '30px', marginRight: '8px' }}
                               />
                               <Typography color="#000000" variant="subtitle1" fontWeight="bold">
-                                {bets.find((b) => b.result)?.result ?? wonby}
+                                {(() => {
+                                  const res = bets.find((b) => b.result)?.result ?? wonby;
+                                  return res != null && !Number.isNaN(Number(res)) ? Math.round(Number(res)) : (res ?? '');
+                                })()}
                               </Typography>
                             </Box>
                           )}
@@ -612,8 +610,8 @@ export default function DeletedBets() {
                                       <TableCell>
                                         {bet.user.name} ({bet.user.user_name})
                                       </TableCell>
-                                      <TableCell>
-                                        {parseInt(bet.odds_value || bet.odds_rate, 10)}
+                                      <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                        {bet.odds_value || bet.odds_rate ? (!Number.isNaN(Number(bet.odds_value || bet.odds_rate)) ? Math.round(Number(bet.odds_value || bet.odds_rate)) : (bet.odds_value || bet.odds_rate)) : '-'}
                                       </TableCell>
                                       <TableCell>
                                         <Box

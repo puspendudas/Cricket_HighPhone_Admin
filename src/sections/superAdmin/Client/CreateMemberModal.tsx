@@ -28,6 +28,7 @@ interface Member {
   currentBal: string;
   share: number;
   betting?: number;
+  bet_lock?: boolean;
   exposure: number;
   parentWallet: number;
   parent_id?: string;

@@ -10,12 +10,13 @@ export function Snackbar() {
   return (
     <Portal>
       <StyledToaster
-        expand
-        gap={12}
-        closeButton
+        expand={false}
+        gap={8}
+        closeButton={false}
         offset={16}
-        visibleToasts={4}
-        position="bottom-right"
+        visibleToasts={2}
+        duration={2500}
+        position="top-right"
         className={toasterClasses.root}
         toastOptions={{
           unstyled: true,

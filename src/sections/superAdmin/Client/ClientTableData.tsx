@@ -7,7 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   Box, Menu, Grid, Table, Paper, Button, Switch, TableRow, MenuItem,
   TableBody, TableCell, TableHead, TextField, IconButton, FormControl,
-  InputAdornment, TablePagination
+  InputAdornment, TablePagination, Select, InputLabel, Tooltip
 } from '@mui/material';
 
 import { decrypt } from 'src/utils/encryption';
@@ -24,6 +24,7 @@ import { EditMemberModal } from './EditMemberModal';
 import { ExposureModal } from './ExposureModal';
 import { LimitUpdatesModal } from './LimitUpdatesModal';
 import LimitWDModal from './LimitWDModal';
+import { ChainViewModal } from '../ChainViewModal';
 
 export function ClientTableData() {
   const { addClient, fetchClientList, updateTogalStatus, updateClient, ClintTogalStatus } = useSuperAdminApi();
@@ -45,6 +46,12 @@ export function ClientTableData() {
     updateLimit: false,
     exposure: false,
   });
+
+  const [betLockFilter, setBetLockFilter] = useState<'all' | 'locked' | 'unlocked'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [exposureFilter, setExposureFilter] = useState<'all' | 'has_exposure' | 'zero_exposure'>('all');
+  const [chainViewModal, setChainViewModal] = useState(false);
+  const [chainMember, setChainMember] = useState<{ id: string; name: string; user: string } | null>(null);
 
   const [modalState, setModalState] = useState({
     userToDeactivate: '',
@@ -84,9 +91,7 @@ export function ClientTableData() {
         wallet: a.wallet ?? 0,
         parentWallet: a.agent_id?.wallet ?? 0,
         betting: a.betting ?? false,
-
       }));
-
 
       if (id) {
         const matched = formatted.filter(
@@ -96,7 +101,6 @@ export function ClientTableData() {
       } else {
         setMembers(formatted);
       }
-
     } catch (err) {
       console.error('Fetch error:', err);
     }
@@ -113,14 +117,13 @@ export function ClientTableData() {
         user_name: form.code,
         name: form.name,
         password: form.password,
-        // mobile: form.mobile,
         match_commission: form.matchCommission,
         session_commission: form.sessionCommission,
         casino_commission: form.casinoCommission,
         wallet: form.wallet,
         exposure: form.exposure,
         agent_id: form.agent_id,
-        status: form.status
+        status: form.status,
       } as AdminApiPayload);
 
       await fetchMembers();
@@ -129,10 +132,27 @@ export function ClientTableData() {
     }
   };
 
-  const filtered = members.filter(({ name, admin }) =>
-    name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    admin.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // 2.1 Search on "Name" & "User" case-insensitively + 2.3 Filters for Bet Lock, Active/Deactive, Exposure
+  const filtered = members.filter((m) => {
+    if (searchTerm.trim()) {
+      const term = searchTerm.trim().toLowerCase();
+      const matchesName = (m.name?.toLowerCase() || '').includes(term);
+      const matchesUser = (m.user?.toLowerCase() || '').includes(term);
+      if (!matchesName && !matchesUser) return false;
+    }
+
+    if (betLockFilter === 'locked' && m.betting !== true) return false;
+    if (betLockFilter === 'unlocked' && m.betting !== false) return false;
+
+    if (statusFilter === 'active' && m.status !== 'Active') return false;
+    if (statusFilter === 'inactive' && m.status !== 'Inactive') return false;
+
+    const exp = Number(m.exposure) || 0;
+    if (exposureFilter === 'has_exposure' && exp === 0) return false;
+    if (exposureFilter === 'zero_exposure' && exp !== 0) return false;
+
+    return true;
+  });
 
   const currentRows = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
@@ -145,7 +165,7 @@ export function ClientTableData() {
     setAnchorEl(null);
   };
 
-  const handleStatusToggle = async (memberId: string, toggleType: 'betting') => {
+  const handleStatusToggle = async (memberId: string, toggleType: 'betting' | 'bet_lock') => {
     try {
       await updateTogalStatus(memberId, toggleType);
       await fetchMembers();
@@ -159,36 +179,131 @@ export function ClientTableData() {
     try {
       await updateClient(selectedMember._id, updatedData);
       await fetchMembers();
-      setModals(p => ({ ...p, edit: false }));
+      setModals((p) => ({ ...p, edit: false }));
     } catch (err) {
       console.error('Update error:', err);
     }
   };
+
   return (
-    <Paper sx={{ p: 2, boxShadow: 3 }}>
-      <Grid container spacing={2} mb={2} alignItems="center">
-        <Grid item xs={12} md={4}>
-          <FormControl fullWidth>
+    <Paper sx={{ p: { xs: 1.5, sm: 2 }, boxShadow: 3 }}>
+      {/* Top Controls: Search, Filters & Action Button */}
+      <Grid container spacing={1.5} mb={2} alignItems="center">
+        <Grid item xs={12} sm={6} md={3}>
+          <FormControl fullWidth size="small">
             <TextField
-              placeholder="Search..."
+              size="small"
+              placeholder="Search Name or User..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPage(0);
+              }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
                     <Iconify icon="eva:search-fill" />
                   </InputAdornment>
                 ),
+                endAdornment: searchTerm ? (
+                  <InputAdornment position="end">
+                    <IconButton size="small" onClick={() => setSearchTerm('')}>
+                      <Iconify icon="eva:close-fill" width={16} />
+                    </IconButton>
+                  </InputAdornment>
+                ) : null,
               }}
             />
           </FormControl>
         </Grid>
-        <Grid item xs={12} md={8} container justifyContent="flex-end">
+
+        {/* 2.3 Filter: Bet Lock */}
+        <Grid item xs={6} sm={3} md={2}>
+          <FormControl fullWidth size="small">
+            <InputLabel id="bet-lock-label">Bet Lock</InputLabel>
+            <Select
+              labelId="bet-lock-label"
+              value={betLockFilter}
+              label="Bet Lock"
+              onChange={(e) => {
+                setBetLockFilter(e.target.value as any);
+                setPage(0);
+              }}
+            >
+              <MenuItem value="all">All Bets</MenuItem>
+              <MenuItem value="locked">Bet Locked</MenuItem>
+              <MenuItem value="unlocked">Bet Unlocked</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+
+        {/* 2.3 Filter: Active/Deactive */}
+        <Grid item xs={6} sm={3} md={2}>
+          <FormControl fullWidth size="small">
+            <InputLabel id="status-filter-label">Status</InputLabel>
+            <Select
+              labelId="status-filter-label"
+              value={statusFilter}
+              label="Status"
+              onChange={(e) => {
+                setStatusFilter(e.target.value as any);
+                setPage(0);
+              }}
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="active">Active</MenuItem>
+              <MenuItem value="inactive">Deactive</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+
+        {/* 2.3 Filter: Exposure (with value (non 0) in Exposure) */}
+        <Grid item xs={12} sm={6} md={2.5}>
+          <FormControl fullWidth size="small">
+            <InputLabel id="exposure-filter-label">Exposure</InputLabel>
+            <Select
+              labelId="exposure-filter-label"
+              value={exposureFilter}
+              label="Exposure"
+              onChange={(e) => {
+                setExposureFilter(e.target.value as any);
+                setPage(0);
+              }}
+            >
+              <MenuItem value="all">All Exposure</MenuItem>
+              <MenuItem value="has_exposure">With Exposure (Non 0)</MenuItem>
+              <MenuItem value="zero_exposure">Zero Exposure</MenuItem>
+            </Select>
+          </FormControl>
+        </Grid>
+
+        {/* Actions & Reset */}
+        <Grid item xs={12} sm={6} md={2.5} display="flex" gap={1} justifyContent={{ xs: 'space-between', md: 'flex-end' }}>
+          {(searchTerm || betLockFilter !== 'all' || statusFilter !== 'all' || exposureFilter !== 'all') && (
+            <Button
+              size="small"
+              variant="outlined"
+              color="inherit"
+              onClick={() => {
+                setSearchTerm('');
+                setBetLockFilter('all');
+                setStatusFilter('all');
+                setExposureFilter('all');
+                setPage(0);
+              }}
+              startIcon={<Iconify icon="eva:refresh-fill" />}
+            >
+              Reset
+            </Button>
+          )}
+
           <Button
+            size="small"
             color="primary"
             variant="contained"
             startIcon={<Iconify icon="material-symbols:person-add-outline" />}
             onClick={() => setModals((p) => ({ ...p, create: true }))}
+            sx={{ whiteSpace: 'nowrap' }}
           >
             Add Client
           </Button>
@@ -268,7 +383,7 @@ export function ClientTableData() {
                         if (!selectedMember) return;
 
                         const loginDetails = `
-                          BaseURL:https://highphone11.com/
+                          BaseURL:https://testingexch.com/
                           UserName: ${selectedMember.user}
                           Password: ${selectedMember.password} `;
 
@@ -289,6 +404,15 @@ export function ClientTableData() {
                     </MenuItem>
                     <MenuItem onClick={() => { setModalState(p => ({ ...p, memberForWD: member })); setModals(p => ({ ...p, wdLimit: true })); handleMenuClose(); }}>
                       <Iconify icon="material-symbols:folder-limited-outline-sharp" sx={{ mr: 1 }} /> Limit W/D
+                    </MenuItem>
+                    <MenuItem
+                      onClick={() => {
+                        setChainMember({ id: member._id, name: member.name, user: member.user });
+                        setChainViewModal(true);
+                        handleMenuClose();
+                      }}
+                    >
+                      <Iconify icon="material-symbols:account-tree-outline" sx={{ mr: 1 }} /> Chain View
                     </MenuItem>
                   </Menu>
                 </TableCell>
@@ -323,13 +447,13 @@ export function ClientTableData() {
                 <TableCell>{member.session}</TableCell>
                 <TableCell>{member.casino}</TableCell>
                 <TableCell>
-                  <Switch
-                    checked={member.betting}
-                    onChange={() => handleStatusToggle(member._id, 'betting')}
-                    color="success"
-                  />
-
-
+                  <Tooltip title={(member.bet_lock ?? member.betting) ? "Betting Locked (User cannot place bets)" : "Betting Allowed"}>
+                    <Switch
+                      checked={Boolean(member.bet_lock ?? member.betting)}
+                      onChange={() => handleStatusToggle(member._id, 'bet_lock')}
+                      color="error"
+                    />
+                  </Tooltip>
                 </TableCell>
 
 
@@ -415,6 +539,17 @@ export function ClientTableData() {
         onClose={() => setModals((p) => ({ ...p, exposure: false }))}
         userId={modalState.memberForExposureId}
         userName={modalState.memberForExposureName}
+      />
+
+      <ChainViewModal
+        open={chainViewModal}
+        onClose={() => {
+          setChainViewModal(false);
+          setChainMember(null);
+        }}
+        memberId={chainMember?.id || ''}
+        memberName={chainMember?.name}
+        memberUser={chainMember?.user}
       />
     </Paper>
   );

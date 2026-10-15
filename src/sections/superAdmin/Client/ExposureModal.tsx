@@ -40,6 +40,8 @@ interface Bet {
   team_name?: string;
   session_name?: string;
   runner_name?: string;
+  game_code?: string;
+  round_id?: string;
 }
 
 interface MatchWithBets {
@@ -91,6 +93,8 @@ export function ExposureModal({ open, onClose, userId, userName }: ExposureModal
 
             const bookmakerBets = match.matchBets.filter((bet) => bet.bet_type === 'BOOKMAKER');
             const fancyBets = match.matchBets.filter((bet) => bet.bet_type === 'FANCY');
+            const tossBets = match.matchBets.filter((bet) => (bet.bet_type || '').toUpperCase() === 'TOSS');
+            const casinoBets = match.matchBets.filter((bet) => bet.bet_type === 'CASINO');
 
             return (
               <Box key={match._id} mb={4}>
@@ -163,11 +167,15 @@ export function ExposureModal({ open, onClose, userId, userName }: ExposureModal
                             return (
                               <TableRow key={bet._id}>
                                 <TableCell>{bet.runner_name || 'Session'}</TableCell>
-                                <TableCell>{bet.odds_value || '-'}</TableCell>
+                                <TableCell>
+                                  {bet.odds_value != null && bet.odds_value !== '' && !Number.isNaN(Number(bet.odds_value))
+                                    ? Math.round(Number(bet.odds_value))
+                                    : (bet.odds_value || '-')}
+                                </TableCell>
                                 <TableCell>
                                   <span style={{ color: selectionColor, fontWeight: 'bold' }}>{bet.selection}</span> ({bet.odds_rate})
                                 </TableCell>
-                                <TableCell align="right">
+                                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                                   ₹{Number(bet.stake_amount).toFixed(2)}
                                 </TableCell>
                                 <TableCell>
@@ -176,6 +184,82 @@ export function ExposureModal({ open, onClose, userId, userName }: ExposureModal
                               </TableRow>
                             );
                           })}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                )}
+
+                {tossBets.length > 0 && (
+                  <Box mb={2}>
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                      Toss Bets
+                    </Typography>
+                    <TableContainer component={Paper} variant="outlined">
+                      <Table size="small">
+                        <TableHead sx={{ bgcolor: 'background.neutral' }}>
+                          <TableRow>
+                            <TableCell sx={{ minWidth: 250 }}>Runner Name</TableCell>
+                            <TableCell>Rate</TableCell>
+                            <TableCell align="right">Amount</TableCell>
+                            <TableCell>Date</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {tossBets.map((bet: Bet) => (
+                            <TableRow key={bet._id}>
+                              <TableCell>{bet.runner_name || bet.team_name || 'Runner'}</TableCell>
+                              <TableCell>
+                                <span style={{ color: '#1976d2', fontWeight: 'bold' }}>{bet.selection || 'Back'}</span> ({bet.odds_rate || '95'})
+                              </TableCell>
+                              <TableCell align="right">
+                                ₹{Number(bet.stake_amount).toFixed(2)}
+                              </TableCell>
+                              <TableCell>
+                                {new Date(bet.createdAt).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  </Box>
+                )}
+
+                {casinoBets.length > 0 && (
+                  <Box mb={2}>
+                    <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 'bold' }}>
+                      Casino Bets
+                    </Typography>
+                    <TableContainer component={Paper} variant="outlined">
+                      <Table size="small">
+                        <TableHead sx={{ bgcolor: 'background.neutral' }}>
+                          <TableRow>
+                            <TableCell sx={{ minWidth: 250 }}>Game / Round</TableCell>
+                            <TableCell>Selection</TableCell>
+                            <TableCell>Rate</TableCell>
+                            <TableCell align="right">Amount</TableCell>
+                            <TableCell>Date</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {casinoBets.map((bet: Bet) => (
+                            <TableRow key={bet._id}>
+                              <TableCell>
+                                {bet.runner_name || `${(bet.game_code || 'Casino').toUpperCase()} (Round: ${bet.round_id || '-'})`}
+                              </TableCell>
+                              <TableCell>
+                                <span style={{ color: '#1976d2', fontWeight: 'bold' }}>{bet.selection}</span>
+                              </TableCell>
+                              <TableCell>{bet.odds_rate || '-'}</TableCell>
+                              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                                ₹{Number(bet.stake_amount).toFixed(2)}
+                              </TableCell>
+                              <TableCell>
+                                {new Date(bet.createdAt).toLocaleString()}
+                              </TableCell>
+                            </TableRow>
+                          ))}
                         </TableBody>
                       </Table>
                     </TableContainer>

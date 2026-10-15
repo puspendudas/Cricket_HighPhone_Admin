@@ -1,5 +1,5 @@
 import { useCallback } from 'react';
-import { toast } from 'sonner';
+import { toast } from 'src/components/snackbar';
 import axiosInstance, { endpoints } from 'src/utils/axios';
 
 const useCasinoApi = () => {
@@ -53,12 +53,14 @@ const useCasinoApi = () => {
   );
 
   const declareCasinoResult = useCallback(
-    async (gameCode: string, roundId: string, winningSelection: string) => {
+    async (gameCode: string, roundId: string, winningSelection: string, rdesc?: string, card?: string) => {
       try {
         const response = await axiosInstance.post(endpoints.casino.declareResult, {
           game_code: gameCode,
           round_id: roundId,
           winning_selection: winningSelection,
+          rdesc,
+          card,
         });
         if (response && response.data?.status === 'success') {
           toast.success('Result declared successfully');
@@ -66,11 +68,29 @@ const useCasinoApi = () => {
         }
 
         toast.error(response?.data?.message || 'Failed to declare result');
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error declaring casino result:', error);
-        toast.error('Failed to declare result');
+        toast.error(error?.response?.data?.message || error?.message || 'Failed to declare result');
       }
       return null;
+    },
+    []
+  );
+
+  const getCasinoResultHistory = useCallback(
+    async (gameCode: string, dateStr = '', page = 1, limit = 50) => {
+      try {
+        let url = `${endpoints.casino.resultHistory}?game_code=${gameCode}&page=${page}&limit=${limit}`;
+        if (dateStr) url += `&date=${dateStr}`;
+        const response = await axiosInstance.get(url);
+        if (response && response.data?.status === 'success') {
+          return response.data.data;
+        }
+        return { results: [], total: 0 };
+      } catch (error) {
+        console.error('Error fetching casino result history:', error);
+        return { results: [], total: 0 };
+      }
     },
     []
   );
@@ -140,6 +160,7 @@ const useCasinoApi = () => {
     fetchCasinoTotalData,
     deleteCasinoBet,
     deleteMultipleCasinoBets,
+    getCasinoResultHistory,
   };
 };
 

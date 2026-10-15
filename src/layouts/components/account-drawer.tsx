@@ -152,7 +152,7 @@ export function AccountDrawer({ data = [], sx, ...other }: AccountDrawerProps) {
             <ListItem>
               <Iconify icon="mdi:wallet-outline" width={24} sx={{ mr: 2, color: 'gray' }} />
               <ListItemText primary="Wallet" />
-              <Typography variant="subtitle1">
+              <Typography variant="subtitle1" sx={{ whiteSpace: 'nowrap' }}>
                 ₹ {user.wallet.toLocaleString('en-IN')}
               </Typography>
             </ListItem>

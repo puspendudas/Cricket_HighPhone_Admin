@@ -183,19 +183,30 @@ const LiveTv = () => {
                             overflow: 'hidden',
                         }}
                     >
-                        <iframe
-                            src={streamProvider === 'Diamond'
-                                ? `https://stream-s-43.uhdmovies.online/sports-stream?id=${targetId}`
-                                : `https://video.proexch.in/tv/v4/stream/${gameId}`}
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                border: 'none',
-                            }}
-                            allowFullScreen
-                            loading="lazy"
-                            title="Live TV Stream"
-                        />
+                        {(() => {
+                            const targetStreamId = targetId || gameId;
+                            const streamSrc = streamProvider === 'Diamond'
+                                ? `https://stream-s-43.uhdmovies.online/sports-stream?id=${encodeURIComponent(targetStreamId || '')}`
+                                : `https://video.proexch.in/tv/v4/stream/${encodeURIComponent(gameId || targetStreamId || '')}`;
+
+                            return targetStreamId ? (
+                                <iframe
+                                    src={streamSrc}
+                                    style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        border: 'none',
+                                    }}
+                                    allowFullScreen
+                                    loading="lazy"
+                                    title="Live TV Stream"
+                                />
+                            ) : (
+                                <Typography sx={{ color: '#94a3b8', fontSize: '14px' }}>
+                                    Stream currently unavailable for this match
+                                </Typography>
+                            );
+                        })()}
                     </Box>
                 </Collapse>
 

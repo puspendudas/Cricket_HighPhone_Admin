@@ -13,86 +13,34 @@ import {
   TableHead,
   Typography,
   IconButton,
+  CircularProgress,
 } from '@mui/material';
 
 import { formatUTCDateTime12H } from 'src/utils/date';
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
-import useCasinoApi from 'src/Api/CasinoApi/CasinoApi';
 
 import { Iconify } from 'src/components/iconify';
 
-interface ReportRow {
-  superAdmin: string;
-  match: number;
-  session: number;
-  casino?: number;
-  total: number;
-  mCom: number;
-  sCom: number;
-  cCom?: number;
-  tCom: number;
-  netAmount: number;
-  shareAmount: number;
-  gTotal: number;
-}
-
-interface MatchSummary {
-  eventTime: string | number | Date;
-  _id: string;
-  eventName: string;
-  createdAt: string;
-  client_summary?: any[];
-  user?: {
-    name?: string;
-    user_name?: string;
-    match_commission?: number;
-    session_commission?: number;
-    immediate_child_admin?: any;
-  };
-  matchBets?: any[];
-}
-
-interface LedgerEntry {
-  matchId: string;
-  date: string;
-  timestamp: number;
-  credit: number;
-  debit: number;
-  balance: number;
-  client: string;
-  matchName: string;
-  eventTime: string;
-  match: number;
-  session: number;
-  casino: number;
-  total: number;
-  mCom: number;
-  sCom: number;
-  cCom: number;
-  tCom: number;
-  netAmount: number;
-  shareAmount: number;
-  gTotal: number;
-  createdAt: string;
-}
+import type { ReportRow } from './AdminReportTableData';
 
 interface AdminReportModalProps {
   open: boolean;
   onClose: () => void;
   rowData: ReportRow | null;
-  matches?: any[];
+  startDate?: string;
+  endDate?: string;
 }
 
-const extractUserName = (str: string) => {
-  const match = str.match(/\((.*?)\)/);
-  return match ? match[1].trim() : str.trim();
-};
-
-export function AdminReportModal({ open, onClose, rowData, matches: parentMatches }: AdminReportModalProps) {
-  const { fetchTotalData } = useMatchApi();
-  const { fetchCasinoTotalData } = useCasinoApi();
+export function AdminReportModal({
+  open,
+  onClose,
+  rowData,
+  startDate,
+  endDate,
+}: AdminReportModalProps) {
+  const { fetchAdminSuperReport } = useMatchApi();
   const { fetchMe } = useMeApi();
 
   const { data: userData } = useQuery({
@@ -101,148 +49,19 @@ export function AdminReportModal({ open, onClose, rowData, matches: parentMatche
   });
 
   const userId = userData?.data?._id;
+  const childAdminId = rowData?.adminId;
 
-  const { data: tableData, isLoading: isCricketLoading } = useQuery({
-    queryKey: ['adminModalTableData', userId],
-    queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
-    enabled: !!userId && open && !parentMatches,
+  // Authoritative server-side super report child drill-down query
+  const { data: modalResponse, isLoading } = useQuery({
+    queryKey: ['adminSuperReportModal', userId, childAdminId, startDate, endDate],
+    queryFn: () =>
+      userId && childAdminId
+        ? fetchAdminSuperReport(userId, childAdminId, startDate, endDate)
+        : Promise.reject(new Error('Missing params')),
+    enabled: !!userId && !!childAdminId && open,
   });
 
-  const { data: casinoTableData, isLoading: isCasinoLoading } = useQuery({
-    queryKey: ['adminModalCasinoTableData', userId],
-    queryFn: () => (userId ? fetchCasinoTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
-    enabled: !!userId && open && !parentMatches,
-  });
-
-  const isLoading = !parentMatches && (isCricketLoading || isCasinoLoading);
-
-  const allMatches = parentMatches || [
-    ...(tableData?.matches || []),
-    ...(casinoTableData?.matches || []),
-  ];
-
-  // 🧮 Process ledger data per match/game for the selected admin
-  const processLedgerDataForAdmin = (
-    matches: MatchSummary[],
-    adminName: string
-  ): LedgerEntry[] => {
-    if (!matches || matches.length === 0 || !adminName) return [];
-
-    const ledgerEntries: LedgerEntry[] = [];
-    let runningBalance = 0;
-    const targetAdmin = adminName.toLowerCase().trim();
-
-    matches.forEach((match) => {
-      const clientSummaries = (match as any).client_summary || [];
-
-      let matchPL = 0;
-      let sessionPL = 0;
-      let totalSessionStake = 0;
-      let matchCommission = 0;
-      let sessionCommission = 0;
-      let casinoCommission = 0;
-      let casinoPL = 0;
-      
-      let foundAdmin = false;
-      let adminObj: any = null;
-
-      clientSummaries.forEach((c: any) => {
-        const immediate = c.immediate_child_admin;
-        if (!immediate) return;
-
-        const currentUsername = (immediate.user_name || '').toLowerCase().trim();
-        const currentName = (immediate.name || '').toLowerCase().trim();
-        if (currentUsername !== targetAdmin && currentName !== targetAdmin) return;
-
-        foundAdmin = true;
-        adminObj = immediate;
-
-        const invertedMatch = (c.client_net_match_pl || 0) * -1;
-        const invertedSession = (c.client_net_session_pl || 0) * -1;
-        const invertedCasino = (c.client_net_casino_pl || 0) * -1;
-        
-        matchPL += invertedMatch;
-        sessionPL += invertedSession;
-        casinoPL += invertedCasino;
-        totalSessionStake += (c.client_total_session_stake || 0);
-
-        const matchCommRate = immediate.match_commission || 0;
-        if (c.client_net_match_pl < 0) {
-          matchCommission += Math.abs(c.client_net_match_pl) * (matchCommRate / 100);
-        }
-
-        const casinoCommRate = immediate.casino_commission || 0;
-        const userCasinoComm = c.client_total_casino_commission !== undefined
-          ? c.client_total_casino_commission
-          : (c.client_net_casino_pl < 0 ? Math.abs(c.client_net_casino_pl) * (casinoCommRate / 100) : 0);
-
-        casinoCommission += userCasinoComm;
-      });
-
-      if (!foundAdmin) return;
-
-      const sessionCommRate = adminObj?.session_commission || 0;
-      sessionCommission = totalSessionStake * (sessionCommRate / 100);
-
-      const totalPL = matchPL + sessionPL + casinoPL;
-      const totalCommission = matchCommission + sessionCommission + casinoCommission;
-
-      const netAmount = totalPL - totalCommission;
-      const sharePercentage = adminObj?.share || 0;
-      const shareAmount = netAmount * (sharePercentage / 100);
-      const grandTotal = netAmount - shareAmount;
-
-      const credit = grandTotal < 0 ? Math.abs(grandTotal) : 0;
-      const debit = grandTotal > 0 ? grandTotal : 0;
-
-      if (credit > 0 || debit > 0 || matchPL !== 0 || sessionPL !== 0 || casinoPL !== 0 || totalCommission !== 0 || grandTotal !== 0) {
-        runningBalance += debit - credit;
-
-        const eventDateStr = match.createdAt || (match.eventTime as string);
-
-        ledgerEntries.push({
-          matchId: match._id,
-          date: formatUTCDateTime12H(eventDateStr),
-          timestamp: new Date(eventDateStr).getTime(),
-          credit,
-          debit,
-          balance: runningBalance,
-          client: adminObj.user_name || adminObj.name || 'Unknown Admin',
-          matchName: match.eventName,
-          eventTime: formatUTCDateTime12H((match.eventTime as string) || eventDateStr),
-          match: matchPL,
-          session: sessionPL,
-          casino: casinoPL,
-          total: totalPL,
-          mCom: matchCommission,
-          sCom: sessionCommission,
-          cCom: casinoCommission,
-          tCom: totalCommission,
-          netAmount,
-          shareAmount,
-          gTotal: grandTotal,
-          createdAt: eventDateStr,
-        });
-      }
-    });
-
-    // Deduplicate strictly by matchId and client so multiple days of same casino game are preserved
-    const uniqueLedger = ledgerEntries.filter(
-      (entry, index, self) =>
-        index ===
-        self.findIndex((t) => t.matchId === entry.matchId && t.client === entry.client)
-    );
-
-    // Sort newest first
-    const sortedLedgerEntries = uniqueLedger.sort((a, b) => b.timestamp - a.timestamp);
-
-    return sortedLedgerEntries;
-  };
-
-  const adminUserName = rowData ? extractUserName(rowData.superAdmin) : '';
-  const ledgerData = allMatches.length
-    ? processLedgerDataForAdmin(allMatches as any, adminUserName)
-    : [];
+  const ledgerData: any[] = modalResponse?.data?.entries || [];
 
   if (!rowData) return null;
 
@@ -306,6 +125,16 @@ export function AdminReportModal({ open, onClose, rowData, matches: parentMatche
           <Grid item xs={6} sm={4} md={1.5}>
             <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: '#f9fafb' }}>
               <Typography variant="caption" color="textSecondary" fontWeight="bold">
+                Toss PL
+              </Typography>
+              <Typography variant="body2" sx={{ color: (rowData.toss || 0) >= 0 ? 'green' : 'red', fontWeight: 'bold' }}>
+                {(rowData.toss || 0) >= 0 ? '+' : '-'}₹{Math.abs(rowData.toss || 0).toFixed(2)}
+              </Typography>
+            </Paper>
+          </Grid>
+          <Grid item xs={6} sm={4} md={1.5}>
+            <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: '#f9fafb' }}>
+              <Typography variant="caption" color="textSecondary" fontWeight="bold">
                 Total Comm
               </Typography>
               <Typography variant="body2" sx={{ color: 'red', fontWeight: 'bold' }}>
@@ -313,7 +142,7 @@ export function AdminReportModal({ open, onClose, rowData, matches: parentMatche
               </Typography>
             </Paper>
           </Grid>
-          <Grid item xs={6} sm={4} md={2}>
+          <Grid item xs={6} sm={4} md={1.5}>
             <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: '#f9fafb' }}>
               <Typography variant="caption" color="textSecondary" fontWeight="bold">
                 Net Amount
@@ -323,7 +152,7 @@ export function AdminReportModal({ open, onClose, rowData, matches: parentMatche
               </Typography>
             </Paper>
           </Grid>
-          <Grid item xs={6} sm={4} md={2}>
+          <Grid item xs={6} sm={4} md={1.5}>
             <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: '#f9fafb' }}>
               <Typography variant="caption" color="textSecondary" fontWeight="bold">
                 Share Amount
@@ -333,7 +162,7 @@ export function AdminReportModal({ open, onClose, rowData, matches: parentMatche
               </Typography>
             </Paper>
           </Grid>
-          <Grid item xs={12} sm={4} md={2}>
+          <Grid item xs={12} sm={4} md={1.5}>
             <Paper sx={{ p: 1.5, textAlign: 'center', bgcolor: '#f0fdf4', border: '1px solid #bbf7d0' }}>
               <Typography variant="caption" color="textSecondary" fontWeight="bold">
                 Grand Total
@@ -359,6 +188,7 @@ export function AdminReportModal({ open, onClose, rowData, matches: parentMatche
                 <TableCell sx={{ fontWeight: 'bold' }}>Match</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Session</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Casino</TableCell>
+                <TableCell sx={{ fontWeight: 'bold' }}>Toss</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>Total</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>M. Comm</TableCell>
                 <TableCell sx={{ fontWeight: 'bold' }}>S. Comm</TableCell>
@@ -372,9 +202,18 @@ export function AdminReportModal({ open, onClose, rowData, matches: parentMatche
             </TableHead>
 
             <TableBody>
-              {ledgerData.length > 0 ? (
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={14} align="center">
+                    <Box py={3} display="flex" justifyContent="center" alignItems="center" gap={1}>
+                      <CircularProgress size={24} />
+                      <Typography>Loading child match details...</Typography>
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ) : ledgerData.length > 0 ? (
                 ledgerData.map((entry, index) => (
-                  <TableRow key={`${entry.matchId}-${entry.client}-${index}`} hover>
+                  <TableRow key={`${entry.id || entry.matchId || index}-${index}`} hover>
                     <TableCell>
                       <Typography variant="body2" fontWeight={600}>
                         {entry.matchName}
@@ -382,51 +221,62 @@ export function AdminReportModal({ open, onClose, rowData, matches: parentMatche
                     </TableCell>
                     <TableCell
                       sx={{
-                        color: entry.match >= 0 ? 'green' : 'red',
+                        color: entry.matchPL >= 0 ? 'green' : 'red',
                         fontWeight: 'bold',
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {entry.match >= 0
-                        ? `+₹${entry.match.toFixed(2)}`
-                        : `-₹${Math.abs(entry.match).toFixed(2)}`}
+                      {entry.matchPL >= 0
+                        ? `+₹${entry.matchPL.toFixed(2)}`
+                        : `-₹${Math.abs(entry.matchPL).toFixed(2)}`}
                     </TableCell>
                     <TableCell
-                      sx={{ color: entry.session >= 0 ? 'green' : 'red', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                      sx={{ color: entry.sessionPL >= 0 ? 'green' : 'red', fontWeight: 'bold', whiteSpace: 'nowrap' }}
                     >
-                      {entry.session >= 0
-                        ? `+₹${entry.session.toFixed(2)}`
-                        : `-₹${Math.abs(entry.session).toFixed(2)}`}
+                      {entry.sessionPL >= 0
+                        ? `+₹${entry.sessionPL.toFixed(2)}`
+                        : `-₹${Math.abs(entry.sessionPL).toFixed(2)}`}
                     </TableCell>
                     <TableCell
                       sx={{
-                        color: entry.casino >= 0 ? 'green' : 'red',
+                        color: entry.casinoPL >= 0 ? 'green' : 'red',
                         fontWeight: 'bold',
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      {entry.casino >= 0
-                        ? `+₹${entry.casino.toFixed(2)}`
-                        : `-₹${Math.abs(entry.casino).toFixed(2)}`}
+                      {entry.casinoPL >= 0
+                        ? `+₹${entry.casinoPL.toFixed(2)}`
+                        : `-₹${Math.abs(entry.casinoPL).toFixed(2)}`}
                     </TableCell>
                     <TableCell
-                      sx={{ color: entry.total >= 0 ? 'green' : 'red', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                      sx={{
+                        color: (entry.tossPL || 0) >= 0 ? 'green' : 'red',
+                        fontWeight: 'bold',
+                        whiteSpace: 'nowrap',
+                      }}
                     >
-                      {entry.total >= 0
-                        ? `+₹${entry.total.toFixed(2)}`
-                        : `-₹${Math.abs(entry.total).toFixed(2)}`}
+                      {(entry.tossPL || 0) >= 0
+                        ? `+₹${(entry.tossPL || 0).toFixed(2)}`
+                        : `-₹${Math.abs(entry.tossPL || 0).toFixed(2)}`}
+                    </TableCell>
+                    <TableCell
+                      sx={{ color: entry.totalPL >= 0 ? 'green' : 'red', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                    >
+                      {entry.totalPL >= 0
+                        ? `+₹${entry.totalPL.toFixed(2)}`
+                        : `-₹${Math.abs(entry.totalPL).toFixed(2)}`}
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 'bold', color: 'red' }}>
-                      -₹{entry.mCom.toFixed(2)}
+                      -₹{entry.matchCommission.toFixed(2)}
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 'bold', color: 'red' }}>
-                      -₹{entry.sCom.toFixed(2)}
+                      -₹{entry.sessionCommission.toFixed(2)}
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 'bold', color: 'red' }}>
-                      -₹{entry.cCom.toFixed(2)}
+                      -₹{entry.casinoCommission.toFixed(2)}
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 'bold', color: 'red' }}>
-                      -₹{entry.tCom.toFixed(2)}
+                      -₹{entry.totalCommission.toFixed(2)}
                     </TableCell>
                     <TableCell
                       sx={{ color: entry.netAmount >= 0 ? 'green' : 'red', fontWeight: 'bold', whiteSpace: 'nowrap' }}
@@ -443,27 +293,23 @@ export function AdminReportModal({ open, onClose, rowData, matches: parentMatche
                         : `-₹${Math.abs(entry.shareAmount).toFixed(2)}`}
                     </TableCell>
                     <TableCell
-                      sx={{ color: entry.gTotal >= 0 ? 'green' : 'red', fontWeight: 'bold', whiteSpace: 'nowrap' }}
+                      sx={{ color: entry.grandTotal >= 0 ? 'green' : 'red', fontWeight: 'bold', whiteSpace: 'nowrap' }}
                     >
-                      {entry.gTotal >= 0
-                        ? `+₹${entry.gTotal.toFixed(2)}`
-                        : `-₹${Math.abs(entry.gTotal).toFixed(2)}`}
+                      {entry.grandTotal >= 0
+                        ? `+₹${entry.grandTotal.toFixed(2)}`
+                        : `-₹${Math.abs(entry.grandTotal).toFixed(2)}`}
                     </TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
                       <Typography variant="body2" color="textSecondary">
-                        {entry.eventTime}
+                        {formatUTCDateTime12H(entry.date)}
                       </Typography>
                     </TableCell>
                   </TableRow>
                 ))
               ) : (
                 <TableRow>
-                  <TableCell colSpan={13} align="center">
-                    <Typography py={2}>
-                      {isLoading
-                        ? 'Loading child data...'
-                        : 'No child data available for this admin'}
-                    </Typography>
+                  <TableCell colSpan={14} align="center">
+                    <Typography py={2}>No child match data available for this admin</Typography>
                   </TableCell>
                 </TableRow>
               )}

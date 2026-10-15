@@ -44,7 +44,7 @@ export function BlankView({ title = 'Blank' }: Props) {
         links={[
           {  },
         ]}
-        sx={{ mb: { xs: 3, md: 5 } }}
+        sx={{ mb: { xs: 2, md: 3.5 } }}
       />
       {!isPowerUser && <DashboardContant />}
       <CasinoTables />

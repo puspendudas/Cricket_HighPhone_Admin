@@ -23,6 +23,7 @@ import { EditAdminModal } from './EditAdminModal';
 import { DeactivateModal } from './DeactivateModal';
 import { CreateMemberModal } from './CreateMemberModal';
 import { LimitUpdatesModal } from './LimitUpdatesModal';
+import { ChainViewModal } from '../ChainViewModal';
 
 export function AdminTableData() {
   const { addadmin, fetchAdminList, updateAdmin } = useAdminApi();
@@ -33,6 +34,8 @@ export function AdminTableData() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [chainViewModal, setChainViewModal] = useState(false);
+  const [chainMember, setChainMember] = useState<{ id: string; name: string; user: string } | null>(null);
   const navigate = useNavigate();
 
   const [modals, setModals] = useState({
@@ -73,6 +76,8 @@ export function AdminTableData() {
         casinoCommission: a.casino_commission,
         wallet: a.wallet,
         parentWallet: a.parent_id?.wallet || 0,
+        parentShare: a.parent_id?.share !== undefined ? a.parent_id?.share : 100,
+        maxShare: a.parent_id?.share !== undefined ? a.parent_id?.share : 100,
       }));
       setMembers(formatted);
     } catch (err) {
@@ -110,10 +115,10 @@ export function AdminTableData() {
     }
   };
 
-  const filtered = members.filter(({ name, admin }) =>
-    name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    admin.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filtered = members.filter(({ name, user }) => {
+    const term = searchTerm.trim().toLowerCase();
+    return (name?.toLowerCase() || '').includes(term) || (user?.toLowerCase() || '').includes(term);
+  });
 
   const currentRows = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
 
@@ -241,7 +246,7 @@ export function AdminTableData() {
                       onClick={() => {
                         if (!selectedMember) return;
 
-                        const loginDetails = `https://cricket.highphone11.com/
+                        const loginDetails = `https://cricket.testingexch.com/
               UserName: ${selectedMember.user}
               Password: ${selectedMember.password}`;
 
@@ -273,6 +278,16 @@ export function AdminTableData() {
                         sx={{ mr: 1 }}
                       />{' '}
                       Limit W/D
+                    </MenuItem>
+
+                    <MenuItem
+                      onClick={() => {
+                        setChainMember({ id: member._id, name: member.name, user: member.user });
+                        setChainViewModal(true);
+                        handleMenuClose();
+                      }}
+                    >
+                      <Iconify icon="material-symbols:account-tree-outline" sx={{ mr: 1 }} /> Chain View
                     </MenuItem>
                   </Menu>
                 </TableCell>
@@ -325,6 +340,8 @@ export function AdminTableData() {
             sessionCommission: selectedMember.sessionCommission,
             casinoCommission: selectedMember.casinoCommission,
             share: selectedMember.share,
+            maxShare: selectedMember.maxShare ?? selectedMember.parentShare ?? 100,
+            parentShare: selectedMember.parentShare ?? 100,
           }}
           onSubmit={handleEditSave}
         />
@@ -375,6 +392,16 @@ export function AdminTableData() {
         userId={selectedMember?._id || ''}
       />
 
+      <ChainViewModal
+        open={chainViewModal}
+        onClose={() => {
+          setChainViewModal(false);
+          setChainMember(null);
+        }}
+        memberId={chainMember?.id || ''}
+        memberName={chainMember?.name}
+        memberUser={chainMember?.user}
+      />
     </Paper>
   );
 }

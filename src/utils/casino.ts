@@ -2,13 +2,7 @@ export const CASINO_GAMES: Record<string, string> = {
   teen20: '20-20 TEENPATTI',
   teen: 'TEEN PATTI 1 DAY',
   dt20: '20-20 DRAGON TIGER',
-  lucky7eu: 'LUCKY 7 B',
-  lucky7eu2: 'LUCKY 7 A',
-  card32eu: '32 CARDS',
-  aaa: 'AMAR AKBAR ANTHONY',
-  roulette: 'ROULETTE',
-  ab20: 'ANDAR BAHAR',
-  baccarat: 'BACCARAT',
+  lucky7eu: 'LUCKY 7 B'
 };
 
 export const CASINO_GAME_CODES = Object.keys(CASINO_GAMES);

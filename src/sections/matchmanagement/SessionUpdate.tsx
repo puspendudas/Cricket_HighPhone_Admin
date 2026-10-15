@@ -25,13 +25,16 @@ import {
   DialogActions,
   TableContainer,
   CircularProgress,
-  FormControlLabel
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+
+import { useAuthContext } from 'src/auth/hooks';
 
 // Rollback Confirm Modal Component
 interface RollbackConfirmModalProps {
@@ -46,7 +49,7 @@ function RollbackConfirmModal({ open, onClose, onConfirm }: RollbackConfirmModal
       <DialogTitle sx={{ fontWeight: "bold" }}>Confirm Rollback</DialogTitle>
       <DialogContent>
         <Typography>
-          Are you sure you want to <strong>Rollback</strong> this session?
+          Are you sure you want to <Box component="span" sx={{ fontWeight: 'bold' }}>Rollback</Box> this session?
         </Typography>
       </DialogContent>
       <DialogActions sx={{ display: "flex", justifyContent: "flex-end", gap: 2, p: 2 }}>
@@ -67,9 +70,60 @@ function RollbackConfirmModal({ open, onClose, onConfirm }: RollbackConfirmModal
   );
 }
 
+// Cancel Session Confirm Modal Component
+interface CancelSessionConfirmModalProps {
+  open: boolean;
+  sessionName: string;
+  onClose: () => void;
+  onConfirm: () => void;
+  loading: boolean;
+}
+
+function CancelSessionConfirmModal({ open, sessionName, onClose, onConfirm, loading }: CancelSessionConfirmModalProps) {
+  return (
+    <Dialog open={open} onClose={() => (loading ? null : onClose())} maxWidth="xs" fullWidth>
+      <DialogTitle sx={{ fontWeight: "bold", color: "error.main" }}>Confirm Cancel Session</DialogTitle>
+      <DialogContent>
+        <Typography variant="body1">
+          Are you sure you want to <Box component="span" sx={{ fontWeight: 'bold' }}>Cancel</Box> this session?
+        </Typography>
+        {sessionName && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            Session: <Box component="span" sx={{ fontWeight: 'bold' }}>{sessionName}</Box>
+          </Typography>
+        )}
+        <Typography variant="caption" color="error.main" sx={{ display: 'block', mt: 1 }}>
+          Warning: This action will void/cancel all bets placed on this session.
+        </Typography>
+      </DialogContent>
+      <DialogActions sx={{ display: "flex", justifyContent: "flex-end", gap: 2, p: 2 }}>
+        <Button
+          onClick={onClose}
+          sx={{ bgcolor: "#F32D2D33", color: "#F32D2D", px: 3 }}
+          disabled={loading}
+        >
+          No, Go Back
+        </Button>
+        <Button
+          onClick={onConfirm}
+          sx={{ bgcolor: "#F32D2D", color: "#FFFFFF", px: 3, '&:hover': { bgcolor: '#d32f2f' } }}
+          disabled={loading}
+        >
+          {loading ? 'Cancelling...' : 'Yes, Cancel Session'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  );
+}
+
 export default function SessionUpdate() {
+  const { user } = useAuthContext();
+  const isPowerUser = user?.type === 'power_user';
+  const canRollbackSession = !isPowerUser || Boolean(user?.permissions?.rollback_session);
+  const canCancelSession = !isPowerUser || Boolean(user?.permissions?.cancel_session);
+
   const queryClient = useQueryClient();
-  const { FatchUpdateMatch, updateStatusSession, DeclarefancyMatch, CancelfancyMatch, fancyRollBack, updateStatusMInMax, AutoDeclareRun } = useMatchApi();
+  const { FatchUpdateMatch, updateStatusSession, DeclarefancyMatch, CancelfancyMatch, fancyRollBack, updateStatusMInMax, AutoDeclareRun, toggleToss, DeclareTossMatch, tossRollBack } = useMatchApi();
   const { id } = useParams();
 
   const [searchTerm, setSearchTerm] = useState('');
@@ -79,9 +133,11 @@ export default function SessionUpdate() {
   const [declareScore, setDeclareScore] = useState('');
   const [redeclareScore, setRedeclareScore] = useState('');
   const [rollbackOpen, setRollbackOpen] = useState(false);
+  const [cancelSessionModalOpen, setCancelSessionModalOpen] = useState(false);
   const [selectedSessionForRollback, setSelectedSessionForRollback] = useState<any>(null);
   const [rowMinMax, setRowMinMax] = useState<Record<string, { min: number; max: number }>>({});
   const [isEditing, setIsEditing] = useState(false);
+  const [selectedTossWinner, setSelectedTossWinner] = useState('');
 
   type FancyRow = {
     matchId: string;
@@ -95,6 +151,8 @@ export default function SessionUpdate() {
     sid?: string;
     market?: string;
     isDeclared?: boolean;
+    isAuto?: boolean;
+    isRollbacked?: boolean;
     resultScore?: string;
   };
 
@@ -140,6 +198,62 @@ export default function SessionUpdate() {
     }
   });
 
+  const toggleTossMutation = useMutation({
+    mutationFn: (matchIdParam: string) => toggleToss(matchIdParam),
+    onSuccess: (res: any) => {
+      const newStatus = res?.data?.match?.isTossActive ?? res?.match?.isTossActive;
+      if (newStatus !== undefined) {
+        queryClient.setQueryData(['match', id], (old: any) => {
+          if (!old) return old;
+          return {
+            ...old,
+            isTossActive: newStatus,
+            fancyOdds: (old.fancyOdds || []).map((f: any) => {
+              if (String(f.sid) === '2501' || String(f.sid) === '2502') {
+                return { ...f, isActive: newStatus, isEnabled: newStatus };
+              }
+              return f;
+            })
+          };
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['match', id] });
+      toast.success(newStatus === false ? 'TOSS Inactive' : 'TOSS Active');
+    },
+    onError: (err: any) => {
+      console.error('Toggle toss failed:', err);
+      toast.error('Failed to toggle toss status');
+    }
+  });
+
+  const declareTossMutation = useMutation({
+    mutationFn: ({ matchId: targetMatchId, payload }: { matchId: string; payload: any }) =>
+      DeclareTossMatch(targetMatchId, payload),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['match', id] });
+      setSelectedTossWinner('');
+      toast.success('Toss declared successfully');
+    },
+    onError: (declareError: any) => {
+      console.error('Declare toss failed:', declareError);
+      const errorMessage = declareError?.response?.data?.message || 'Failed to declare toss';
+      toast.error(errorMessage);
+    }
+  });
+
+  const rollbackTossMutation = useMutation({
+    mutationFn: (targetMatchId: string) => tossRollBack(targetMatchId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['match', id] });
+      toast.success('Toss rolled back successfully');
+    },
+    onError: (err: any) => {
+      console.error('Rollback toss failed:', err);
+      const errMsg = err?.response?.data?.message || 'Failed to rollback toss';
+      toast.error(errMsg);
+    }
+  });
+
   // Process fancy sessions data
   const fancySessions = useMemo(() => {
     const fancyOdds = matchData?.fancyOdds || [];
@@ -151,6 +265,11 @@ export default function SessionUpdate() {
     return fancyOdds
       .filter((item: any) => {
         if (item.isEnabled === false && item.isFancyEnded === true) {
+          return false;
+        }
+        // Exclude Toss sessions (SIDs 2501 and 2502) from run sessions
+        const sidStr = String(item.sid);
+        if (sidStr === '2501' || sidStr === '2502') {
           return false;
         }
         return true;
@@ -167,10 +286,41 @@ export default function SessionUpdate() {
         isActive: item.isActive,
         market: item.market,
         isDeclared: item.isDeclared,
+        isAuto: item.isAuto,
+        isRollbacked: item.isRollbacked,
         resultScore: item.resultScore,
         nonDeletedBetCount: item.nonDeletedBetCount || 0
       }));
   }, [matchData, matchId]);
+
+  // Extract Toss sessions (SIDs 2501 & 2502)
+  const tossSessions = useMemo(
+    () =>
+      (matchData?.fancyOdds || []).filter(
+        (item: any) => String(item.sid) === '2501' || String(item.sid) === '2502'
+      ),
+    [matchData]
+  );
+
+  const isTossActive = useMemo(() => {
+    if (matchData?.isTossActive !== undefined) {
+      return matchData.isTossActive;
+    }
+    if (matchData?.match?.isTossActive !== undefined) {
+      return matchData.match.isTossActive;
+    }
+    if (tossSessions.length > 0) {
+      return tossSessions.some((s: any) => s.isActive !== false && s.isEnabled !== false);
+    }
+    return true;
+  }, [matchData, tossSessions]);
+
+  const isTossDeclared = useMemo(() => tossSessions.some((s: any) => s.isDeclared), [tossSessions]);
+
+  const tossDeclaredWinnerName = useMemo(
+    () => tossSessions.find((s: any) => s.isDeclared && String(s.resultScore) === '1')?.rname || (isTossDeclared ? 'Declared' : ''),
+    [tossSessions, isTossDeclared]
+  );
 
 
   useEffect(() => {
@@ -250,11 +400,15 @@ export default function SessionUpdate() {
       CancelfancyMatch(cancelMatchId, payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['match', id] });
-      toast.success('Match cancelled successfully');
+      toast.success('Session cancelled successfully');
+      setCancelSessionModalOpen(false);
+      setDeclareSession('');
+      setDeclareScore('');
     },
     onError: (cancelError: any) => {
       console.error('Cancel failed:', cancelError);
-      toast.error('Failed to cancel match');
+      const errMsg = cancelError?.response?.data?.message || cancelError?.message || 'Failed to cancel session';
+      toast.error(errMsg);
     }
   });
 
@@ -391,7 +545,29 @@ export default function SessionUpdate() {
     [filteredSessionBySearch, page]
   );
 
-  const handleCancelMatch = async () => {
+  const handleOpenCancelSessionModal = () => {
+    if (!canCancelSession) {
+      toast.error('You do not have permission to cancel sessions');
+      return;
+    }
+    if (!matchId) {
+      toast.error("Match ID not found!");
+      return;
+    }
+
+    const selectedSession = fancySessions.find(
+      (row: FancyRow) => row.sessionName === declareSession && !row.isDeclared
+    );
+
+    if (!selectedSession) {
+      toast.error("Please select a session to cancel");
+      return;
+    }
+
+    setCancelSessionModalOpen(true);
+  };
+
+  const handleConfirmCancelSession = () => {
     if (!matchId) {
       toast.error("Match ID not found!");
       return;
@@ -415,6 +591,10 @@ export default function SessionUpdate() {
   };
 
   const handleRollbackClick = () => {
+    if (!canRollbackSession) {
+      toast.error('You do not have permission to rollback sessions');
+      return;
+    }
     const selectedSession = fancySessions.find(
       (row: FancyRow) => row.sessionName === redeclareSession && row.isDeclared
     );
@@ -471,6 +651,101 @@ export default function SessionUpdate() {
   };
   return (
     <Box p={1}>
+      {/* TOSS Management Card */}
+      <Card sx={{ mb: 3, border: '1px solid', borderColor: isTossActive ? 'primary.light' : 'divider' }}>
+        <CardContent>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, flexWrap: 'wrap', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                Toss Management
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={isTossActive}
+                    onChange={() => id && toggleTossMutation.mutate(id)}
+                    disabled={toggleTossMutation.isPending}
+                    color="primary"
+                  />
+                }
+                label={
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: isTossActive ? 'success.main' : 'text.secondary' }}>
+                    {isTossActive ? 'TOSS Active' : 'TOSS Inactive'}
+                  </Typography>
+                }
+              />
+            </Box>
+
+            {isTossDeclared && (
+              <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, bgcolor: '#e8f5e9', px: 1.5, py: 0.5, borderRadius: 1, border: '1px solid #a5d6a7' }}>
+                <Typography variant="caption" sx={{ fontWeight: 800, color: '#2e7d32' }}>
+                  STATUS: DECLARED ({tossDeclaredWinnerName || 'Settled'})
+                </Typography>
+              </Box>
+            )}
+          </Box>
+
+          <Grid container spacing={2} alignItems="center">
+            {isTossDeclared ? (
+              <>
+                <Grid item xs={12} md={8}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
+                    Toss has been declared. Winner:{' '}
+                    <Box component="span" sx={{ fontWeight: 800, color: 'primary.main' }}>
+                      {tossDeclaredWinnerName}
+                    </Box>
+                  </Typography>
+                </Grid>
+                <Grid item xs={12} md={4} textAlign="right">
+                  <Button
+                    variant="contained"
+                    sx={{ backgroundColor: '#1E90FF' }}
+                    onClick={() => id && rollbackTossMutation.mutate(id)}
+                    disabled={rollbackTossMutation.isPending || !canRollbackSession}
+                  >
+                    {rollbackTossMutation.isPending ? <CircularProgress size={20} /> : 'Rollback Toss'}
+                  </Button>
+                </Grid>
+              </>
+            ) : (
+              <>
+                <Grid item xs={12} md={6}>
+                  <Autocomplete
+                    options={tossSessions}
+                    getOptionLabel={(option: any) => option.rname || `SID ${option.sid}`}
+                    value={tossSessions.find((s: any) => String(s.sid) === String(selectedTossWinner)) || null}
+                    onChange={(_, newValue) => setSelectedTossWinner(newValue ? String(newValue.sid) : '')}
+                    renderInput={(params) => <TextField {...params} label="Select Winning Team for Toss" placeholder="Choose Winner" />}
+                    isOptionEqualToValue={(option: any, value: any) => String(option.sid) === String(value.sid)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6} textAlign="right">
+                  <Button
+                    variant="contained"
+                    color="primary"
+                    disabled={!selectedTossWinner || declareTossMutation.isPending}
+                    onClick={() => {
+                      if (!id || !selectedTossWinner) return;
+                      const selectedObj = tossSessions.find((s: any) => String(s.sid) === String(selectedTossWinner));
+                      declareTossMutation.mutate({
+                        matchId: id,
+                        payload: {
+                          sid: Number(selectedTossWinner),
+                          winnerId: 1,
+                          fancyId: selectedObj?._id,
+                        }
+                      });
+                    }}
+                  >
+                    {declareTossMutation.isPending ? <CircularProgress size={20} /> : 'Declare Toss Winner'}
+                  </Button>
+                </Grid>
+              </>
+            )}
+          </Grid>
+        </CardContent>
+      </Card>
+
       {/* Declare Session */}
       <Card sx={{ mb: 3 }}>
         <CardContent>
@@ -528,6 +803,25 @@ export default function SessionUpdate() {
                         {option.sessionName}
                       </Typography>
 
+                      {(option.isRollbacked || option.isAuto === false) && (
+                        <Box
+                          component="span"
+                          sx={{
+                            ml: 1,
+                            px: 0.8,
+                            py: 0.2,
+                            borderRadius: '4px',
+                            backgroundColor: '#ffebee',
+                            color: '#c62828',
+                            fontSize: '0.7rem',
+                            fontWeight: 700,
+                            border: '1px solid #ef9a9a'
+                          }}
+                        >
+                          Rolled Back (Manual)
+                        </Box>
+                      )}
+
                       {option.nonDeletedBetCount >= 1 && (
                         <Box component="span" sx={{ ml: 1, display: 'inline-flex', alignItems: 'center' }}>
                           <Iconify icon="line-md:hazard-lights-loop" style={{ color: '#ff9800', marginLeft: 6 }} />
@@ -556,8 +850,8 @@ export default function SessionUpdate() {
                 variant="contained"
                 color="error"
                 sx={{ mr: 2 }}
-                onClick={handleCancelMatch}
-                disabled={cancelFancyMutation.isPending}
+                onClick={handleOpenCancelSessionModal}
+                disabled={cancelFancyMutation.isPending || !canCancelSession}
               >
                 {cancelFancyMutation.isPending ? <CircularProgress size={20} /> : 'Cancel Session'}
               </Button>
@@ -615,7 +909,7 @@ export default function SessionUpdate() {
                 variant="contained"
                 sx={{ backgroundColor: '#1E90FF' }}
                 onClick={handleRollbackClick}
-                disabled={rollbackMutation.isPending}
+                disabled={rollbackMutation.isPending || !canRollbackSession}
               >
                 {rollbackMutation.isPending ? <CircularProgress size={20} /> : 'Rollback'}
               </Button>
@@ -716,7 +1010,28 @@ export default function SessionUpdate() {
                         />
                       </TableCell>
                       <TableCell>{(page - 1) * rowsPerPage + index + 1}</TableCell>
-                      <TableCell>{row.sessionName}</TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <span>{row.sessionName}</span>
+                          {(row.isRollbacked || row.isAuto === false) && !row.isDeclared && (
+                            <Box
+                              component="span"
+                              sx={{
+                                px: 0.6,
+                                py: 0.1,
+                                borderRadius: '4px',
+                                backgroundColor: '#ffebee',
+                                color: '#c62828',
+                                fontSize: '0.65rem',
+                                fontWeight: 700,
+                                border: '1px solid #ef9a9a'
+                              }}
+                            >
+                              Manual Only
+                            </Box>
+                          )}
+                        </Box>
+                      </TableCell>
                       <TableCell>{row.sid}</TableCell>
                       <TableCell>
                         <TextField
@@ -873,6 +1188,15 @@ export default function SessionUpdate() {
         open={rollbackOpen}
         onClose={() => setRollbackOpen(false)}
         onConfirm={handleRollbackConfirm}
+      />
+
+      {/* Cancel Session Confirm Modal */}
+      <CancelSessionConfirmModal
+        open={cancelSessionModalOpen}
+        sessionName={declareSession}
+        onClose={() => setCancelSessionModalOpen(false)}
+        onConfirm={handleConfirmCancelSession}
+        loading={cancelFancyMutation.isPending}
       />
     </Box>
   );

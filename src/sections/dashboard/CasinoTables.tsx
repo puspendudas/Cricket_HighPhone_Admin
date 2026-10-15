@@ -1,64 +1,119 @@
 import React from 'react';
-
 import { useNavigate } from 'react-router-dom';
 
-import { Box, Card, CardMedia, Stack, Typography } from '@mui/material';
+import { Box, Card, Grid, Chip, CardMedia, Typography } from '@mui/material';
 
-import Oneday from '../../../public/assets/dashbordimg/Image Group.png';
-import Lucky from '../../../public/assets/dashbordimg/9b0a5d8814f62081f3c1fb5988b917dc7215162a.png';
-// Images
-import Teenpati from '../../../public/assets/dashbordimg/e3eeab773e72493a01a305157f04b0f219fd5d82.png';
-import Dregantiger from '../../../public/assets/dashbordimg/f72cf6e55fef786a25aea7bbe5ff629f884e5b99.png';
+import Oneday from '../../../public/assets/dashbordimg/TEEN_ONEDAY.jpeg';
+import Lucky from '../../../public/assets/dashbordimg/LUCKY_7.jpeg';
+import Teenpati from '../../../public/assets/dashbordimg/TEEN_20.jpeg';
+import Dregantiger from '../../../public/assets/dashbordimg/DT_20.jpeg';
 
 // Card Data
 const casinoGames = [
-  { name: 'Teen Patti', image: Oneday, path: '/casino/teen' },
-  { name: 'Dragon Tiger', image: Dregantiger, path: '/casino/dt20' },
-  { name: 'One Day Teen Patti', image: Teenpati, path: '/casino/teen20' },
+  { name: 'Teen Patti T-20', image: Teenpati, path: '/casino/teen20' },
+  { name: 'Dragon Tiger T-20', image: Dregantiger, path: '/casino/dt20' },
+  { name: 'Teen Patti One Day', image: Oneday, path: '/casino/teen' },
   { name: 'Lucky 7', image: Lucky, path: '/casino/lucky7eu' },
 ];
 
 const CasinoTables: React.FC = () => {
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
-    return (
+  return (
     <Box
       sx={{
         borderRadius: 2,
-        p: 2,
-        mt: 3,
-        boxShadow: '0px 4px 20px rgba(0, 0, 0, 0.1)'
+        p: { xs: 1.25, sm: 1.75 },
+        mt: { xs: 1.5, sm: 2 },
+        border: '1px solid',
+        borderColor: 'divider',
+        boxShadow: '0px 2px 12px rgba(0, 0, 0, 0.05)',
+        bgcolor: 'background.paper',
       }}
     >
-      <Typography variant="h5" fontWeight="bold" mb={2}>
-        Casino Tables
-      </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.25 }}>
+        <Typography
+          variant="subtitle1"
+          sx={{
+            fontWeight: 700,
+            fontSize: { xs: '0.95rem', sm: '1.15rem' },
+            color: 'text.primary',
+          }}
+        >
+          Casino Tables
+        </Typography>
+        <Chip
+          size="small"
+          label={`${casinoGames.length} Tables`}
+          sx={{ height: 20, fontSize: '0.7rem', fontWeight: 700, bgcolor: 'primary.lighter', color: 'primary.darker' }}
+        />
+      </Box>
 
-      <Stack direction="row" spacing={8} overflow="auto">
+      {/* Grid displaying all casino tables at once with NO scroll */}
+      <Grid container spacing={{ xs: 1, sm: 1.5 }}>
         {casinoGames.map((game, index) => (
-          <Card
-            key={index}
-            onClick={() => navigate(game.path)}
-            sx={{
-              minWidth: 200,
-              maxWidth: 250,
-              height: 120,
-              borderRadius: 2,
-              overflow: 'hidden',
-              flexShrink: 0,
-              cursor: 'pointer',
-              transition: 'transform 0.3s',
-              '&:hover': {
-                transform: 'scale(1.05)',
-              },
-            }}
-          >
-            <CardMedia component="img" image={game.image} alt={game.name} height="120" />
-          </Card>
+          <Grid item xs={6} sm={6} md={3} key={index}>
+            <Card
+              onClick={() => navigate(game.path)}
+              sx={{
+                height: { xs: 85, sm: 100, md: 110 },
+                borderRadius: 1.5,
+                overflow: 'hidden',
+                cursor: 'pointer',
+                position: 'relative',
+                border: '1px solid',
+                borderColor: 'divider',
+                boxShadow: '0px 2px 6px rgba(0, 0, 0, 0.06)',
+                transition: 'all 0.2s ease-in-out',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0px 4px 14px rgba(0, 167, 111, 0.25)',
+                  borderColor: 'primary.main',
+                },
+              }}
+            >
+              <CardMedia
+                component="img"
+                image={game.image}
+                alt={game.name}
+                sx={{
+                  height: '100%',
+                  width: '100%',
+                  objectFit: 'cover',
+                }}
+              />
+              <Box
+                sx={{
+                  position: 'absolute',
+                  bottom: 0,
+                  left: 0,
+                  right: 0,
+                  background:
+                    'linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.3) 70%, transparent 100%)',
+                  p: 0.75,
+                  pt: 2,
+                }}
+              >
+                <Typography
+                  variant="caption"
+                  sx={{
+                    color: '#fff',
+                    fontWeight: 700,
+                    fontSize: { xs: '0.72rem', sm: '0.8rem' },
+                    display: 'block',
+                    textShadow: '0 1px 3px rgba(0,0,0,0.8)',
+                  }}
+                  noWrap
+                >
+                  {game.name}
+                </Typography>
+              </Box>
+            </Card>
+          </Grid>
         ))}
-      </Stack>
+      </Grid>
     </Box>
-    );
+  );
 };
 
 export default CasinoTables;

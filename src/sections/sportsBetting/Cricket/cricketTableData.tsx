@@ -23,12 +23,6 @@ import {
 } from '@mui/material';
 
 import { formatUTCDateTime12H } from 'src/utils/date';
-// Import commission utilities
-import {
-  calculateMySharePL,
-  calculateCommission,
-  calculateClientNetAmount,
-} from 'src/utils/commissionUtils';
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
@@ -102,105 +96,58 @@ export function CricketTableData() {
 
 
 
-  // Build per-match net from a totalData response
-  const buildNetByMatch = React.useCallback(
-    (resp: any, restrictImmediateChildId?: string) => {
-      if (!resp?.matches) return {};
-      const matchNet: Record<string, number> = {};
-      const processedMatches = new Set<string>();
-
-      resp.matches.forEach((match: any) => {
-        if (processedMatches.has(match._id)) return;
-        processedMatches.add(match._id);
-
-        const clientSummaries = match.client_summary || [];
-        const summariesByClient: Record<string, any[]> = {};
-
-        clientSummaries.forEach((c: any) => {
-          const cid = c.immediate_child_admin?._id || 'unknown';
-          if (!summariesByClient[cid]) summariesByClient[cid] = [];
-          summariesByClient[cid].push(c);
-        });
-
-        Object.values(summariesByClient).forEach((adminSummaries) => {
-          const admin = adminSummaries[0]?.immediate_child_admin;
-          if (!admin) return;
-
-          if (restrictImmediateChildId && admin._id !== restrictImmediateChildId) return;
-
-          const net = calculateClientNetAmount(adminSummaries);
-
-          matchNet[match._id] = (matchNet[match._id] || 0) + net;
-        });
-      });
-
-      return matchNet;
-    },
-    []
-  );
-
-  const childNetByMatch = React.useMemo(
-    () => buildNetByMatch(totalDataResponse),
-    [totalDataResponse, buildNetByMatch]
-  );
-
-  const myLedgerNetByMatch = React.useMemo(
-    () => buildNetByMatch(parentTotalDataResponse, userId),
-    [parentTotalDataResponse, userId, buildNetByMatch]
-  );
-
-  // My Share P/L = Child - MyLedger (same as before)
+  // My Share P/L = Child grandTotal (SuperAdmin) or Child grandTotal - Parent grandTotal (SubAdmin)
   const myShareByMatch = React.useMemo(() => {
     const out: Record<string, number> = {};
+    const parentMatchesMap = new Map<string, any>();
+    (parentTotalDataResponse?.matches || []).forEach((m: any) => parentMatchesMap.set(m._id, m));
+
     matches.forEach((m: any) => {
-      const child = childNetByMatch[m._id] || 0;
-      const mine = myLedgerNetByMatch[m._id] || 0;
-      out[m._id] = calculateMySharePL(child, mine);
+      const childMatch = (totalDataResponse?.matches || []).find((cm: any) => cm._id === m._id);
+      const parentMatch = parentMatchesMap.get(m._id);
+
+      if (!parentId) {
+        // SuperAdmin: Full match grandTotal retained
+        out[m._id] = childMatch?.grandTotal !== undefined ? Number(childMatch.grandTotal.toFixed(2)) : 0;
+      } else if (childMatch?.grandTotal !== undefined && parentMatch?.grandTotal !== undefined) {
+        // Sub-admin: Net retained share = child grandTotal - parent grandTotal
+        out[m._id] = Number((childMatch.grandTotal - parentMatch.grandTotal).toFixed(2));
+      } else {
+        out[m._id] = 0;
+      }
     });
     return out;
-  }, [matches, childNetByMatch, myLedgerNetByMatch]);
+  }, [matches, totalDataResponse, parentTotalDataResponse, parentId]);
 
-  // UPDATED: Total P/L calculation using same commission logic as DisplayMatch.tsx
+  // Authoritative server-provided match summaries
   const plDataMap = React.useMemo(() => {
     if (!totalDataResponse?.matches) return {};
 
     const plMap: Record<string, { matchPL: number; afterCommission: number }> = {};
 
     totalDataResponse.matches.forEach((match: any) => {
-      if (!match?.client_summary?.length) {
-        plMap[match._id] = { matchPL: 0, afterCommission: 0 };
+      if (match.grandTotal !== undefined || match.totalMatchPL !== undefined) {
+        plMap[match._id] = {
+          matchPL: match.totalMatchPL ?? 0,
+          afterCommission: match.grandTotal ?? 0,
+        };
         return;
       }
 
-      const clientSummaries = match.client_summary || [];
+      if (match.summary && Array.isArray(match.summary) && match.summary.length > 0) {
+        const total = match.summary.reduce((acc: number, row: any) => acc + (row.total || 0), 0);
+        const grandTotal = match.summary.reduce((acc: number, row: any) => acc + (row.grandTotal || 0), 0);
+        plMap[match._id] = {
+          matchPL: Number(total.toFixed(2)),
+          afterCommission: Number(grandTotal.toFixed(2)),
+        };
+        return;
+      }
 
-      // Group by admin to calculate per-admin commission
-      const summariesByAdmin: Record<string, any[]> = {};
-      clientSummaries.forEach((c: any) => {
-        const adminId = c.immediate_child_admin?._id || 'unknown';
-        if (!summariesByAdmin[adminId]) summariesByAdmin[adminId] = [];
-        summariesByAdmin[adminId].push(c);
-      });
-
-      let totalMatchPL = 0;
-      let totalAfterCommission = 0;
-
-      // Calculate for each admin (same logic as DisplayMatch.tsx)
-      Object.values(summariesByAdmin).forEach((adminSummaries: any[]) => {
-        const result = calculateCommission(adminSummaries);
-
-        totalMatchPL += result.matchPL + result.sessionPL; // This is the 'total' field
-        totalAfterCommission += result.grandTotal;
-      });
-
-      plMap[match._id] = {
-        matchPL: totalMatchPL,
-        afterCommission: totalAfterCommission,
-      };
+      plMap[match._id] = { matchPL: 0, afterCommission: 0 };
     });
 
     return plMap;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalDataResponse]);
 
   // Totals bar

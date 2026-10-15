@@ -95,7 +95,10 @@ const SettlementModal: React.FC<SettlementModalProps> = ({
         setLoading(true);
 
         try {
-            const immediateChildAdminId = client.immediate_child_admin?._id;
+            const immediateChildAdminId =
+                client.immediate_child_admin?._id ||
+                client.immediateChildAdmin?._id ||
+                client.adminId;
             if (!immediateChildAdminId || !currentUserId) return;
 
             const payload = {
@@ -109,6 +112,7 @@ const SettlementModal: React.FC<SettlementModalProps> = ({
 
             const response = await AddSettlement(payload);
             console.log(response)
+            queryClient.invalidateQueries({ queryKey: ['adminSettlement'] });
             queryClient.invalidateQueries({ queryKey: ['settlementData'] });
             queryClient.invalidateQueries({ queryKey: ['childSettlementData'] });
 
@@ -134,7 +138,7 @@ const SettlementModal: React.FC<SettlementModalProps> = ({
                     {/* Client */}
                     <Grid item xs={12} sm={6}>
                         <Typography variant="body2">Client</Typography>
-                        <TextField value={client?.client || ''} fullWidth disabled />
+                        <TextField value={client?.client || client?.clientName || ''} fullWidth disabled />
                     </Grid>
 
                     {/* Amount */}
@@ -143,8 +147,8 @@ const SettlementModal: React.FC<SettlementModalProps> = ({
 
                         <TextField
                             value={
-                                client && client.final !== undefined
-                                    ? Math.abs(client.final).toFixed(1)
+                                client && (client.final !== undefined || client.netAmount !== undefined)
+                                    ? Math.abs(Number(client.final ?? client.netAmount) || 0).toFixed(2)
                                     : ''
                             }
                             fullWidth

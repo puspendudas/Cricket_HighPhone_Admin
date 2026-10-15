@@ -37,7 +37,14 @@ export default function App() {
         <SettingsProvider settings={defaultSettings}>
           <ThemeProvider>
             <MotionLazy>
-              <Toaster richColors position="bottom-right" />
+              <Toaster
+                richColors
+                position="top-right"
+                expand={false}
+                visibleToasts={2}
+                duration={2500}
+                gap={8}
+              />
               <ProgressBar />
               <SettingsDrawer />
               <Router />

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import {
   Box,
@@ -12,37 +13,20 @@ import {
   TableCell,
   TableBody,
   Typography,
-  IconButton
+  IconButton,
+  CircularProgress,
+  Breadcrumbs,
+  Link,
+  Chip,
+  Stack,
+  Tooltip,
 } from '@mui/material';
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
-import useCasinoApi from 'src/Api/CasinoApi/CasinoApi';
-
 import { Iconify } from 'src/components/iconify';
 
 import SettlementModal from './SettlementModal';
-
-// Interfaces define karo
-
-interface SettlementData {
-  _id: string;
-  adminIdTo: {
-    _id: string;
-    user_name: string;
-    name: string;
-  };
-  adminIdFrom: {
-    _id: string;
-    user_name: string;
-  };
-  ammount: number;
-  type: string;
-  remark: string;
-  createdAt: string;
-  updatedAt: string;
-  __v: number;
-}
 
 interface ViewStackItem {
   adminId: string;
@@ -50,10 +34,14 @@ interface ViewStackItem {
   level: number;
 }
 
-// ChildTableData ka final balance get karne wala hook - MULTIPLE ADMINS SUPPORT (Cricket + Casino)
-const useChildTableFinalBalance = (targetUserId?: string) => {
-  const { fetchTotalData, fetchSettlement } = useMatchApi();
-  const { fetchCasinoTotalData } = useCasinoApi();
+export function AllSuperTableData() {
+  const [openModal, setOpenModal] = useState(false);
+  const [selectedClient, setSelectedClient] = useState<any>(null);
+
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+
+  const { fetchAdminSettlement } = useMatchApi();
   const { fetchMe } = useMeApi();
 
   const { data: userData } = useQuery({
@@ -61,324 +49,131 @@ const useChildTableFinalBalance = (targetUserId?: string) => {
     queryFn: fetchMe,
   });
 
-  // Use targetUserId if provided, otherwise use current user's ID
-  const userId = targetUserId || userData?.data?._id;
-
-  // Fetch cricket table data directly
-  const { data: tableData } = useQuery({
-    queryKey: ['ledgerTableData', userId],
-    queryFn: () =>
-      userId
-        ? fetchTotalData(userId)
-        : Promise.reject(new Error('Missing user ID')),
-    enabled: !!userId,
-  });
-
-  // Fetch casino table data directly
-  const { data: casinoTableData } = useQuery({
-    queryKey: ['casinoLedgerTableData', userId],
-    queryFn: () =>
-      userId
-        ? fetchCasinoTotalData(userId)
-        : Promise.reject(new Error('Missing user ID')),
-    enabled: !!userId,
-  });
-
-  // Fetch settlement data using userId
-  const { data: settlementData } = useQuery({
-    queryKey: ['childSettlementData', userId],
-    queryFn: () =>
-      userId
-        ? fetchSettlement(userId)
-        : Promise.reject(new Error('Missing user ID')),
-    enabled: !!userId,
-  });
-
-  // Calculate total settled amount for EACH admin
-  const calculateSettledAmountByAdmin = (settlements: SettlementData[]): Record<string, number> => {
-    if (!settlements || settlements.length === 0) return {};
-
-    const settledByAdmin: Record<string, number> = {};
-
-    settlements.forEach((settlement) => {
-      const adminId = settlement.adminIdTo?._id;
-      if (!adminId) return;
-
-      if (!settledByAdmin[adminId]) {
-        settledByAdmin[adminId] = 0;
-      }
-
-      if (settlement.type === 'debit') {
-        settledByAdmin[adminId] -= Math.abs(settlement.ammount);
-      } else if (settlement.type === 'credit') {
-        settledByAdmin[adminId] += Math.abs(settlement.ammount);
-      }
-    });
-
-    return settledByAdmin;
-  };
-
-  const settledAmountByAdmin = settlementData?.data
-    ? calculateSettledAmountByAdmin(settlementData.data)
-    : {};
-
-  // Get ALL unique immediate_child_admins from both cricket and casino table data
-  const getAllImmediateChildAdmins = () => {
-    const allAdmins: Record<string, any> = {};
-
-    const processMatches = (matches: any[]) => {
-      if (!matches || !Array.isArray(matches)) return;
-      matches.forEach((match: any) => {
-        const clientSummaries = match.client_summary || [];
-        clientSummaries.forEach((c: any) => {
-          const immediate = c.immediate_child_admin;
-          if (immediate && immediate._id) {
-            if (!allAdmins[immediate._id]) {
-              allAdmins[immediate._id] = {
-                ...immediate,
-                user_name: immediate.user_name || 'S1(SUPERADMIN)',
-                name: immediate.name || immediate.user_name
-              };
-            }
+  // Parse hierarchy view stack from URL query param `stack`
+  // Format: adminId:encodedName;adminId:encodedName
+  const stackParam = searchParams.get('stack') || '';
+  const viewStack: ViewStackItem[] = useMemo(() => {
+    if (!stackParam) return [];
+    try {
+      return stackParam
+        .split(';')
+        .filter(Boolean)
+        .map((item, index) => {
+          const colonIndex = item.indexOf(':');
+          if (colonIndex === -1) {
+            return { adminId: item, clientName: 'Admin', level: index };
           }
+          const adminId = item.substring(0, colonIndex);
+          const rawName = item.substring(colonIndex + 1);
+          return {
+            adminId,
+            clientName: decodeURIComponent(rawName) || 'Admin',
+            level: index,
+          };
         });
-      });
-    };
+    } catch (e) {
+      console.error('Error parsing stack from query:', e);
+      return [];
+    }
+  }, [stackParam]);
 
-    processMatches(tableData?.matches);
-    processMatches(casinoTableData?.matches);
-
-    return Object.values(allAdmins);
-  };
-
-  const allImmediateChildAdmins = getAllImmediateChildAdmins();
-
-  // Process cricket ledger data and get final balance for EACH admin
-  const getCricketFinalBalanceByAdmin = (matches: any[]) => {
-    if (!matches || matches.length === 0) return {};
-
-    const balanceByAdmin: Record<string, number> = {};
-
-    matches.forEach((match: any) => {
-      const summariesByAdmin: Record<string, any[]> = {};
-      const clientSummaries = match.client_summary || [];
-
-      // Group summaries by adminId
-      clientSummaries.forEach((c: any) => {
-        const adminId = c.immediate_child_admin?._id || 'unknown';
-        if (!summariesByAdmin[adminId]) summariesByAdmin[adminId] = [];
-        summariesByAdmin[adminId].push(c);
-      });
-
-      Object.entries(summariesByAdmin).forEach(([adminId, adminSummaries]) => {
-        if (!balanceByAdmin[adminId]) {
-          balanceByAdmin[adminId] = 0;
-        }
-
-        const immediate = adminSummaries[0]?.immediate_child_admin;
-        const matchCommissionRate = immediate?.match_commission || 0;
-        const sessionCommissionRate = immediate?.session_commission || 0;
-
-        let matchPL = 0;
-        let sessionPL = 0;
-        let totalSessionStake = 0;
-        let matchCommission = 0;
-
-        adminSummaries.forEach((c: any) => {
-          matchPL += c.client_net_match_pl || 0;
-          sessionPL += c.client_net_session_pl || 0;
-          totalSessionStake += c.client_total_session_stake || 0;
-
-          // Match commission is taken on negative client PL
-          const clientMatchPL = c.client_net_match_pl || 0;
-          if (clientMatchPL < 0) {
-            matchCommission += Math.abs(clientMatchPL) * (matchCommissionRate / 100);
-          }
-        });
-
-        const invertedMatchPL = matchPL * -1;
-        const invertedSessionPL = sessionPL * -1;
-
-        const sessionCommission = totalSessionStake * (sessionCommissionRate / 100);
-        const totalCommission = matchCommission + sessionCommission;
-
-        const netAmount = invertedMatchPL + invertedSessionPL - totalCommission;
-        const share = immediate?.share ?? 0;
-        const shareAmount = netAmount * (share / 100);
-        const grandTotal = netAmount - shareAmount;
-
-        balanceByAdmin[adminId] += grandTotal;
-      });
-    });
-
-    return balanceByAdmin;
-  };
-
-  // Process casino ledger data and get final balance for EACH admin
-  const getCasinoFinalBalanceByAdmin = (matches: any[]) => {
-    if (!matches || matches.length === 0) return {};
-
-    const balanceByAdmin: Record<string, number> = {};
-
-    matches.forEach((match: any) => {
-      const summariesByAdmin: Record<string, any[]> = {};
-      const clientSummaries = match.client_summary || [];
-
-      clientSummaries.forEach((c: any) => {
-        const adminId = c.immediate_child_admin?._id || 'unknown';
-        if (!summariesByAdmin[adminId]) summariesByAdmin[adminId] = [];
-        summariesByAdmin[adminId].push(c);
-      });
-
-      Object.entries(summariesByAdmin).forEach(([adminId, adminSummaries]) => {
-        if (!balanceByAdmin[adminId]) {
-          balanceByAdmin[adminId] = 0;
-        }
-
-        const immediate = adminSummaries[0]?.immediate_child_admin;
-        const casinoCommissionRate = immediate?.casino_commission || 0;
-
-        let casinoPL = 0;
-        let totalCommission = 0;
-
-        adminSummaries.forEach((c: any) => {
-          const netCasinoPL = c.client_net_casino_pl || 0;
-          const userComm = c.client_total_casino_commission !== undefined
-            ? c.client_total_casino_commission
-            : (netCasinoPL < 0 ? Math.abs(netCasinoPL) * (casinoCommissionRate / 100) : 0);
-
-          casinoPL += netCasinoPL;
-          totalCommission += userComm;
-        });
-
-        const invertedCasinoPL = casinoPL * -1;
-        const netAmount = invertedCasinoPL - totalCommission;
-        const share = immediate?.share ?? 0;
-        const shareAmount = netAmount * (share / 100);
-        const grandTotal = netAmount - shareAmount;
-
-        balanceByAdmin[adminId] += grandTotal;
-      });
-    });
-
-    return balanceByAdmin;
-  };
-
-  const cricketBalanceByAdmin = tableData?.matches
-    ? getCricketFinalBalanceByAdmin(tableData.matches)
-    : {};
-
-  const casinoBalanceByAdmin = casinoTableData?.matches
-    ? getCasinoFinalBalanceByAdmin(casinoTableData.matches)
-    : {};
-
-  // Combine all data for each admin (Cricket + Casino)
-  const getAllAdminData = () => allImmediateChildAdmins.map(admin => {
-    const cricketBal = cricketBalanceByAdmin[admin._id] || 0;
-    const casinoBal = casinoBalanceByAdmin[admin._id] || 0;
-    const totalBalance = Number((cricketBal + casinoBal).toFixed(2));
-
-    return {
-      adminId: admin._id,
-      clientUserName: admin.user_name,
-      clientName: admin.name,
-      finalBalance: totalBalance,
-      settledAmount: settledAmountByAdmin[admin._id] || 0,
-      immediateChildAdmin: admin
-    };
-  });
-
-  const allAdminData = getAllAdminData();
-
-  return {
-    allAdminData, // This will contain combined Cricket + Casino data for ALL admins
-    currentUserId: userId, // Current user ID being used
-    isViewingClient: !!targetUserId, // Flag to indicate if viewing a client
-    userType: userData?.data?.type || ''
-  };
-};
-
-export function AllSuperTableData() {
-  const [openModal, setOpenModal] = useState(false);
-  const [selectedClient, setSelectedClient] = useState<any>(null);
-  const [viewStack, setViewStack] = useState<ViewStackItem[]>([]);
-
-  // Current view - stack ke last item se
   const currentView = viewStack.length > 0 ? viewStack[viewStack.length - 1] : null;
+  const targetUserId = currentView?.adminId || userData?.data?._id;
 
-  // Multiple admins ka data le rahe hain - ab target userId pass kar sakte hain
-  const { allAdminData, userType } = useChildTableFinalBalance(currentView?.adminId);
+  // Authoritative server-side settlement computation
+  const {
+    data: settlementResponse,
+    isLoading,
+    error,
+  } = useQuery({
+    queryKey: ['adminSettlement', targetUserId],
+    queryFn: () =>
+      targetUserId
+        ? fetchAdminSettlement(targetUserId)
+        : Promise.reject(new Error('Missing user ID')),
+    enabled: !!targetUserId,
+  });
 
-  // Calculate final amount based on debit/credit for each admin
-  const calculateFinalAmount = (amount: number, settled: number) => amount - settled;
+  const receivingData: any[] = settlementResponse?.data?.receivingData || [];
+  const paidData: any[] = settlementResponse?.data?.paidData || [];
 
+  const serializeStack = (stack: ViewStackItem[]): string =>
+    stack.map((item) => `${item.adminId}:${encodeURIComponent(item.clientName)}`).join(';');
 
+  // Navigate forward down the hierarchy
+  const handleClientClick = (client: any) => {
+    const isUser = client.type === 'user' || client.immediate_child_admin?.type === 'user';
+    if (isUser) return;
 
-  // Prepare receiving and paid data for ALL admins
-  const receivingData = allAdminData
-    .filter(admin => admin.finalBalance > 0 && admin.settledAmount >= 0)
-    .map(admin => ({
-      client: admin.clientUserName,
-      clientName: admin.clientName,
-      amount: admin.finalBalance,
-      settled: admin.settledAmount,
-      final: calculateFinalAmount(admin.finalBalance, admin.settledAmount),
-      immediate_child_admin: admin.immediateChildAdmin,
-      adminId: admin.adminId
-    }));
+    const childId = client.adminId || client.immediate_child_admin?._id;
+    if (!childId) return;
 
-  // PAYMENT PAID TO (DENA HAI)
-  const paidData = allAdminData
-    .filter(admin => admin.finalBalance < 0 || admin.settledAmount < 0)
-    .map(admin => ({
-      client: admin.clientUserName,
-      clientName: admin.clientName,
-      amount: admin.finalBalance,
-      settled: admin.settledAmount,
-      final: calculateFinalAmount(admin.finalBalance, admin.settledAmount),
-      immediate_child_admin: admin.immediateChildAdmin,
-      adminId: admin.adminId
-    }));
+    const clientName = client.clientName || client.client || client.clientUserName || 'Admin';
+    const nextItem: ViewStackItem = {
+      adminId: String(childId),
+      clientName,
+      level: viewStack.length,
+    };
+
+    const nextStack = [...viewStack, nextItem];
+    setSearchParams({ stack: serializeStack(nextStack) });
+  };
+
+  // Navigate backward up the hierarchy (supports on-screen button & synchronizes with browser/mobile back)
+  const handleBackClick = () => {
+    if (viewStack.length === 0) return;
+
+    if (window.history.length > 1) {
+      navigate(-1);
+    } else {
+      const nextStack = viewStack.slice(0, -1);
+      if (nextStack.length === 0) {
+        setSearchParams({});
+      } else {
+        setSearchParams({ stack: serializeStack(nextStack) });
+      }
+    }
+  };
+
+  // Direct jump via breadcrumbs
+  const handleBreadcrumbClick = (targetLevel: number) => {
+    if (targetLevel < 0) {
+      setSearchParams({});
+    } else if (targetLevel < viewStack.length - 1) {
+      const nextStack = viewStack.slice(0, targetLevel + 1);
+      setSearchParams({ stack: serializeStack(nextStack) });
+    }
+  };
 
   const getTotal = (data: any[], key: 'amount' | 'settled' | 'final') =>
-    data.reduce((sum, row) => sum + row[key], 0);
+    data.reduce((sum, row) => {
+      let val = row[key];
+      if (val === undefined || val === null || !Number.isFinite(Number(val))) {
+        if (key === 'amount') val = row.finalBalance;
+        else if (key === 'settled') val = row.settledAmount;
+        else if (key === 'final') val = row.netAmount;
+      }
+      return sum + (Number(val) || 0);
+    }, 0);
 
-  const formatValue = (value: number, isCurrency = false) => {
-    if (value === 0) return isCurrency ? '₹0.00' : '0.00';
+  const formatValue = (value: any, isCurrency = false) => {
+    const num = Number(value);
+    if (!Number.isFinite(num) || num === 0) return isCurrency ? '₹0.00' : '0.00';
 
-    const absValue = Math.abs(value);
+    const absValue = Math.abs(num);
     const fixedValue = absValue.toFixed(2);
 
     const formatted = isCurrency
-      ? `₹${Number(fixedValue).toLocaleString()}`
+      ? `₹${Number(fixedValue).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
       : fixedValue;
 
-    return value < 0 ? `-${formatted}` : formatted;
+    return num < 0 ? `-${formatted}` : formatted;
   };
-
 
   const handleSettlementClick = (client: any, type: 'PAYMENT_RECEIVING_FROM' | 'PAYMENT_PAID_TO') => {
     setSelectedClient({ ...client, type });
     setOpenModal(true);
   };
-
-  const handleClientClick = (client: any) => {
-    const newView: ViewStackItem = {
-      adminId: client.adminId,
-      clientName: client.clientName || client.client,
-      level: viewStack.length
-    };
-    setViewStack(prev => [...prev, newView]);
-  };
-
-  const handleBackClick = () => {
-    if (viewStack.length > 0) {
-      setViewStack(prev => prev.slice(0, -1));
-    }
-  };
-
-
-
 
   const handleClose = () => {
     setOpenModal(false);
@@ -400,92 +195,117 @@ export function AllSuperTableData() {
         {title}
       </Typography>
 
-      <Box sx={{ width: '100%', minWidth: { xs: '700px', sm: '100%' } }}>
+      <Box sx={{ width: '100%', minWidth: { xs: '650px', sm: '100%' } }}>
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 'bold', width: '25%' }}>Client</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold', width: '20%' }}>Amount</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold', width: '20%' }}>Settled</TableCell>
-              <TableCell align="right" sx={{ fontWeight: 'bold', width: '20%' }}>Final</TableCell>
-              <TableCell sx={{ fontWeight: 'bold', width: '15%' }}>Action</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '28%' }}>Client</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold', width: '18%' }}>Amount</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold', width: '18%' }}>Settled</TableCell>
+              <TableCell align="right" sx={{ fontWeight: 'bold', width: '18%' }}>Final</TableCell>
+              <TableCell sx={{ fontWeight: 'bold', width: '18%' }}>Action</TableCell>
             </TableRow>
           </TableHead>
 
           <TableBody>
-            {data.map((row, i) => (
-              <TableRow
-                key={`${row.adminId}-${i}`}
-                sx={{
-                  cursor: 'pointer',
-                  '&:hover': { backgroundColor: '#f5f5f5' }
-                }}
-                onClick={() => {
-                  if (userType !== 'agent') {
-                    handleClientClick(row);
-                  }
-                }}
+            {data.map((row, i) => {
+              const amount = Number(row.amount ?? row.finalBalance) || 0;
+              const settled = Number(row.settled ?? row.settledAmount) || 0;
+              const final = Number(row.final ?? row.netAmount) || (amount - settled);
+              const isUser = row.type === 'user' || row.immediate_child_admin?.type === 'user';
+              const canDrillDown = !isUser;
 
-              >
-                <TableCell
+              return (
+                <TableRow
+                  key={`${row.adminId || i}-${i}`}
                   sx={{
-                    color: 'primary.main',
-                    fontWeight: 500,
+                    cursor: canDrillDown ? 'pointer' : 'default',
+                    '&:hover': canDrillDown ? { backgroundColor: 'action.hover' } : {},
+                  }}
+                  onClick={() => {
+                    if (canDrillDown) {
+                      handleClientClick(row);
+                    }
                   }}
                 >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Box>
-                      <Typography variant="body2" fontWeight="bold">
-                        {row.clientName || row.client}
-                      </Typography>
-                      <Typography variant="caption" color="textSecondary">
-                        {row.client}
-                      </Typography>
-                    </Box>
-                  </Box>
-                </TableCell>
-
-                <TableCell
-                  align="right"
-                  sx={{ color: row.amount < 0 ? 'red' : 'green', fontWeight: 500 }}
-                >
-                  {formatValue(row.amount, true)}
-                </TableCell>
-                <TableCell
-                  align="right"
-                  sx={{
-                    color: row.settled < 0 ? 'red' : 'green',
-                    fontWeight: 500
-                  }}
-                >
-                  {formatValue(row.settled, true)}
-                </TableCell>
-                <TableCell
-                  align="right"
-                  sx={{ color: row.final < 0 ? 'red' : 'green', fontWeight: 500 }}
-                >
-                  {formatValue(row.final, true)}
-                </TableCell>
-                <TableCell>
-                  <Button
-                    variant="contained"
-                    size="small"
-                    color='primary'
-                    onClick={(e) => {
-                      e.stopPropagation(); // Prevent row click event
-                      handleSettlementClick(
-                        row,
-                        title === 'PAYMENT RECEIVING FROM ( LENA HAI )'
-                          ? 'PAYMENT_RECEIVING_FROM'
-                          : 'PAYMENT_PAID_TO'
-                      );
+                  <TableCell
+                    sx={{
+                      color: 'primary.main',
+                      fontWeight: 500,
                     }}
                   >
-                    Settlement
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))}
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', pr: 1 }}>
+                      <Box>
+                        <Typography variant="body2" fontWeight="bold">
+                          {row.clientName || row.client || 'Client'}
+                        </Typography>
+                        {row.clientUserName && row.clientUserName !== row.clientName && (
+                          <Typography variant="caption" color="text.secondary">
+                            {row.clientUserName}
+                          </Typography>
+                        )}
+                        {row.type && (
+                          <Chip
+                            label={row.type.toUpperCase().replace('_', ' ')}
+                            size="small"
+                            variant="outlined"
+                            sx={{ ml: 1, height: 20, fontSize: '0.65rem' }}
+                          />
+                        )}
+                      </Box>
+                      {canDrillDown && (
+                        <Tooltip title="View child hierarchy">
+                          <Box sx={{ color: 'text.disabled', display: 'flex', alignItems: 'center' }}>
+                            <Iconify icon="eva:chevron-right-fill" width={18} />
+                          </Box>
+                        </Tooltip>
+                      )}
+                    </Box>
+                  </TableCell>
+
+                  <TableCell
+                    align="right"
+                    sx={{ color: amount < 0 ? 'error.main' : 'success.main', fontWeight: 600 }}
+                  >
+                    {formatValue(amount, true)}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{
+                      color: settled < 0 ? 'error.main' : settled > 0 ? 'success.main' : 'text.primary',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {formatValue(settled, true)}
+                  </TableCell>
+                  <TableCell
+                    align="right"
+                    sx={{ color: final < 0 ? 'error.main' : 'success.main', fontWeight: 700 }}
+                  >
+                    {formatValue(final, true)}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      variant="contained"
+                      size="small"
+                      color="primary"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent row click event
+                        handleSettlementClick(
+                          { ...row, amount, settled, final },
+                          title.includes('RECEIVING')
+                            ? 'PAYMENT_RECEIVING_FROM'
+                            : 'PAYMENT_PAID_TO'
+                        );
+                      }}
+                      sx={{ textTransform: 'none', fontWeight: 600 }}
+                    >
+                      Settlement
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
 
             {data.length > 0 && (
               <TableRow>
@@ -494,7 +314,8 @@ export function AllSuperTableData() {
                     backgroundColor: '#ffc107',
                     fontWeight: 'bold',
                     borderBottom: 'none',
-                    borderBottomLeftRadius: '12px'
+                    borderBottomLeftRadius: '12px',
+                    color: '#000',
                   }}
                 >
                   TOTAL
@@ -504,7 +325,7 @@ export function AllSuperTableData() {
                   sx={{
                     backgroundColor: '#ffc107',
                     fontWeight: 'bold',
-                    color: getTotal(data, 'amount') < 0 ? 'red' : 'green',
+                    color: getTotal(data, 'amount') < 0 ? 'error.dark' : 'success.dark',
                     borderBottom: 'none',
                   }}
                 >
@@ -515,7 +336,7 @@ export function AllSuperTableData() {
                   sx={{
                     backgroundColor: '#ffc107',
                     fontWeight: 'bold',
-                    color: getTotal(data, 'settled') < 0 ? 'red' : 'black',
+                    color: getTotal(data, 'settled') < 0 ? 'error.dark' : 'text.primary',
                     borderBottom: 'none',
                   }}
                 >
@@ -526,7 +347,7 @@ export function AllSuperTableData() {
                   sx={{
                     backgroundColor: '#ffc107',
                     fontWeight: 'bold',
-                    color: getTotal(data, 'final') < 0 ? 'red' : 'green',
+                    color: getTotal(data, 'final') < 0 ? 'error.dark' : 'success.dark',
                     borderBottom: 'none',
                   }}
                 >
@@ -536,7 +357,7 @@ export function AllSuperTableData() {
                   sx={{
                     backgroundColor: '#ffc107',
                     borderBottom: 'none',
-                    borderBottomRightRadius: '12px'
+                    borderBottomRightRadius: '12px',
                   }}
                 />
               </TableRow>
@@ -559,27 +380,114 @@ export function AllSuperTableData() {
 
   const renderHeader = () => (
     <Box sx={{ mb: 3 }}>
+      <Paper
+        elevation={1}
+        sx={{
+          p: 2,
+          borderRadius: 2,
+          display: 'flex',
+          flexWrap: 'wrap',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: 2,
+          bgcolor: 'background.paper',
+        }}
+      >
+        <Stack direction="row" alignItems="center" spacing={1.5}>
+          {viewStack.length > 0 && (
+            <Tooltip title="Go Back">
+              <IconButton
+                onClick={handleBackClick}
+                color="primary"
+                sx={{
+                  border: '1px solid',
+                  borderColor: 'primary.main',
+                  bgcolor: 'action.hover',
+                  '&:hover': { bgcolor: 'primary.lighter' },
+                }}
+                size="small"
+              >
+                <Iconify icon="eva:arrow-back-fill" width={20} />
+              </IconButton>
+            </Tooltip>
+          )}
 
-
-
-      {/* Main Title and Back Button */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-        {viewStack.length > 0 && (
-          < IconButton
-            onClick={handleBackClick}
-            color="primary"
-            sx={{ border: '1px solid', borderColor: 'primary.main' }}
+          <Breadcrumbs
+            separator={<Iconify icon="eva:chevron-right-fill" width={16} />}
+            aria-label="settlement-hierarchy"
           >
-            <Iconify icon="mdi:arrow-left" width={14} />
+            <Link
+              component="button"
+              underline="hover"
+              color={viewStack.length === 0 ? 'text.primary' : 'inherit'}
+              onClick={() => handleBreadcrumbClick(-1)}
+              sx={{
+                fontWeight: viewStack.length === 0 ? 700 : 500,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                cursor: 'pointer',
+              }}
+            >
+              <Iconify icon="solar:home-2-bold" width={18} />
+              Settlement
+            </Link>
 
-          </IconButton>
+            {viewStack.map((item, idx) => {
+              const isLast = idx === viewStack.length - 1;
+              return isLast ? (
+                <Typography
+                  key={item.adminId}
+                  color="text.primary"
+                  sx={{ fontWeight: 700, display: 'flex', alignItems: 'center' }}
+                >
+                  {item.clientName}
+                </Typography>
+              ) : (
+                <Link
+                  key={item.adminId}
+                  component="button"
+                  underline="hover"
+                  color="inherit"
+                  onClick={() => handleBreadcrumbClick(idx)}
+                  sx={{ fontWeight: 500, cursor: 'pointer' }}
+                >
+                  {item.clientName}
+                </Link>
+              );
+            })}
+          </Breadcrumbs>
+        </Stack>
+
+        {currentView && (
+          <Chip
+            label={`Viewing: ${currentView.clientName}`}
+            color="primary"
+            variant="outlined"
+            size="small"
+            sx={{ fontWeight: 600 }}
+          />
         )}
-
-      </Box>
-
-
-    </Box >
+      </Paper>
+    </Box>
   );
+
+  if (isLoading) {
+    return (
+      <Box p={4} textAlign="center">
+        <CircularProgress size={32} sx={{ mb: 1 }} />
+        <Typography>Loading settlement data...</Typography>
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box p={4} textAlign="center">
+        <Typography color="error">Error loading settlement data</Typography>
+      </Box>
+    );
+  }
 
   return (
     <>
@@ -603,3 +511,5 @@ export function AllSuperTableData() {
     </>
   );
 }
+
+export default AllSuperTableData;

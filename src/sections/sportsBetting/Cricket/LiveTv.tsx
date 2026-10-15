@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 
 import {
     Box,
@@ -7,6 +8,7 @@ import {
     Collapse,
     Grid,
     Paper,
+    Tooltip,
     // Typography,
     useTheme,
     useMediaQuery,
@@ -38,18 +40,15 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
         setIsLiveTvExpanded(!isLiveTvExpanded);
     };
     const marketId = matchData?.match?.marketId;
-    const gameid = matchData?.match?.gameId
+    const gameid = matchData?.match?.gameId;
     const gmId = matchData?.match?.gmid || matchData?.gmid || matchData?.match?.gameId || matchData?.gameId || matchId;
 
-    // Get current admin ID and check lock status
-    const [adminId, setAdminId] = useState<string | null>(null);
-    const [isBetLockedByAdmin, setIsBetLockedByAdmin] = useState(false);
-    const [isFancyLockedByAdmin, setIsFancyLockedByAdmin] = useState(false);
     const [scoreboardProvider, setScoreboardProvider] = useState<string>('BetFair');
     const [streamProvider, setStreamProvider] = useState<string>('BetFair');
     const [diamondScorecardUrl, setDiamondScorecardUrl] = useState<string>('');
     const { getSettings } = useAutosettingApi();
 
+    // Fetch settings once on mount
     React.useEffect(() => {
         const fetchGlobalSettings = async () => {
             try {
@@ -68,6 +67,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Scorecard URL fetch - only when gmId or scoreboardProvider changes, NOT on every render!
     React.useEffect(() => {
         let isMounted = true;
 
@@ -94,75 +94,125 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
         return () => {
             isMounted = false;
         };
-    }, [gmId, scoreboardProvider, get]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [gmId, scoreboardProvider]);
+
+    // React Query cached admin profile (shared across pages, 0 extra network requests)
+    const { data: userData } = useQuery({
+        queryKey: ['userData'],
+        queryFn: fetchMe,
+        staleTime: 5 * 60 * 1000,
+    });
+
+    const adminId = userData?.data?._id ? String(userData.data._id) : null;
+    const lockStatus = userData?.lockStatus;
+    const parentAdminIds = useMemo<string[]>(
+        () => (lockStatus?.parentAdminIds || []).map((pid: any) => String(pid)),
+        [lockStatus?.parentAdminIds]
+    );
+    const isBmLockedByParentGlobal = Boolean(lockStatus?.isBmLockedByParent);
+    const isFancyLockedByParentGlobal = Boolean(lockStatus?.isFancyLockedByParent);
+
+    // Live match locks extracted from streaming matchData
+    const match = matchData?.match || matchData?.data?.[0]?.match || matchData;
+    const bmLocks = useMemo<string[]>(
+        () => (Array.isArray(match?.bm_lock) ? match.bm_lock.map((id: any) => String(id)) : []),
+        [match?.bm_lock]
+    );
+    const fancyLocks = useMemo<string[]>(
+        () => (Array.isArray(match?.fancy_lock) ? match.fancy_lock.map((id: any) => String(id)) : []),
+        [match?.fancy_lock]
+    );
+
+    const isMatchBmLockedByParent = Boolean(
+        isBmLockedByParentGlobal || (parentAdminIds.length > 0 && bmLocks.some((id: string) => parentAdminIds.includes(id)))
+    );
+    const isMatchFancyLockedByParent = Boolean(
+        isFancyLockedByParentGlobal || (parentAdminIds.length > 0 && fancyLocks.some((id: string) => parentAdminIds.includes(id)))
+    );
+
+    const isServerBmLocked = Boolean(adminId && bmLocks.includes(adminId));
+    const isServerFancyLocked = Boolean(adminId && fancyLocks.includes(adminId));
+
+    // Optimistic lock overrides: null means follow streaming server/socket feed
+    const [optimisticBm, setOptimisticBm] = useState<boolean | null>(null);
+    const [optimisticFancy, setOptimisticFancy] = useState<boolean | null>(null);
+    const [isBmUpdating, setIsBmUpdating] = useState(false);
+    const [isFancyUpdating, setIsFancyUpdating] = useState(false);
+
+    // Sync optimistic state back to null once streaming feed reflects the change
+    React.useEffect(() => {
+        if (optimisticBm !== null && isServerBmLocked === optimisticBm) {
+            setOptimisticBm(null);
+        }
+    }, [isServerBmLocked, optimisticBm]);
 
     React.useEffect(() => {
-        const checkAdminLockStatus = async () => {
-            try {
-                const userData = await fetchMe();
-                const currentAdminId = userData?.data?._id;
-                setAdminId(currentAdminId);
+        if (optimisticFancy !== null && isServerFancyLocked === optimisticFancy) {
+            setOptimisticFancy(null);
+        }
+    }, [isServerFancyLocked, optimisticFancy]);
 
-                const match = matchData?.match || matchData?.data?.[0]?.match;
+    const isBetLockedByAdmin = optimisticBm !== null ? optimisticBm : isServerBmLocked;
+    const isFancyLockedByAdmin = optimisticFancy !== null ? optimisticFancy : isServerFancyLocked;
 
-                if (currentAdminId && match) {
-                    const betLocked = match.bm_lock?.includes(currentAdminId) || false;
-                    const fancyLocked = match.fancy_lock?.includes(currentAdminId) || false;
-
-                    setIsBetLockedByAdmin(betLocked);
-                    setIsFancyLockedByAdmin(fancyLocked);
-                }
-            } catch (error) {
-                console.error('Error checking admin lock status:', error);
-            }
-        };
-
-        checkAdminLockStatus();
-    }, [fetchMe, matchData]);
-
-
-
-    // Handle Bet Locked Button Click
+    // Instant, zero-lag Bet Locked Button Click
     const handleBetLocked = async () => {
+        if (!adminId || isBmUpdating || isMatchBmLockedByParent) return;
+
+        const matchObj = matchData?.match || matchData?.data?.[0]?.match || matchData;
+        const validMarketId = (matchObj?.marketId && String(matchObj.marketId).trim() !== '0') ? String(matchObj.marketId).trim() : '';
+        const targetMarketId = validMarketId || matchObj?.eventId || matchObj?.gameId || matchId || gmId || matchObj?._id;
+
+        if (!targetMarketId) {
+            console.error('Market ID not found');
+            return;
+        }
+
+        const nextLocked = !isBetLockedByAdmin;
+        setOptimisticBm(nextLocked);
+        setIsBmUpdating(true);
+
         try {
-            if (!adminId) {
-                console.error('Admin ID not found');
-                return;
+            const res = await MatchOddsBetLock(adminId, String(targetMarketId));
+            if (res && res.isLocked !== undefined) {
+                setOptimisticBm(Boolean(res.isLocked));
             }
-
-            if (!marketId) {
-                console.error('Market ID not found');
-                return;
-            }
-
-            await MatchOddsBetLock(adminId, marketId);
-
-            // Update local state after API call
-            setIsBetLockedByAdmin(!isBetLockedByAdmin);
         } catch (error) {
             console.error('Error in Bet Locked:', error);
+            setOptimisticBm(null);
+        } finally {
+            setIsBmUpdating(false);
         }
     };
 
-    // Handle Fancy Lock Button Click
+    // Instant, zero-lag Fancy Lock Button Click
     const handleFancyLock = async () => {
+        if (!adminId || isFancyUpdating || isMatchFancyLockedByParent) return;
+
+        const matchObj = matchData?.match || matchData?.data?.[0]?.match || matchData;
+        const validMarketId = (matchObj?.marketId && String(matchObj.marketId).trim() !== '0') ? String(matchObj.marketId).trim() : '';
+        const targetMarketId = validMarketId || matchObj?.eventId || matchObj?.gameId || matchId || gmId || matchObj?._id;
+
+        if (!targetMarketId) {
+            console.error('Market ID not found');
+            return;
+        }
+
+        const nextLocked = !isFancyLockedByAdmin;
+        setOptimisticFancy(nextLocked);
+        setIsFancyUpdating(true);
+
         try {
-            if (!adminId) {
-                console.error('Admin ID not found');
-                return;
+            const res = await FancyBetLock(adminId, String(targetMarketId));
+            if (res && res.isLocked !== undefined) {
+                setOptimisticFancy(Boolean(res.isLocked));
             }
-
-            if (!marketId) {
-                console.error('Market ID not found');
-                return;
-            }
-
-            await FancyBetLock(adminId, marketId);
-
-            // Update local state after API call
-            setIsFancyLockedByAdmin(!isFancyLockedByAdmin);
         } catch (error) {
             console.error('Error in Fancy Lock:', error);
+            setOptimisticFancy(null);
+        } finally {
+            setIsFancyUpdating(false);
         }
     };
 
@@ -200,53 +250,64 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                     Delete Bet
                 </Button>
 
-                <Button
-                    variant="contained"
-                    onClick={handleBetLocked}
-                    className={betLockBtnClass}
-                    sx={{
-                        borderRadius: '20px',
-                        color: '#fff',
-                        textTransform: 'none',
-                        fontWeight: 'bold',
-                        px: 2,
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                    }}
-                >
-                    BM Lock
-                </Button>
+                <Tooltip title={isMatchBmLockedByParent ? 'BM Lock is enforced by parent hierarchy' : (isBetLockedByAdmin ? 'Click to unlock BM' : 'Click to lock BM')}>
+                    <span>
+                        <Button
+                            variant="contained"
+                            disabled={isMatchBmLockedByParent || isBmUpdating}
+                            onClick={handleBetLocked}
+                            className={betLockBtnClass}
+                            sx={{
+                                borderRadius: '20px',
+                                color: '#fff',
+                                textTransform: 'none',
+                                fontWeight: 'bold',
+                                px: 2,
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                                opacity: isMatchBmLockedByParent || isBmUpdating ? 0.6 : 1,
+                            }}
+                        >
+                            {isMatchBmLockedByParent ? 'BM Locked (Parent)' : (isBetLockedByAdmin ? 'BM Locked' : 'BM Lock')}
+                        </Button>
+                    </span>
+                </Tooltip>
 
-                <Button
-                    variant="contained"
-                    onClick={handleFancyLock}
-                    className={fancyLockBtnClass}
-                    sx={{
-                        borderRadius: '20px',
-                        color: '#fff',
-                        textTransform: 'none',
-                        fontWeight: 'bold',
-                        px: 2,
-                        whiteSpace: 'nowrap',
-                        flexShrink: 0,
-                    }}
-                >
-                    Fancy Lock
-                </Button>
+                <Tooltip title={isMatchFancyLockedByParent ? 'Fancy Lock is enforced by parent hierarchy' : (isFancyLockedByAdmin ? 'Click to unlock Fancy' : 'Click to lock Fancy')}>
+                    <span>
+                        <Button
+                            variant="contained"
+                            disabled={isMatchFancyLockedByParent || isFancyUpdating}
+                            onClick={handleFancyLock}
+                            className={fancyLockBtnClass}
+                            sx={{
+                                borderRadius: '20px',
+                                color: '#fff',
+                                textTransform: 'none',
+                                fontWeight: 'bold',
+                                px: 2,
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                                opacity: isMatchFancyLockedByParent || isFancyUpdating ? 0.6 : 1,
+                            }}
+                        >
+                            {isMatchFancyLockedByParent ? 'Fancy Locked (Parent)' : (isFancyLockedByAdmin ? 'Fancy Locked' : 'Fancy Lock')}
+                        </Button>
+                    </span>
+                </Tooltip>
             </Grid>
 
 
             {/* Score Card */}
-            <Paper elevation={3} sx={{ mt: 2, borderRadius: 2, overflow: 'hidden' }}>
+            <Paper elevation={3} sx={{ borderRadius: 2, overflow: 'hidden' }}>
                 <Box
                     sx={{
-                        backgroundColor: '#3b75ff',
+                        backgroundColor: '#00a76f',
                         color: '#fff',
                         display: 'flex',
                         justifyContent: 'flex-end',
                         alignItems: 'center',
-                        px: 2,
-                        py: 1,
+                        px: 1,
                     }}
                 >
                     <Box display="flex" alignItems="center">
@@ -316,19 +377,30 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                             overflow: 'hidden',
                         }}
                     >
-                        <iframe
-                            src={streamProvider === 'Diamond'
-                                ? `https://stream-s-43.uhdmovies.online/sports-stream?id=${gmId || matchId}`
-                                : `https://video.proexch.in/tv/v4/stream/${matchId}`}
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                border: 'none',
-                            }}
-                            allowFullScreen
-                            loading="lazy"
-                            title="Live TV Stream"
-                        />
+                        {(() => {
+                            const targetStreamId = gmId || matchId;
+                            const streamSrc = streamProvider === 'Diamond'
+                                ? `https://stream-s-43.uhdmovies.online/sports-stream?id=${encodeURIComponent(targetStreamId || '')}`
+                                : `https://video.proexch.in/tv/v4/stream/${encodeURIComponent(matchId || targetStreamId || '')}`;
+
+                            return targetStreamId ? (
+                                <iframe
+                                    src={streamSrc}
+                                    style={{
+                                        width: '100%',
+                                        height: '100%',
+                                        border: 'none',
+                                    }}
+                                    allowFullScreen
+                                    loading="lazy"
+                                    title="Live TV Stream"
+                                />
+                            ) : (
+                                <Box sx={{ color: '#94a3b8', fontSize: '14px' }}>
+                                    Stream currently unavailable for this match
+                                </Box>
+                            );
+                        })()}
                     </Box>
                 </Collapse>
 
@@ -353,4 +425,4 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
     );
 };
 
-export default LiveTv;
+export default React.memo(LiveTv);

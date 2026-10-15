@@ -73,7 +73,6 @@ const useMatchApi = () => {
         toast.success('Status updated successfully');
         return response;
       } catch (error) {
-        console.error('Error toggling status:', error);
         toast.error('Failed to toggle status');
         throw error;
       }
@@ -200,6 +199,55 @@ const useMatchApi = () => {
     },
     [post]
   );
+
+  const toggleToss = useCallback(
+    async (id: string) => {
+      try {
+        const response = await patch(`${Endpoints.toggleToss}/${id}`, {});
+        toast.success('Toss status updated successfully');
+        return response;
+      } catch (error: any) {
+        console.error('Error toggling toss status:', error);
+        const errMsg = error?.response?.data?.message || 'Failed to toggle toss status';
+        toast.error(errMsg);
+        throw error;
+      }
+    },
+    [patch]
+  );
+
+  const DeclareTossMatch = useCallback(
+    async (id: string, payload: any) => {
+      try {
+        const response = await post(`${Endpoints.DeclareTossMatch}/${id}`, payload);
+        toast.success(response?.message || 'Toss declared successfully');
+        return response;
+      } catch (error: any) {
+        console.error('Error declaring toss:', error);
+        const errorMessage = error?.response?.data?.message || 'Failed to declare toss';
+        toast.error(errorMessage);
+        throw error;
+      }
+    },
+    [post]
+  );
+
+  const tossRollBack = useCallback(
+    async (id: string, payload?: any) => {
+      try {
+        const response = await post(`${Endpoints.TossRollBack}/${id}`, payload || {});
+        toast.success(response?.message || 'Toss rolled back successfully');
+        return response;
+      } catch (error: any) {
+        console.error('Error rolling back toss:', error);
+        const errorMessage = error?.response?.data?.message || 'Failed to rollback toss';
+        toast.error(errorMessage);
+        throw error;
+      }
+    },
+    [post]
+  );
+
   const Matchdelay = useCallback(
     async (id: string, delay: number, min: number, max: number) => {
       try {
@@ -431,6 +479,74 @@ const useMatchApi = () => {
       }
     };
 
+  const fetchAdminMyLedger = async (adminId: string) => {
+    try {
+      const response = await get(`${Endpoints.MyLedger}/${adminId}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching admin my ledger', error);
+      throw error;
+    }
+  };
+
+  const fetchAdminChildLedger = async (adminId: string, clientFilter: string = '') => {
+    try {
+      const queryParam = clientFilter ? `?client=${encodeURIComponent(clientFilter)}` : '';
+      const response = await get(`${Endpoints.ChildLedger}/${adminId}${queryParam}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching admin child ledger', error);
+      throw error;
+    }
+  };
+
+  const fetchAdminSettlement = async (adminId: string) => {
+    try {
+      const response = await get(`${Endpoints.SettlementLedger}/${adminId}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching admin settlement', error);
+      throw error;
+    }
+  };
+
+  const fetchAdminTotalProfit = async (adminId: string) => {
+    try {
+      const response = await get(`${Endpoints.TotalProfitLedger}/${adminId}`);
+      return response;
+    } catch (error) {
+      console.error('Error fetching admin total profit', error);
+      throw error;
+    }
+  };
+
+  const fetchAdminSuperReport = async (
+    adminId: string,
+    childAdminId?: string,
+    startDate?: string,
+    endDate?: string
+  ) => {
+    try {
+      let url = childAdminId
+        ? `${Endpoints.SuperReportLedger}/${adminId}/${childAdminId}`
+        : `${Endpoints.SuperReportLedger}/${adminId}`;
+
+      const params = new URLSearchParams();
+      if (startDate) params.append('startDate', startDate);
+      if (endDate) params.append('endDate', endDate);
+      const queryString = params.toString();
+      if (queryString) {
+        url += `?${queryString}`;
+      }
+
+      const response = await get(url);
+      return response;
+    } catch (error) {
+      console.error('Error fetching admin super report', error);
+      throw error;
+    }
+  };
+
   return {
     updateStatusSession,
     fetchAllMatchs,
@@ -438,12 +554,20 @@ const useMatchApi = () => {
     updateTogalStatus,
     FatchUpdateMatchData,
     FatchUpdateMatch,
+    fetchAdminMyLedger,
+    fetchAdminChildLedger,
+    fetchAdminSettlement,
+    fetchAdminTotalProfit,
+    fetchAdminSuperReport,
     DeclareMatch,
     DeclarefancyMatch,
     CancelMatch,
     CancelfancyMatch,
     fancyRollBack,
     matchRollback,
+    toggleToss,
+    DeclareTossMatch,
+    tossRollBack,
     FatchMatchData,
     Matchdelay,
     FetchBetData,

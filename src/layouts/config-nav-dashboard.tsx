@@ -211,7 +211,6 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
           icon: ICONS.setting,
           children: [
             { title: 'Announcement', path: paths.dashboard.setting.announcement },
-            { title: 'Sync Used Wallet', path: paths.dashboard.setting.syncusedwallet },
             { title: 'Auto Setting', path: paths.dashboard.autosetting },
           ],
         },
@@ -260,15 +259,22 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
       items: [
         {
           title: 'Old Data',
-          path: paths.dashboard.ledger.myledger,
+          path: 'https://cricket-oct2026.testingexch.com/',
           icon: ICONS.data,
           children: [
-            { title: 'Apr 2025', path: paths.dashboard.ledger.myledger },
-            { title: 'Feb 2025', path: paths.dashboard.ledger.allsuperadmin },
+            {
+              title: 'Oct 2026',
+              path: 'https://cricket-oct2026.testingexch.com/',
+            },
+            {
+              title: 'Sep 2026',
+              path: 'https://cricket-sep2026.testingexch.com/',
+            },
           ],
         },
       ],
     });
+
   }
 
   return navData;

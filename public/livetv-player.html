@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Live TV Stream</title>
+<style>
+  html, body, #player { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+  #fallback {
+    display: none;
+    position: absolute;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: #0b0f19;
+    color: #94a3b8;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 20px;
+    box-sizing: border-box;
+  }
+</style>
+</head>
+<body>
+<div id="player"></div>
+<div id="fallback">Stream currently unavailable for this match</div>
+<script>
+(function () {
+  var qs = new URLSearchParams(location.search);
+  var gameId = qs.get('gameId');
+  var sportId = qs.get('sportId') || '4';
+  var HOST = 'video.proexch.in';
+  var base = 'https://' + HOST + '/relay-tv/' + gameId;
+  var fallbackEl = document.getElementById('fallback');
+
+  function showError(msg) {
+    if (fallbackEl) {
+      fallbackEl.style.display = 'flex';
+      fallbackEl.textContent = 'Stream currently unavailable for this match';
+    }
+    console.error('[LiveTV Error]', msg);
+  }
+
+  if (!gameId) {
+    showError('Missing gameId');
+    return;
+  }
+
+  function loadCss(href) {
+    var l = document.createElement('link');
+    l.rel = 'stylesheet';
+    l.href = href;
+    document.head.appendChild(l);
+  }
+
+  function loadJs(src) {
+    return new Promise(function (res, rej) {
+      var s = document.createElement('script');
+      s.src = src;
+      s.onload = res;
+      s.onerror = function () {
+        rej(new Error('Failed to load script: ' + src));
+      };
+      document.head.appendChild(s);
+    });
+  }
+
+  loadCss(base + '/assets/aliplayer-min.css');
+
+  Promise.all([
+    loadJs(base + '/assets/aliplayer-min.js'),
+    fetch(base + '/prepare?gameId=' + encodeURIComponent(gameId) + '&sportId=' + encodeURIComponent(sportId))
+      .then(function (r) {
+        if (!r.ok) throw new Error('Prepare request returned status ' + r.status);
+        return r.json();
+      })
+  ]).then(function (results) {
+    var prepared = results[1];
+    if (!prepared || !prepared.signalToken) {
+      throw new Error(prepared && prepared.error ? prepared.error : 'No signalToken received');
+    }
+
+    var player = new Aliplayer({
+      id: 'player',
+      source: 'artc://' + HOST + '/relay-tv/' + gameId + '?signal=' + encodeURIComponent(prepared.signalToken),
+      isLive: true,
+      autoplay: true,
+      rtsSdkUrl: base + '/assets/aliyun-rts-sdk.js',
+      license: {
+        domain: 'play.xfeed247.live',
+        key: 'MPtPIFYkvVe0Dcu06632ad3d75adb4ec7937ff7794805135a'
+      }
+    }, function (p) {
+      p.play();
+    });
+
+    player.on('error', function (err) {
+      showError(err && err.paramData ? JSON.stringify(err.paramData) : 'Player error');
+    });
+  }).catch(function (err) {
+    showError(err && err.message ? err.message : String(err));
+  });
+})();
+</script>
+</body>
+</html>

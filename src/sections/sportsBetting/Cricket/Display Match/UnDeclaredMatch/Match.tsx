@@ -122,7 +122,10 @@ const Match = () => {
     if (!betHistoryData?.data) return [];
 
     return betHistoryData.data.filter((row: any) => {
-      if (row.match?.declared === true || row.bet_type !== 'BOOKMAKER') return false;
+      if (row.match?.declared === true || (row.bet_type && row.bet_type.toUpperCase() === 'FANCY')) return false;
+
+      // Only undeclared statuses
+      if (row.status !== 'PENDING' && row.status !== 'ACTIVE' && row.status !== 'DELETED') return false;
 
       // Apply team filter
       if (
@@ -132,10 +135,9 @@ const Match = () => {
         return false;
       }
 
-
       // Apply bets filter
-      if (bets === "FAIR" && row.status !== "FAIR") return false;
-      if (bets === "DELETED" && row.status !== "DELETED") return false;
+      if (bets === 'FAIR' && row.status === 'DELETED') return false;
+      if (bets === 'DELETED' && row.status !== 'DELETED') return false;
 
       // Apply date/time filters
       const rowDate = dayjs(row.createdAt);
@@ -195,18 +197,7 @@ const Match = () => {
   };
 
   const loading = matchLoading || betHistoryLoading;
-  const getDisplayTeam = (row: any) => {
-    if (row.selection === 'Lay' && teams.length === 2) {
-      const betTeam = normalizeTeam(row.team_name);
-      const t0 = normalizeTeam(teams[0]);
-      const t1 = normalizeTeam(teams[1]);
-
-      if (betTeam === t0) return teams[1];
-      if (betTeam === t1) return teams[0];
-    }
-
-    return row.team_name;
-  };
+  const getDisplayTeam = (row: any) => row.team_name || row.runner_name || '-';
 
   return (
     <>

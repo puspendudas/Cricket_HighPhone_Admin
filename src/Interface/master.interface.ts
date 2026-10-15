@@ -23,6 +23,8 @@ export interface Member {
   matchCommission: number;
   sessionCommission: number;
   casinoCommission: number;
+  parentShare?: number;
+  maxShare?: number;
 }
 
 export interface MemberFormData {

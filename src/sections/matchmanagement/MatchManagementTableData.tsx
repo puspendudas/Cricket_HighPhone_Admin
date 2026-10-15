@@ -40,12 +40,17 @@ import useMatchApi from 'src/Api/matchApi/useMatchApi';
 
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
+import { useAuthContext } from 'src/auth/hooks';
 
 import StatusModal from './StatusModal';
 import win from '../../../public/assets/win.png';
 import { RollbackConfirmModal } from './RollbackConfirmModal';
 
 export function MatchManagementTableData() {
+  const { user } = useAuthContext();
+  const isPowerUser = user?.type === 'power_user';
+  const canRollbackMatch = !isPowerUser || Boolean(user?.permissions?.rollback_match);
+
   const { fetchAllMatchs, updateTogalStatus, matchRollback } = useMatchApi();
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
@@ -469,7 +474,12 @@ export function MatchManagementTableData() {
             </MenuItem>
 
             <MenuItem
+              disabled={!canRollbackMatch}
               onClick={() => {
+                if (!canRollbackMatch) {
+                  toast.error('You do not have permission to rollback matches');
+                  return;
+                }
                 const match = matches.find((m) => m.gameId === selectedGameId);
                 if (match) {
                   handleRollbackClick(match);

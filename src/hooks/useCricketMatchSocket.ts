@@ -5,7 +5,7 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 
 import { STORAGE_KEY } from 'src/auth/context/jwt/constant';
 
-const SOCKET_URL = 'https://server.highphone11.com';
+const SOCKET_URL = 'https://server.testingexch.com';
 
 interface MatchUpdateData {
   match?: any;
@@ -73,8 +73,6 @@ function useCricketMatchSocket(gameId: string | undefined): UseCricketMatchSocke
 
     // 🔥 MAIN FIXED HANDLER
     socket.on('match:update', (...args: any[]) => {
-      console.log('🔥 FULL ARGS:', args);
-
       // ✅ handle both formats
       let payload = args[0];
 
@@ -86,8 +84,6 @@ function useCricketMatchSocket(gameId: string | undefined): UseCricketMatchSocke
 
       // ✅ ensure same structure as API
       const finalData = payload?.match ? payload : { match: payload };
-
-      console.log('✅ FINAL DATA:', finalData);
 
       setMatchData(finalData);
       setIsLoading(false);
@@ -154,10 +150,6 @@ function useCricketMatchSocket(gameId: string | undefined): UseCricketMatchSocke
       console.log('⚠️ disconnected:', reason);
     });
 
-    // 🔍 DEBUG (optional)
-    socket.onAny((event, ...args) => {
-      console.log('📡 Event:', event, args);
-    });
 
     // eslint-disable-next-line consistent-return
     return () => {

@@ -55,7 +55,7 @@ const MuiTableCell: Components<Theme>['MuiTableCell'] = {
    * STYLE
    *************************************** */
   styleOverrides: {
-    root: { borderBottomStyle: 'dashed' },
+    root: { borderBottomStyle: 'dashed', whiteSpace: 'nowrap' },
     head: ({ theme }) => ({
       fontSize: 14,
       color: theme.vars.palette.text.secondary,

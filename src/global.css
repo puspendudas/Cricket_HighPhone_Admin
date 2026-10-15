@@ -104,3 +104,120 @@ input[type='number']::-webkit-inner-spin-button {
   margin: 0;
   -webkit-appearance: none;
 }
+
+/* Ensure amounts, currencies, and table data never wrap across lines */
+th,
+td,
+.MuiTableCell-root {
+  white-space: nowrap !important;
+}
+
+.amount-nowrap,
+[data-amount],
+.MuiChip-label,
+.MuiChip-root {
+  white-space: nowrap !important;
+}
+
+/* ---------------------------------------------------------------------- */
+/* Non-Intrusive, Mobile-Friendly Toast System (Sonner)                  */
+/* ---------------------------------------------------------------------- */
+
+/* Container: let all clicks/taps pass through to underlying UI */
+[data-sonner-toaster] {
+  pointer-events: none !important;
+  z-index: 999999 !important;
+}
+
+/* Individual Toast: do not block clicks or taps on underlying elements */
+[data-sonner-toast] {
+  pointer-events: none !important;
+  user-select: none !important;
+  transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease !important;
+}
+
+/* Only interactive buttons inside toasts (like close or action buttons) receive clicks */
+[data-sonner-toast] button,
+[data-sonner-toast] a,
+[data-sonner-toast] [data-button],
+[data-sonner-toast] [data-close-button] {
+  pointer-events: auto !important;
+}
+
+/* Desktop styles (>= 601px) */
+@media (min-width: 601px) {
+  [data-sonner-toaster] {
+    top: 16px !important;
+    right: 16px !important;
+    bottom: auto !important;
+  }
+
+  [data-sonner-toast] {
+    min-height: 42px !important;
+    padding: 8px 16px !important;
+    border-radius: 10px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1) !important;
+    font-size: 0.85rem !important;
+  }
+
+  [data-sonner-toast] [data-icon] {
+    width: 18px !important;
+    height: 18px !important;
+    margin-right: 8px !important;
+    flex-shrink: 0 !important;
+  }
+}
+
+/* Mobile responsive styles (< 600px) */
+@media (max-width: 600px) {
+  [data-sonner-toaster] {
+    top: 8px !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: auto !important;
+    width: 100% !important;
+    display: flex !important;
+    justify-content: center !important;
+    align-items: center !important;
+    padding: 0 16px !important;
+    box-sizing: border-box !important;
+  }
+
+  [data-sonner-toast] {
+    min-height: 36px !important;
+    padding: 6px 14px !important;
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    line-height: 1.25 !important;
+    border-radius: 9999px !important; /* Elegant floating pill on mobile */
+    max-width: calc(100vw - 32px) !important;
+    width: fit-content !important;
+    margin: 0 auto !important;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14) !important;
+    border-width: 1px !important;
+  }
+
+  [data-sonner-toast] [data-icon] {
+    width: 16px !important;
+    height: 16px !important;
+    margin-right: 6px !important;
+    flex-shrink: 0 !important;
+  }
+
+  [data-sonner-toast] [data-content] {
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  [data-sonner-toast] [data-title] {
+    font-size: 0.8125rem !important;
+    font-weight: 600 !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+  }
+
+  [data-sonner-toast] [data-description] {
+    font-size: 0.75rem !important;
+  }
+}
+

@@ -53,8 +53,7 @@ interface SettlementData {
 }
 
 export function MyLedgerTableData() {
-  const { fetchTotalData, fetchMySettlement } = useMatchApi();
-  const { fetchCasinoTotalData } = useCasinoApi();
+  const { fetchAdminMyLedger } = useMatchApi();
   const { fetchMe } = useMeApi();
 
   const { data: userData } = useQuery({
@@ -62,228 +61,23 @@ export function MyLedgerTableData() {
     queryFn: fetchMe,
   });
 
-  const userId = userData?.data?.parent_id;
   const adminId = userData?.data?._id;
 
   const {
-    data: tableData,
-    isLoading: isCricketLoading,
-    error: cricketError,
+    data: ledgerResponse,
+    isLoading,
+    error,
   } = useQuery({
-    queryKey: ['ledgerTableData', userId],
-    queryFn: () => (userId ? fetchTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
-    enabled: !!userId,
-  });
-
-  const {
-    data: casinoTableData,
-    isLoading: isCasinoLoading,
-    error: casinoError,
-  } = useQuery({
-    queryKey: ['myCasinoLedgerTableData', userId],
-    queryFn: () => (userId ? fetchCasinoTotalData(userId) : Promise.reject(new Error('Missing user ID'))),
-    enabled: !!userId,
-  });
-
-  // Fetch settlement data
-  const { data: settlementData } = useQuery({
-    queryKey: ['mySettlementData', adminId],
-    queryFn: () =>
-      adminId ? fetchMySettlement(adminId) : Promise.reject(new Error('Missing admin ID')),
+    queryKey: ['adminMyLedger', adminId],
+    queryFn: () => (adminId ? fetchAdminMyLedger(adminId) : Promise.reject(new Error('Missing admin ID'))),
     enabled: !!adminId,
   });
 
-  const loginUser = userData?.data;
-  const loginMatchCommissionRate = loginUser?.match_commission || 0;
-  const loginSessionCommissionRate = loginUser?.session_commission || 0;
-  const loginCasinoCommissionRate = loginUser?.casino_commission || 0;
-  const loginShareRate = (loginUser?.share || 0) / 100;
+  const ledgerData: LedgerEntry[] = ledgerResponse?.data?.entries || [];
+  const finalBalance: number = ledgerResponse?.data?.summary?.finalBalance || 0;
+  const settlementEntries: any[] = ledgerResponse?.data?.summary?.settlementEntries || [];
 
-  const processCricketLedgerData = (matches: any[]): LedgerEntry[] => {
-    if (!matches || matches.length === 0) return [];
-
-    const ledgerEntries: LedgerEntry[] = [];
-    const processedKeys = new Set<string>();
-
-    matches.forEach((match) => {
-      const summariesByClient: Record<string, any[]> = {};
-      const clientSummaries = match.client_summary || [];
-
-      clientSummaries.forEach((c: any) => {
-        const clientId = c.immediate_child_admin?._id;
-        if (!clientId) return;
-
-        if (!summariesByClient[clientId]) summariesByClient[clientId] = [];
-        summariesByClient[clientId].push(c);
-      });
-
-      Object.entries(summariesByClient).forEach(([clientId, clientAdminSummaries]) => {
-        const clientAdmin = clientAdminSummaries[0]?.immediate_child_admin;
-
-        // 🔑 My Ledger → sirf login admin ke related clients
-        if (!clientAdmin || clientAdmin._id !== adminId) return;
-
-        const key = `${match._id}-${clientId}`;
-        if (processedKeys.has(key)) return;
-        processedKeys.add(key);
-
-        let matchPL = 0;
-        let sessionPL = 0;
-        let totalSessionStake = 0;
-        let matchCommission = 0;
-
-        clientAdminSummaries.forEach((c: any) => {
-          matchPL += c.client_net_match_pl || 0;
-          sessionPL += c.client_net_session_pl || 0;
-          totalSessionStake += c.client_total_session_stake || 0;
-
-          if (c.client_net_match_pl < 0) {
-            matchCommission += Math.abs(c.client_net_match_pl) * (loginMatchCommissionRate / 100);
-          }
-        });
-
-        const totalPL = (matchPL + sessionPL) * -1;
-        const sessionCommission = totalSessionStake * (loginSessionCommissionRate / 100);
-        const totalCommission = matchCommission + sessionCommission;
-
-        const netAmount = totalPL - totalCommission;
-        const shareAmount = netAmount * loginShareRate;
-        const grandTotal = netAmount - shareAmount;
-
-        if (Math.abs(grandTotal) < 0.01) return;
-
-        ledgerEntries.push({
-          date: formatUTCDateTime12H(match.eventTime),
-          timestamp: match.eventTime ? new Date(match.eventTime).getTime() : 0,
-          credit: grandTotal < 0 ? Math.abs(grandTotal) : 0,
-          debit: grandTotal > 0 ? grandTotal : 0,
-          balance: 0,
-          winner: match.eventName,
-          icon: win,
-          client: clientAdmin.user_name || 'Client',
-          matchName: match.eventName,
-        });
-      });
-    });
-
-    return ledgerEntries;
-  };
-
-  const processCasinoLedgerData = (matches: any[]): LedgerEntry[] => {
-    if (!matches || matches.length === 0) return [];
-
-    const ledgerEntries: LedgerEntry[] = [];
-    const processedKeys = new Set<string>();
-
-    matches.forEach((match) => {
-      const summariesByClient: Record<string, any[]> = {};
-      const clientSummaries = match.client_summary || [];
-
-      clientSummaries.forEach((c: any) => {
-        const clientId = c.immediate_child_admin?._id;
-        if (!clientId) return;
-
-        if (!summariesByClient[clientId]) summariesByClient[clientId] = [];
-        summariesByClient[clientId].push(c);
-      });
-
-      Object.entries(summariesByClient).forEach(([clientId, clientAdminSummaries]) => {
-        const clientAdmin = clientAdminSummaries[0]?.immediate_child_admin;
-
-        if (!clientAdmin || clientAdmin._id !== adminId) return;
-
-        const key = `${match._id}-${clientId}`;
-        if (processedKeys.has(key)) return;
-        processedKeys.add(key);
-
-        let casinoPL = 0;
-        let totalCommission = 0;
-
-        clientAdminSummaries.forEach((c: any) => {
-          const netCasinoPL = c.client_net_casino_pl || 0;
-          const userComm = c.client_total_casino_commission !== undefined
-            ? c.client_total_casino_commission
-            : (netCasinoPL < 0 ? Math.abs(netCasinoPL) * (loginCasinoCommissionRate / 100) : 0);
-
-          casinoPL += netCasinoPL;
-          totalCommission += userComm;
-        });
-
-        const invertedCasinoPL = casinoPL * -1;
-        const netAmount = invertedCasinoPL - totalCommission;
-        const shareAmount = netAmount * loginShareRate;
-        const grandTotal = netAmount - shareAmount;
-
-        if (Math.abs(grandTotal) < 0.01) return;
-
-        ledgerEntries.push({
-          date: formatUTCDateTime12H(match.eventTime),
-          timestamp: match.eventTime ? new Date(match.eventTime).getTime() : 0,
-          credit: grandTotal < 0 ? Math.abs(grandTotal) : 0,
-          debit: grandTotal > 0 ? grandTotal : 0,
-          balance: 0,
-          winner: match.eventName,
-          icon: win,
-          client: clientAdmin.user_name || 'Client',
-          matchName: match.eventName,
-        });
-      });
-    });
-
-    return ledgerEntries;
-  };
-
-  // Process settlement data for display
-  const processSettlementData = (settlements: SettlementData[]) => {
-    if (!settlements || settlements.length === 0) return [];
-
-    const settlementEntries = settlements.map((settlement: SettlementData) => {
-      const clientAdmin =
-        settlement.type === 'credit' ? settlement.adminIdTo : settlement.adminIdFrom;
-      const clientName = clientAdmin?.user_name || clientAdmin?.name || 'N/A';
-
-      return {
-        client: clientName,
-        date: formatUTCDateTime12H(settlement.createdAt),
-        timestamp: settlement.createdAt ? new Date(settlement.createdAt).getTime() : 0,
-        credit: settlement.type === 'credit' ? settlement.ammount : 0,
-        debit: settlement.type === 'debit' ? settlement.ammount : 0,
-        balance: 0,
-        winner: 'Settlement',
-        remark: settlement.remark || 'No remark',
-      };
-    });
-
-    return settlementEntries.sort((a, b) => a.timestamp - b.timestamp);
-  };
-
-  const rawCricketEntries = tableData?.matches ? processCricketLedgerData(tableData.matches) : [];
-  const rawCasinoEntries = casinoTableData?.matches ? processCasinoLedgerData(casinoTableData.matches) : [];
-
-  const allLedgerEntries = [...rawCricketEntries, ...rawCasinoEntries].sort(
-    (a, b) => a.timestamp - b.timestamp
-  );
-
-  let runningBalance = 0;
-  const ledgerData = allLedgerEntries.map((entry) => {
-    runningBalance += entry.credit - entry.debit;
-    return {
-      ...entry,
-      balance: Number(runningBalance.toFixed(2)),
-    };
-  });
-
-  const settlementEntries = processSettlementData(settlementData?.data || []);
-
-  // Calculate final balance including settlement
-  let finalBalance = ledgerData.length > 0 ? ledgerData[ledgerData.length - 1].balance : 0;
-
-  settlementEntries.forEach((entry: { debit: number; credit: number }) => {
-    finalBalance += entry.credit - entry.debit;
-  });
-  finalBalance = Number(finalBalance.toFixed(2));
-
-  if (isCricketLoading || isCasinoLoading) {
+  if (isLoading) {
     return (
       <Box p={3} textAlign="center">
         <Typography>Loading ledger data...</Typography>
@@ -291,7 +85,7 @@ export function MyLedgerTableData() {
     );
   }
 
-  if (cricketError || casinoError) {
+  if (error) {
     return (
       <Box p={3} textAlign="center">
         <Typography color="error">Error loading ledger data</Typography>
@@ -357,7 +151,7 @@ export function MyLedgerTableData() {
                   <TableCell>
                     <Grid container alignItems="center" spacing={1}>
                       <Grid item>
-                        <img src={entry.icon} alt="icon" width={20} />
+                        <img src={entry.icon || win} alt="icon" width={20} />
                       </Grid>
                       <Grid item>
                         <Typography variant="body2">{entry.winner}</Typography>

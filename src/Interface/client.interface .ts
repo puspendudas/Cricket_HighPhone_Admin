@@ -2,6 +2,7 @@
 
 export interface Member {
   betting: boolean | undefined;
+  bet_lock?: boolean;
   exposure: number;
   parentWallet: number;
   parent_id: any;

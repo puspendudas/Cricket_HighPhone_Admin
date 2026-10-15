@@ -67,6 +67,7 @@ export const endpoints = {
     deleteBets: '/casino-bets/admin/delete-bets',
     streamUrl: '/casino-bets/stream-url',
     resultDetail: '/casino-bets/result-detail',
+    resultHistory: '/casino-bets/results/history',
   },
 };
 

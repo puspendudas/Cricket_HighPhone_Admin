@@ -11,14 +11,6 @@ import { AllPositionsTableData } from './AllPositionsTableData';
 export function AllPositionsview() {
   return (
     <DashboardContent>
-      <CustomBreadcrumbs
-        heading="All Betting"
-        links={[
-          { name: ''},
-        ]}
-        sx={{ mb: { xs: 3, md: 5 } }}
-      />
-
       <AllPositionsTableData/>
     </DashboardContent>
   );

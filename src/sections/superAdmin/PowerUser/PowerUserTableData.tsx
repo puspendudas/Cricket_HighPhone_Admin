@@ -1,5 +1,5 @@
 // src/sections/superAdmin/PowerUser/PowerUserTableData.tsx
-import type { Member, Updatepaylod, MemberFormData } from 'src/Interface/admin.interface';
+import type { Member, Updatepaylod, MemberFormData, AdminPermissions } from 'src/Interface/admin.interface';
 
 import React, { useState, useEffect, useCallback } from 'react';
 
@@ -14,11 +14,14 @@ import { decrypt } from 'src/utils/encryption';
 import useAdminApi from 'src/Api/admin_api/useAdminApi';
 import useActionApi from 'src/Api/actionApi/useActionApi';
 
+import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 
 import { DeactivateModal } from '../Admin/DeactivateModal';
 import { EditAdminModal } from '../Admin/EditAdminModal';
 import { CreatePowerUserModal } from './CreatePowerUserModal';
+import { EditPowerUserPermissionsModal } from './EditPowerUserPermissionsModal';
+import { ChainViewModal } from '../ChainViewModal';
 
 export function PowerUserTableData() {
   const { addadmin, fetchPowerUserList, updateAdmin } = useAdminApi();
@@ -29,11 +32,14 @@ export function PowerUserTableData() {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+  const [chainViewModal, setChainViewModal] = useState(false);
+  const [chainMember, setChainMember] = useState<{ id: string; name: string; user: string } | null>(null);
 
   const [modals, setModals] = useState({
     edit: false,
     create: false,
     deactivate: false,
+    permissions: false,
   });
 
   const [modalState, setModalState] = useState({
@@ -65,6 +71,12 @@ export function PowerUserTableData() {
         casinoCommission: 0,
         wallet: 0,
         parentWallet: a.parent_id?.wallet || 0,
+        permissions: a.permissions || {
+          rollback_match: false,
+          cancel_match: false,
+          rollback_session: false,
+          cancel_session: false,
+        },
       }));
       setMembers(formatted);
     } catch (err) {
@@ -94,6 +106,7 @@ export function PowerUserTableData() {
         exposure: 0,
         parent_id: form.parent_id,
         status: form.status,
+        permissions: form.permissions,
       });
 
       await fetchMembers();
@@ -102,9 +115,23 @@ export function PowerUserTableData() {
     }
   };
 
+  const handleSavePermissions = async (updatedPermissions: AdminPermissions) => {
+    if (!selectedMember) return;
+    try {
+      await updateAdmin(selectedMember._id, {
+        permissions: updatedPermissions,
+      });
+      toast.success('Permissions updated successfully');
+      await fetchMembers();
+    } catch (err) {
+      console.error('Failed to update permissions:', err);
+      toast.error('Failed to update permissions');
+    }
+  };
+
   const filtered = members.filter(({ name, user }) =>
-    name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.toLowerCase().includes(searchTerm.toLowerCase())
+    (name?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+    (user?.toLowerCase() || '').includes(searchTerm.toLowerCase())
   );
 
   const currentRows = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
@@ -138,9 +165,10 @@ export function PowerUserTableData() {
   return (
     <Paper sx={{ p: 2, boxShadow: 3 }}>
       <Grid container spacing={2} mb={2} alignItems="center">
-        <Grid item xs={12} md={4}>
-          <FormControl fullWidth>
+        <Grid item xs={12} sm={6} md={4}>
+          <FormControl fullWidth size="small">
             <TextField
+              size="small"
               placeholder="Search..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -154,11 +182,11 @@ export function PowerUserTableData() {
             />
           </FormControl>
         </Grid>
-        <Grid item xs={12} md={8} container justifyContent="flex-end">
+        <Grid item xs={12} sm={6} md={8} container justifyContent={{ xs: 'flex-start', sm: 'flex-end' }}>
           <Button
             color="primary"
             variant="contained"
-            startIcon={<Iconify icon="material-symbols:add" />}
+            startIcon={<Iconify icon="material-symbols:person-add-outline" />}
             onClick={() => setModals((p) => ({ ...p, create: true }))}
           >
             Add Power User
@@ -166,64 +194,69 @@ export function PowerUserTableData() {
         </Grid>
       </Grid>
 
-      <Table>
-        <TableHead>
-          <TableRow sx={{ backgroundColor: '#212B36' }}>
-            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>S.No</TableCell>
-            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Code</TableCell>
-            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Name</TableCell>
-            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Password</TableCell>
-            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Role</TableCell>
-            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Status</TableCell>
-            <TableCell sx={{ color: 'white', fontWeight: 'bold' }}>Actions</TableCell>
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {currentRows.length > 0 ? (
-            currentRows.map((member, index) => (
-              <TableRow
-                key={member.id}
-                sx={{
-                  backgroundColor: index % 2 === 0 ? '#f9f9f9' : '#ffffff',
-                  '&:hover': { backgroundColor: '#f1f1f1' },
-                }}
-              >
-                <TableCell>{page * rowsPerPage + index + 1}</TableCell>
-                <TableCell>{member.user}</TableCell>
-                <TableCell>{member.name}</TableCell>
-                <TableCell>{member.password}</TableCell>
-                <TableCell>Power User</TableCell>
-                <TableCell>
-                  <Box
-                    sx={{
-                      display: 'inline-block',
-                      px: 1.5,
-                      py: 0.5,
-                      borderRadius: 1,
-                      backgroundColor: member.status === 'Active' ? 'success.light' : 'error.light',
-                      color: member.status === 'Active' ? 'success.dark' : 'error.dark',
-                      fontWeight: 'bold',
-                    }}
-                  >
-                    {member.status}
-                  </Box>
-                </TableCell>
-                <TableCell>
-                  <IconButton onClick={(e) => handleMenuClick(e, member)}>
-                    <Iconify icon="eva:more-vertical-fill" />
-                  </IconButton>
+      <Box sx={{ overflowX: 'auto' }}>
+        <Table size="small" sx={{ minWidth: 650 }}>
+          <TableHead>
+            <TableRow>
+              {["", "Action", "#", "Code", "Name", "Password", "Role", "Status"].map((h) => (
+                <TableCell key={h} sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>{h}</TableCell>
+              ))}
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {currentRows.length > 0 ? (
+              currentRows.map((member, index) => (
+                <TableRow
+                  key={member.id}
+                  hover
+                  sx={{
+                    backgroundColor: index % 2 === 0 ? '#f9f9f9' : '#ffffff',
+                    '&:hover': { backgroundColor: '#f1f1f1' },
+                  }}
+                >
+                  <TableCell>
+                    {member.status === 'Inactive' && (
+                      <Iconify icon="mdi:account-off" color="red" width={20} />
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <IconButton onClick={(e) => handleMenuClick(e, member)}>
+                      <Iconify icon="material-symbols:more-vert" />
+                    </IconButton>
+                  </TableCell>
+                  <TableCell>{page * rowsPerPage + index + 1}</TableCell>
+                  <TableCell sx={{ fontWeight: 600 }}>{member.user}</TableCell>
+                  <TableCell>{member.name}</TableCell>
+                  <TableCell>{member.password}</TableCell>
+                  <TableCell>Power User</TableCell>
+                  <TableCell>
+                    <Box
+                      sx={{
+                        display: 'inline-block',
+                        px: 1.5,
+                        py: 0.5,
+                        borderRadius: 1,
+                        backgroundColor: member.status === 'Active' ? 'success.light' : 'error.light',
+                        color: member.status === 'Active' ? 'success.dark' : 'error.dark',
+                        fontWeight: 'bold',
+                        fontSize: '0.75rem',
+                      }}
+                    >
+                      {member.status}
+                    </Box>
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : (
+              <TableRow>
+                <TableCell colSpan={8} align="center">
+                  No Power Users Found
                 </TableCell>
               </TableRow>
-            ))
-          ) : (
-            <TableRow>
-              <TableCell colSpan={7} align="center">
-                No Power Users Found
-              </TableCell>
-            </TableRow>
-          )}
-        </TableBody>
-      </Table>
+            )}
+          </TableBody>
+        </Table>
+      </Box>
 
       <TablePagination
         rowsPerPageOptions={[5, 10, 25]}
@@ -245,7 +278,7 @@ export function PowerUserTableData() {
             handleMenuClose();
           }}
         >
-          <Iconify icon="material-symbols:edit" sx={{ mr: 1 }} /> Edit
+          <Iconify icon="eva:edit-2-outline" sx={{ mr: 1 }} /> Edit
         </MenuItem>
         <MenuItem
           onClick={() => {
@@ -262,12 +295,55 @@ export function PowerUserTableData() {
           <Iconify
             icon={
               selectedMember?.status === 'Active'
-                ? 'material-symbols:lock'
-                : 'material-symbols:lock-open'
+                ? 'material-symbols:person-alert-outline-rounded'
+                : 'material-symbols:person-check-outline-rounded'
             }
             sx={{ mr: 1 }}
           />
           {selectedMember?.status === 'Active' ? 'Deactivate' : 'Activate'}
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (!selectedMember) return;
+
+            const loginDetails = `
+https://cricket.testingexch.com/
+UserName: ${selectedMember.user}
+Password: ${selectedMember.password}
+`;
+
+            navigator.clipboard.writeText(loginDetails.trim())
+              .then(() => {
+                toast.success(`Login details copied for ${selectedMember.name}`);
+              })
+              .catch((err) => {
+                console.error('Failed to copy:', err);
+                toast.error('Failed to copy login details');
+              });
+
+            handleMenuClose();
+          }}
+        >
+          <Iconify icon="material-symbols:key-outline" sx={{ mr: 1 }} /> Send Login Detail
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            setModals((p) => ({ ...p, permissions: true }));
+            handleMenuClose();
+          }}
+        >
+          <Iconify icon="material-symbols:security" sx={{ mr: 1 }} /> Permissions
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            if (selectedMember) {
+              setChainMember({ id: selectedMember._id, name: selectedMember.name, user: selectedMember.user });
+              setChainViewModal(true);
+            }
+            handleMenuClose();
+          }}
+        >
+          <Iconify icon="material-symbols:account-tree-outline" sx={{ mr: 1 }} /> Chain View
         </MenuItem>
       </Menu>
 
@@ -298,6 +374,13 @@ export function PowerUserTableData() {
         }
       />
 
+      <EditPowerUserPermissionsModal
+        open={modals.permissions}
+        onClose={() => setModals((p) => ({ ...p, permissions: false }))}
+        powerUser={selectedMember}
+        onSave={handleSavePermissions}
+      />
+
       <DeactivateModal
         open={modals.deactivate}
         userName={modalState.userToDeactivate}
@@ -312,6 +395,17 @@ export function PowerUserTableData() {
             console.error('Status toggle error:', err);
           }
         }}
+      />
+
+      <ChainViewModal
+        open={chainViewModal}
+        onClose={() => {
+          setChainViewModal(false);
+          setChainMember(null);
+        }}
+        memberId={chainMember?.id || ''}
+        memberName={chainMember?.name}
+        memberUser={chainMember?.user}
       />
     </Paper>
   );

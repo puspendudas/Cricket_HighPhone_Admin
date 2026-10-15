@@ -7,6 +7,12 @@ export type UserType = {
   status: boolean;
   type: UserRole;
   accessToken?: string;
+  permissions?: {
+    rollback_match: boolean;
+    cancel_match: boolean;
+    rollback_session: boolean;
+    cancel_session: boolean;
+  };
 } | null;
 
 export type AuthState = {

@@ -12,6 +12,10 @@ import {
   Card,
   CardContent,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   FormControl,
   FormControlLabel,
   Grid,
@@ -29,6 +33,7 @@ import type { ExtractedTeam } from 'src/utils/extractTeams';
 import { extractTeamsFromMatchData } from 'src/utils/extractTeams';
 
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
+import { useAuthContext } from 'src/auth/hooks';
 
 import { toast } from 'src/components/snackbar';
 
@@ -40,6 +45,10 @@ interface OddTeam {
 }
 
 export default function MatchManuallyUpdate() {
+  const { user } = useAuthContext();
+  const isPowerUser = user?.type === 'power_user';
+  const canCancelMatch = !isPowerUser || Boolean(user?.permissions?.cancel_match);
+
   const { FatchUpdateMatchData, DeclareMatch, CancelMatch, Matchdelay, FetchBetData } = useMatchApi();
   const { id } = useParams<{ id: string }>();
   const queryClient = useQueryClient();
@@ -53,6 +62,7 @@ export default function MatchManuallyUpdate() {
   const [customSid, setCustomSid] = useState<number>(1);
   const [matchName, setMatchName] = useState<string>('N/A');
   const [includeDraw, setIncludeDraw] = useState<boolean>(false);
+  const [cancelModalOpen, setCancelModalOpen] = useState<boolean>(false);
 
   // Query for fetching match data (odds & teams)
   const {
@@ -108,6 +118,7 @@ export default function MatchManuallyUpdate() {
     mutationFn: (matchId: string) => CancelMatch(matchId),
     onSuccess: () => {
       toast.success('Match cancelled successfully!');
+      setCancelModalOpen(false);
       queryClient.invalidateQueries({ queryKey: ['matchData', id] });
     },
     onError: (cancelError: any) => {
@@ -200,7 +211,19 @@ export default function MatchManuallyUpdate() {
     declareMutation.mutate({ matchId, payload });
   };
 
-  const handleCancelMatch = async () => {
+  const handleOpenCancelModal = () => {
+    if (!canCancelMatch) {
+      toast.error('You do not have permission to cancel matches');
+      return;
+    }
+    if (!matchId) {
+      toast.error('Match ID not found!');
+      return;
+    }
+    setCancelModalOpen(true);
+  };
+
+  const handleConfirmCancelMatch = () => {
     if (!matchId) {
       toast.error('Match ID not found!');
       return;
@@ -234,7 +257,7 @@ export default function MatchManuallyUpdate() {
   return (
     <Box p={1}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2} flexWrap="wrap" gap={1}>
-        <Typography variant="h4">
+        <Typography variant="h5">
           Match Name : {matchName || matchData?.match?.eventName || 'N/A'}
         </Typography>
         {isDeclared && (
@@ -261,8 +284,8 @@ export default function MatchManuallyUpdate() {
           </Typography>
           <Grid container spacing={2} fontWeight={600} mb={2}>
             <Grid item xs={3}>Team</Grid>
-            <Grid item xs={3}>Khai</Grid>
-            <Grid item xs={3}>Lagai</Grid>
+            <Grid item xs={3}>Back</Grid>
+            <Grid item xs={3}>Lay</Grid>
             <Grid item xs={3}>Status</Grid>
           </Grid>
 
@@ -270,46 +293,14 @@ export default function MatchManuallyUpdate() {
             <Grid container spacing={2} key={idx} alignItems="center" mb={1}>
               <Grid item xs={3}>{team.name}</Grid>
               <Grid item xs={3}>
-                <TextField fullWidth value={team.lagai.toFixed(2)} disabled />
+                <TextField fullWidth value={team.khai.toFixed(2)} disabled />
               </Grid>
               <Grid item xs={3}>
-                <TextField fullWidth value={team.khai.toFixed(2)} disabled />
+                <TextField fullWidth value={team.lagai.toFixed(2)} disabled />
               </Grid>
               <Grid item xs={3}>
                 <Button variant="contained" color="error">
                   {team.status}
-                </Button>
-              </Grid>
-            </Grid>
-          ))}
-        </CardContent>
-      </Card>
-
-      {/* Match Odds Section */}
-      <Card variant="outlined" sx={{ mb: 4 }}>
-        <CardContent>
-          <Typography variant="h4" mb={2}>
-            Match Odds
-          </Typography>
-          <Grid container spacing={2} fontWeight={600} mb={2}>
-            <Grid item xs={3}>Team</Grid>
-            <Grid item xs={3}>Lagai</Grid>
-            <Grid item xs={3}>Khai</Grid>
-            <Grid item xs={3}>Status</Grid>
-          </Grid>
-
-          {matchOdds.map((odds: OddTeam, idx: number) => (
-            <Grid container spacing={2} key={idx} alignItems="center" mb={1}>
-              <Grid item xs={3}>{odds.name}</Grid>
-              <Grid item xs={3}>
-                <TextField fullWidth value={odds.lagai.toFixed(2)} disabled />
-              </Grid>
-              <Grid item xs={3}>
-                <TextField fullWidth value={odds.khai.toFixed(2)} disabled />
-              </Grid>
-              <Grid item xs={3}>
-                <Button variant="contained" color="error">
-                  {odds.status}
                 </Button>
               </Grid>
             </Grid>
@@ -436,8 +427,8 @@ export default function MatchManuallyUpdate() {
               <Button
                 variant="contained"
                 color="error"
-                onClick={handleCancelMatch}
-                disabled={cancelMutation.isPending || isDeclared}
+                onClick={handleOpenCancelModal}
+                disabled={cancelMutation.isPending || isDeclared || !canCancelMatch}
               >
                 {cancelMutation.isPending ? 'Cancelling...' : 'Cancel Match'}
               </Button>
@@ -478,6 +469,47 @@ export default function MatchManuallyUpdate() {
           </Grid>
         </CardContent>
       </Card>
+
+      {/* Cancel Match Confirm Modal */}
+      <Dialog
+        open={cancelModalOpen}
+        onClose={() => (cancelMutation.isPending ? null : setCancelModalOpen(false))}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 'bold', color: 'error.main' }}>Confirm Cancel Match</DialogTitle>
+        <DialogContent>
+          <Typography variant="body1">
+            Are you sure you want to <Box component="span" sx={{ fontWeight: 'bold' }}>Cancel</Box> this match?
+          </Typography>
+          {(matchName || matchData?.match?.eventName) && (
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              Match: <Box component="span" sx={{ fontWeight: 'bold' }}>{matchName || matchData?.match?.eventName}</Box>
+            </Typography>
+          )}
+          <Typography variant="caption" color="error.main" sx={{ display: 'block', mt: 1 }}>
+            Warning: This action will cancel the match and refund/settle unsettled bets.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ display: 'flex', justifyContent: 'flex-end', gap: 2, p: 2 }}>
+          <Button
+            onClick={() => setCancelModalOpen(false)}
+            variant="outlined"
+            color="inherit"
+            disabled={cancelMutation.isPending}
+          >
+            No, Go Back
+          </Button>
+          <Button
+            onClick={handleConfirmCancelMatch}
+            variant="contained"
+            color="error"
+            disabled={cancelMutation.isPending}
+          >
+            {cancelMutation.isPending ? 'Cancelling...' : 'Yes, Cancel Match'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

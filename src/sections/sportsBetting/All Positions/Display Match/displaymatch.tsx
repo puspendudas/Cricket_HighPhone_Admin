@@ -216,10 +216,10 @@ const DisplayMatch = () => {
                                     <Typography variant="h6" gutterBottom sx={{ fontWeight: 'bold' }}>
                                         Amount
                                     </Typography>
-                                    <Typography color="error" sx={{ mb: 1.5, fontWeight: 'bold' }}>
+                                    <Typography color="error" sx={{ mb: 1.5, fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                         -₹1383
                                     </Typography>
-                                    <Typography color="success.main" sx={{ fontWeight: 'bold' }}>
+                                    <Typography color="success.main" sx={{ fontWeight: 'bold', whiteSpace: 'nowrap' }}>
                                         ₹391
                                     </Typography>
                                 </Box>

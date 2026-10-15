@@ -39,6 +39,7 @@ import { toast } from 'src/components/snackbar';
 import { DashboardContent } from 'src/layouts/dashboard';
 import { CustomBreadcrumbs } from 'src/components/custom-breadcrumbs';
 import { getCasinoGameTitle, getCasinoSelections } from 'src/utils/casino';
+import { ManualDeclareCasinoModal } from './ManualDeclareCasinoModal';
 
 export default function CasinoUnDeclaredMatch() {
   const queryClient = useQueryClient();
@@ -57,6 +58,8 @@ export default function CasinoUnDeclaredMatch() {
   const [selectedBets, setSelectedBets] = useState<string[]>([]);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteAllModalOpen, setDeleteAllModalOpen] = useState(false);
+  const [manualDeclareOpen, setManualDeclareOpen] = useState(false);
+  const [targetRoundId, setTargetRoundId] = useState('');
 
   const { fetchMe } = useMeApi();
   const { getAdminGameBets, deleteCasinoBet, deleteMultipleCasinoBets } = useCasinoApi();
@@ -295,15 +298,28 @@ export default function CasinoUnDeclaredMatch() {
           <Typography variant="h6" fontWeight="bold">
             Bets List ({filteredData.length})
           </Typography>
-          <Button
-            variant="contained"
-            color="error"
-            startIcon={<Iconify icon="eva:trash-2-outline" />}
-            onClick={() => setDeleteAllModalOpen(true)}
-            disabled={selectedBets.length === 0 || deleteMultipleBetsMutation.isPending}
-          >
-            {deleteMultipleBetsMutation.isPending ? 'Deleting...' : `Delete Selected (${selectedBets.length})`}
-          </Button>
+          <Box display="flex" gap={1}>
+            <Button
+              variant="contained"
+              color="warning"
+              startIcon={<Iconify icon="material-symbols:gavel" />}
+              onClick={() => {
+                setTargetRoundId('');
+                setManualDeclareOpen(true);
+              }}
+            >
+              Declare Round
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              startIcon={<Iconify icon="eva:trash-2-outline" />}
+              onClick={() => setDeleteAllModalOpen(true)}
+              disabled={selectedBets.length === 0 || deleteMultipleBetsMutation.isPending}
+            >
+              {deleteMultipleBetsMutation.isPending ? 'Deleting...' : `Delete Selected (${selectedBets.length})`}
+            </Button>
+          </Box>
         </Box>
 
         <TableContainer sx={{ maxHeight: 600, overflowX: 'auto' }}>
@@ -397,19 +413,33 @@ export default function CasinoUnDeclaredMatch() {
                             Already Deleted
                           </Typography>
                         ) : (
-                          <Button
-                            size="small"
-                            color="error"
-                            variant="outlined"
-                            startIcon={<Iconify icon="eva:trash-2-outline" />}
-                            onClick={() => {
-                              setSelectedBets([betId]);
-                              setDeleteModalOpen(true);
-                            }}
-                            disabled={deleteBetMutation.isPending}
-                          >
-                            {deleteBetMutation.isPending ? 'Deleting...' : 'Delete'}
-                          </Button>
+                          <Box display="flex" gap={1} justifyContent="center">
+                            <Button
+                              size="small"
+                              color="warning"
+                              variant="outlined"
+                              startIcon={<Iconify icon="material-symbols:gavel" />}
+                              onClick={() => {
+                                setTargetRoundId(row.round_id || '');
+                                setManualDeclareOpen(true);
+                              }}
+                            >
+                              Declare
+                            </Button>
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                              startIcon={<Iconify icon="eva:trash-2-outline" />}
+                              onClick={() => {
+                                setSelectedBets([betId]);
+                                setDeleteModalOpen(true);
+                              }}
+                              disabled={deleteBetMutation.isPending}
+                            >
+                              {deleteBetMutation.isPending ? 'Deleting...' : 'Delete'}
+                            </Button>
+                          </Box>
                         )}
                       </TableCell>
                     </TableRow>
@@ -486,6 +516,16 @@ export default function CasinoUnDeclaredMatch() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <ManualDeclareCasinoModal
+        open={manualDeclareOpen}
+        onClose={() => setManualDeclareOpen(false)}
+        initialGameCode={gtype}
+        initialRoundId={targetRoundId}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['adminGameBets'] });
+        }}
+      />
     </DashboardContent>
   );
 }

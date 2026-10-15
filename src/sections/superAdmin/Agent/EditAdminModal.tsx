@@ -24,6 +24,8 @@ interface EditMemberModalProps {
     sessionCommission: number;
     casinoCommission: number;
     share: number;
+    maxShare?: number;
+    parentShare?: number;
   } | null;
 }
 
@@ -33,6 +35,7 @@ export function EditAdminModal({
   memberData,
   onSubmit
 }: EditMemberModalProps) {
+  const maxAllowedShare = memberData?.maxShare ?? memberData?.parentShare ?? 100;
   const [form, setForm] = useState({
     code: '',
     name: '',
@@ -70,7 +73,8 @@ export function EditAdminModal({
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    if (/^\d*$/.test(value) && value.length <= 2) {
+    const maxLimit = name === 'share' ? maxAllowedShare : 100;
+    if (/^\d*$/.test(value) && (value === '' || (value.length <= 3 && Number(value) <= maxLimit))) {
       setForm((prev) => ({
         ...prev,
         [name]: value === '' ? '' : Number(value)
@@ -85,6 +89,11 @@ export function EditAdminModal({
 
   const handleSubmit = async () => {
     if (!memberData) return;
+
+    if (Number(form.share) > maxAllowedShare) {
+      alert(`Share cannot exceed maximum allowed limit of ${maxAllowedShare}%`);
+      return;
+    }
 
     const payload: Updatepaylod = {
       name: form.name,
@@ -148,12 +157,12 @@ export function EditAdminModal({
           <Grid container spacing={2}>
             <Grid item xs={12}>
               <TextField
-                label="Share"
+                label={`Share (%) (Max Allowed: ${maxAllowedShare}%)`}
                 fullWidth
                 value={form.share}
                 name="share"
-                disabled
                 onChange={handleNumberChange}
+                helperText={`Maximum allowed share: ${maxAllowedShare}%. Applies to future matches and casino rounds from next 12:00 AM IST.`}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
@@ -202,7 +211,7 @@ export function EditAdminModal({
                 value={form.matchCommission}
                 name="matchCommission"
                 onChange={handleNumberChange}
-                disabled
+                helperText="Applies to matches scheduled after update"
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
@@ -215,7 +224,7 @@ export function EditAdminModal({
                 value={form.sessionCommission}
                 name="sessionCommission"
                 onChange={handleNumberChange}
-                disabled
+                helperText="Applies to matches scheduled after update"
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
@@ -228,7 +237,7 @@ export function EditAdminModal({
                 value={form.casinoCommission}
                 name="casinoCommission"
                 onChange={handleNumberChange}
-                disabled
+                helperText="Takes effect at next 12:00 AM IST"
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}

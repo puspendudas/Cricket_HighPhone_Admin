@@ -11,14 +11,6 @@ import { CricketTableData } from './cricketTableData';
 export function Cricketview() {
   return (
     <DashboardContent>
-      <CustomBreadcrumbs
-        heading="Cricket "
-        links={[
-          { name: ''},
-        ]}
-        sx={{ mb: { xs: 3, md: 5 } }}
-      />
-
       <CricketTableData/>
     </DashboardContent>
   );

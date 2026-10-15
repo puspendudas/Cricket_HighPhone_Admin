@@ -13,7 +13,7 @@ export function extractTeamsFromMatchData(match: any, includeDraw = false): Extr
 
   const addTeam = (name: any, sid?: number | string) => {
     if (!name) return;
-    const cleanName = String(name).trim();
+    const cleanName = String(name).trim().replace(/\.+$/, '');
     if (!cleanName || cleanName.toLowerCase() === 'unknown') return;
 
     const key = cleanName.toLowerCase();

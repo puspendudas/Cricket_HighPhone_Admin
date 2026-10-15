@@ -23,6 +23,9 @@ export const Endpoints = {
     CancelSingleBetMatch: `${BASE_URL}/match-bets/cancel/single`,
     FancyRollBack: `${BASE_URL}/match-bets/rollback/fancy`,
     MatchRollBack: `${BASE_URL}/match-bets/rollback/bookmacker`,
+    toggleToss: `${BASE_URL}/match/toggle-toss`,
+    DeclareTossMatch: `${BASE_URL}/match-bets/settle/toss`,
+    TossRollBack: `${BASE_URL}/match-bets/rollback/toss`,
     Dashboard: `${BASE_URL}/admin/dashboard`,
     Deactivate: `${BASE_URL}/admin/toggle/statusAll`,
     limits: `${BASE_URL}/admin`,
@@ -42,8 +45,15 @@ export const Endpoints = {
     commissionLedgerHistory: `${BASE_URL}/match/commission/ledger-history`,
     commissionAgentSettle: `${BASE_URL}/match/commission/agent-settle`,
     commissionHistory: `${BASE_URL}/match/commission/history`,
-    PublicScorecard: `${BASE_URL}/public/scorecard`
+    PublicScorecard: `${BASE_URL}/public/scorecard`,
 
+    // Authoritative Backend Ledger Endpoints
+    MyLedger: `${BASE_URL}/ledger/admin/my-ledger`,
+    ChildLedger: `${BASE_URL}/ledger/admin/child-ledger`,
+    SettlementLedger: `${BASE_URL}/ledger/admin/settlement`,
+    TotalProfitLedger: `${BASE_URL}/ledger/admin/total-profit`,
+    SuperReportLedger: `${BASE_URL}/ledger/admin/super-report`,
+    HierarchyChain: `${BASE_URL}/admin/hierarchy-chain`,
 }
 
 

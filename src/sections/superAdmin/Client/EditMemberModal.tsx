@@ -71,7 +71,7 @@ export function EditMemberModal({
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    if (/^\d*$/.test(value) && value.length <= 2) {
+    if (/^\d*$/.test(value) && (value === '' || (value.length <= 3 && Number(value) <= 100))) {
       setForm((prev) => ({
         ...prev,
         [name]: value === '' ? '' : Number(value)
@@ -203,7 +203,7 @@ export function EditMemberModal({
                 value={form.matchCommission}
                 name="matchCommission"
                 onChange={handleNumberChange}
-                disabled
+                helperText="Applies to matches scheduled after update"
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
@@ -216,7 +216,7 @@ export function EditMemberModal({
                 value={form.sessionCommission}
                 name="sessionCommission"
                 onChange={handleNumberChange}
-                disabled
+                helperText="Applies to matches scheduled after update"
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
@@ -229,7 +229,7 @@ export function EditMemberModal({
                 value={form.casinoCommission}
                 name="casinoCommission"
                 onChange={handleNumberChange}
-                disabled
+                helperText="Takes effect at next 12:00 AM IST"
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}

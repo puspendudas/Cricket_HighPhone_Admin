@@ -50,7 +50,7 @@ const useClientApi = () => {
   );
 
   const updateTogalStatus = useCallback(
-    async (id: string, toggleType: 'betting') => {
+    async (id: string, toggleType: 'betting' | 'bet_lock') => {
       try {
         const response = await patch(`${Endpoints.superadmin}/users/toggle`, {
           id,
