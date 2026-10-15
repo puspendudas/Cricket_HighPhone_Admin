@@ -5,7 +5,10 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 
 import { STORAGE_KEY } from 'src/auth/context/jwt/constant';
 
-const SOCKET_URL = 'https://server.testingexch.com';
+const SOCKET_URL =
+  typeof window !== 'undefined' && window.location.hostname.includes('highphone11')
+    ? 'https://server.highphone11.com'
+    : 'https://server.testingexch.com';
 
 interface MatchUpdateData {
   match?: any;
