@@ -1584,7 +1584,7 @@ export default function CricketMatchLiveData() {
               mt: 0.1,
             }}
           >
-            Min: 100 Max: 10K
+            Min: 100 Max: 50K
           </Typography>
         </Box>
 

@@ -3,7 +3,7 @@ import type { AppBarProps } from '@mui/material/AppBar';
 import type { ToolbarProps } from '@mui/material/Toolbar';
 import type { ContainerProps } from '@mui/material/Container';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useState, useRef, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import Box from '@mui/material/Box';
@@ -17,6 +17,7 @@ import { useScrollOffSetTop } from 'src/hooks/use-scroll-offset-top';
 import { bgBlur, varAlpha } from 'src/theme/styles';
 import { useAppDispatch, useAppSelector } from 'src/store/hooks';
 import { fetchAnnouncements } from 'src/store/slices/announcementSlice';
+import { Iconify } from 'src/components/iconify';
 
 import { layoutClasses } from '../classes';
 
@@ -71,6 +72,36 @@ export function HeaderSection({
 
   const gameIdMatch = location.pathname.match(/\/cricket-live-match-data\/(\d+)/);
   const gameId = gameIdMatch ? gameIdMatch[1] : undefined;
+
+  const marqueeContentRef = useRef<HTMLDivElement>(null);
+  const [marqueeDuration, setMarqueeDuration] = useState(25);
+
+  const repeatedMarqueeText = useMemo(() => {
+    if (!marqueeText) return '';
+    const repeatCount = Math.max(2, Math.ceil(160 / Math.max(1, marqueeText.length)));
+    return `${Array(repeatCount).fill(marqueeText).join('   •   ')}   •   `;
+  }, [marqueeText]);
+
+  useEffect(() => {
+    const updateDuration = () => {
+      if (marqueeContentRef.current) {
+        const width = marqueeContentRef.current.offsetWidth;
+        if (width > 0) {
+          // 45 px/sec ensures a steady, comfortable reading speed on both mobile and desktop
+          const calculatedDuration = Math.max(15, Math.round(width / 45));
+          setMarqueeDuration(calculatedDuration);
+        }
+      }
+    };
+
+    updateDuration();
+    const timer = setTimeout(updateDuration, 250);
+    window.addEventListener('resize', updateDuration);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', updateDuration);
+    };
+  }, [repeatedMarqueeText]);
 
   useEffect(() => {
     dispatch(fetchAnnouncements(gameId));
@@ -139,32 +170,82 @@ export function HeaderSection({
         <Box
           sx={{
             display: 'flex',
-            flex: '1 1 auto',
-            justifyContent: 'center',
             alignItems: 'center',
             overflow: 'hidden',
             width: '100%',
-            backgroundColor: 'red',
+            backgroundColor: '#dc2626',
             color: '#fff',
-            padding: '4px 0',
             fontWeight: 600,
+            fontSize: { xs: '12px', sm: '13px' },
             position: 'relative',
             height: '32px',
             borderRadius: '8px',
+            userSelect: 'none',
+            '&:hover .admin-marquee-track': {
+              animationPlayState: 'paused',
+            },
           }}
         >
+          {/* Pinned announcement icon */}
           <Box
             sx={{
-              display: 'inline-block',
-              whiteSpace: 'nowrap',
-              animation: 'marquee 15s linear infinite',
-              '@keyframes marquee': {
-                '0%': { transform: 'translateX(100%)' },
-                '100%': { transform: 'translateX(-100%)' },
-              },
+              display: 'flex',
+              alignItems: 'center',
+              px: 1,
+              zIndex: 2,
+              backgroundColor: '#dc2626',
+              flexShrink: 0,
             }}
           >
-            {loading ? 'Loading announcements...' : marqueeText || ''}
+            <Iconify icon="solar:volume-loud-bold-duotone" width={18} />
+          </Box>
+
+          {/* Marquee Track Container */}
+          <Box
+            sx={{
+              overflow: 'hidden',
+              display: 'flex',
+              width: '100%',
+              position: 'relative',
+            }}
+          >
+            <Box
+              className="admin-marquee-track"
+              sx={{
+                display: 'inline-flex',
+                whiteSpace: 'nowrap',
+                width: 'max-content',
+                willChange: 'transform',
+                animation: `adminMarqueeSeamless ${marqueeDuration}s linear infinite`,
+                '@keyframes adminMarqueeSeamless': {
+                  '0%': { transform: 'translateX(0%)' },
+                  '100%': { transform: 'translateX(-50%)' },
+                },
+              }}
+            >
+              {/* Segment 1 */}
+              <Box
+                ref={marqueeContentRef}
+                component="span"
+                sx={{
+                  display: 'inline-block',
+                  pr: 2,
+                }}
+              >
+                {loading ? 'Loading announcements...' : repeatedMarqueeText}
+              </Box>
+              {/* Segment 2 (seamless clone) */}
+              <Box
+                component="span"
+                aria-hidden="true"
+                sx={{
+                  display: 'inline-block',
+                  pr: 2,
+                }}
+              >
+                {loading ? 'Loading announcements...' : repeatedMarqueeText}
+              </Box>
+            </Box>
           </Box>
         </Box>
       )}
