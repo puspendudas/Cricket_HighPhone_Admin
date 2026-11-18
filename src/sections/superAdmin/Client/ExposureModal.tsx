@@ -210,7 +210,7 @@ export function ExposureModal({ open, onClose, userId, userName }: ExposureModal
                             <TableRow key={bet._id}>
                               <TableCell>{bet.runner_name || bet.team_name || 'Runner'}</TableCell>
                               <TableCell>
-                                <span style={{ color: '#1976d2', fontWeight: 'bold' }}>{bet.selection || 'Back'}</span> ({bet.odds_rate || '95'})
+                                <span style={{ color: '#1976d2', fontWeight: 'bold' }}>{bet.selection === 'Back' ? 'Lagai' : (bet.selection === 'Lay' ? 'Khai' : (bet.selection || 'Lagai'))}</span> ({bet.odds_rate || '95'})
                               </TableCell>
                               <TableCell align="right">
                                 ₹{Number(bet.stake_amount).toFixed(2)}

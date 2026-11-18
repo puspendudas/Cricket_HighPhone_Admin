@@ -284,8 +284,8 @@ export default function MatchManuallyUpdate() {
           </Typography>
           <Grid container spacing={2} fontWeight={600} mb={2}>
             <Grid item xs={3}>Team</Grid>
-            <Grid item xs={3}>Back</Grid>
-            <Grid item xs={3}>Lay</Grid>
+            <Grid item xs={3}>Lagai</Grid>
+            <Grid item xs={3}>Khai</Grid>
             <Grid item xs={3}>Status</Grid>
           </Grid>
 

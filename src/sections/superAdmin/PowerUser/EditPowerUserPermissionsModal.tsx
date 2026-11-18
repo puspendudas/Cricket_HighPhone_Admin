@@ -34,6 +34,8 @@ export function EditPowerUserPermissionsModal({
     cancel_match: false,
     rollback_session: false,
     cancel_session: false,
+    void_session: false,
+    unvoid_session: false,
   });
   const [saving, setSaving] = useState(false);
 
@@ -44,6 +46,8 @@ export function EditPowerUserPermissionsModal({
         cancel_match: Boolean(powerUser.permissions?.cancel_match),
         rollback_session: Boolean(powerUser.permissions?.rollback_session),
         cancel_session: Boolean(powerUser.permissions?.cancel_session),
+        void_session: Boolean(powerUser.permissions?.void_session),
+        unvoid_session: Boolean(powerUser.permissions?.unvoid_session),
       });
     }
   }, [powerUser, open]);
@@ -146,6 +150,40 @@ export function EditPowerUserPermissionsModal({
                 <Switch
                   checked={permissions.cancel_session}
                   onChange={() => handleToggle('cancel_session')}
+                  color="primary"
+                />
+              </Box>
+            </Grid>
+            <Divider />
+
+            <Grid item>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box>
+                  <Typography variant="subtitle2">Void Session</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Allow voiding Fancy session bets
+                  </Typography>
+                </Box>
+                <Switch
+                  checked={permissions.void_session}
+                  onChange={() => handleToggle('void_session')}
+                  color="primary"
+                />
+              </Box>
+            </Grid>
+            <Divider />
+
+            <Grid item>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Box>
+                  <Typography variant="subtitle2">Unvoid Session</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Allow restoring voided Fancy session bets
+                  </Typography>
+                </Box>
+                <Switch
+                  checked={permissions.unvoid_session}
+                  onChange={() => handleToggle('unvoid_session')}
                   color="primary"
                 />
               </Box>

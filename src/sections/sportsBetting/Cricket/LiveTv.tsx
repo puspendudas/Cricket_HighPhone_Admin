@@ -43,10 +43,63 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
     const gameid = matchData?.match?.gameId;
     const gmId = matchData?.match?.gmid || matchData?.gmid || matchData?.match?.gameId || matchData?.gameId || matchId;
 
-    const [scoreboardProvider, setScoreboardProvider] = useState<string>('BetFair');
-    const [streamProvider, setStreamProvider] = useState<string>('BetFair');
+    const [scoreboardProvider, setScoreboardProvider] = useState<string>('Diamond');
+    const [streamProvider, setStreamProvider] = useState<string>('Diamond');
     const [diamondScorecardUrl, setDiamondScorecardUrl] = useState<string>('');
     const { getSettings } = useAutosettingApi();
+
+    const isMatchLive = React.useMemo(
+        () =>
+            Boolean(
+                matchData?.inplay === true ||
+                matchData?.inPlay === true ||
+                matchData?.score ||
+                matchData?.score1 ||
+                matchData?.score2 ||
+                matchData?.match?.inplay ||
+                matchData?.match?.inPlay ||
+                matchData?.match?.score ||
+                matchData?.match?.wonby ||
+                matchData?.wonby
+            ),
+        [matchData]
+    );
+
+    const defaultScoreboardHeight = React.useMemo(() => {
+        if (isMatchLive) {
+            return isMobile ? 118 : 142;
+        }
+        return isMobile ? 106 : 148;
+    }, [isMatchLive, isMobile]);
+
+    const [scoreboardHeight, setScoreboardHeight] = useState<number>(defaultScoreboardHeight);
+
+    React.useEffect(() => {
+        setScoreboardHeight(defaultScoreboardHeight);
+    }, [defaultScoreboardHeight]);
+
+    React.useEffect(() => {
+        const handleScoreboardMessage = (event: MessageEvent) => {
+            if (!event?.data) return;
+            const { data } = event;
+            let newHeight: number | null = null;
+            if (
+                data.type === 'scoreboard:resize' ||
+                data.type === 'SCORECARD_RESIZE' ||
+                data.type === 'scorecard_height'
+            ) {
+                newHeight = Number(data.height);
+            } else if (data.height && !Number.isNaN(Number(data.height))) {
+                newHeight = Number(data.height);
+            }
+            if (newHeight && newHeight >= 80 && newHeight <= 600) {
+                setScoreboardHeight(newHeight);
+            }
+        };
+
+        window.addEventListener('message', handleScoreboardMessage);
+        return () => window.removeEventListener('message', handleScoreboardMessage);
+    }, []);
 
     // Fetch settings once on mount
     React.useEffect(() => {
@@ -72,7 +125,11 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
         let isMounted = true;
 
         if (gmId) {
-            const defaultUrl = `https://scorecard.daimond-api.site/?etid=4&gmid=${gmId}`;
+            const scorecardBase =
+                typeof window !== 'undefined' && window.location.hostname.includes('testingexch')
+                    ? 'https://testingexch.com'
+                    : 'https://highphone11.com';
+            const defaultUrl = `${scorecardBase}/scorecard/?etid=4&gmid=${gmId}&v=6&theme=dark`;
             setDiamondScorecardUrl(defaultUrl);
 
             if (scoreboardProvider === 'Diamond') {
@@ -333,30 +390,36 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 </Box>
 
                 {/* Team Info Section (Only Score Iframe) */}
-                <Box sx={{ backgroundColor: '#1e1e1e', }}>
+                <Box sx={{ backgroundColor: '#09101c' }}>
                     <Box
                         sx={{
                             display: 'flex',
                             justifyContent: 'center',
                             alignItems: 'center',
-                            backgroundColor: '#000',
-                            borderRadius: 2,
+                            backgroundColor: '#09101c',
+                            borderRadius: { xs: 1, md: 2 },
                             overflow: 'hidden',
-                            height: isMobile ? 200 : 200,
-                            width: '100%'
+                            height: `${scoreboardHeight}px`,
+                            width: '100%',
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            transition: 'height 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                         }}
                     >
                         <iframe
                             src={scoreboardProvider === 'Diamond' 
-                                ? (diamondScorecardUrl || `https://scorecard.daimond-api.site/?etid=4&gmid=${gmId}`)
+                                ? (diamondScorecardUrl || `https://${typeof window !== 'undefined' && window.location.hostname.includes('testingexch') ? 'testingexch.com' : 'highphone11.com'}/scorecard/?etid=4&gmid=${gmId}&v=6&theme=dark${!isMatchLive ? '&scheduled=1' : ''}`)
                                 : `https://diamondapi.avrkhub.in/score-card.html?id=${matchId}`}
                             style={{
                                 width: '100%',
-                                height: '100%',
+                                height: `${scoreboardHeight}px`,
                                 border: 'none',
+                                background: 'transparent',
+                                display: 'block',
+                                overflow: 'hidden',
+                                transition: 'height 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                             }}
                             allowFullScreen
-                            loading="lazy"
+                            loading="eager"
                             title="Live Scoreboard"
                         />
                     </Box>
@@ -379,8 +442,12 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                     >
                         {(() => {
                             const targetStreamId = gmId || matchId;
+                            const streamBase =
+                                typeof window !== 'undefined' && window.location.hostname.includes('testingexch')
+                                    ? 'https://testingexch.com'
+                                    : 'https://highphone11.com';
                             const streamSrc = streamProvider === 'Diamond'
-                                ? `https://stream-s-43.uhdmovies.online/sports-stream?id=${encodeURIComponent(targetStreamId || '')}`
+                                ? `${streamBase}/stream?id=${encodeURIComponent(targetStreamId || '')}`
                                 : `https://video.proexch.in/tv/v4/stream/${encodeURIComponent(matchId || targetStreamId || '')}`;
 
                             return targetStreamId ? (

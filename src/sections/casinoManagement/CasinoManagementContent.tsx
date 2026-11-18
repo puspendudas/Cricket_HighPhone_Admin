@@ -453,7 +453,7 @@ export function CasinoManagementContent() {
                   </Box>
                 </Box>
               }
-              subheader="Only has Back rate data. Difference reduces Back odds."
+              subheader="Only has Lagai rate data. Difference reduces Lagai odds."
               action={
                 <Button
                   size="small"
@@ -471,12 +471,12 @@ export function CasinoManagementContent() {
             <CardContent sx={{ flexGrow: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
                 fullWidth
-                label="Back Rate Difference (Reduce)"
+                label="Lagai Rate Difference (Reduce)"
                 type="number"
                 inputProps={{ step: '0.01', min: '0' }}
                 value={teen20.back_diff}
                 onChange={(e: any) => setTeen20({ ...teen20, back_diff: e.target.value })}
-                helperText="Reduces Back odds: Rate - Difference"
+                helperText="Reduces Lagai odds: Rate - Difference"
               />
 
               {/* Live Preview Box */}
@@ -485,7 +485,7 @@ export function CasinoManagementContent() {
                   Live Calculation Preview:
                 </Typography>
                 <Typography variant="body2" color="#1E3A8A">
-                  Original Back: <Box component="span" sx={{ fontWeight: 'bold' }}>1.98</Box> ➔ User Back:{' '}
+                  Original Lagai: <Box component="span" sx={{ fontWeight: 'bold' }}>1.98</Box> ➔ User Lagai:{' '}
                   <Box component="span" sx={{ color: '#16A34A', fontWeight: 'bold' }}>
                     {Math.max(0, 1.98 - teen20BackDiff).toFixed(2)}
                   </Box>
@@ -542,7 +542,7 @@ export function CasinoManagementContent() {
                   </Box>
                 </Box>
               }
-              subheader="Has Back and Lay odds. Back rate reduces, Lay rate increases."
+              subheader="Has Lagai and Khai odds. Lagai rate reduces, Khai rate increases."
               action={
                 <Button
                   size="small"
@@ -562,23 +562,23 @@ export function CasinoManagementContent() {
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="Back Rate Diff (Reduce)"
+                    label="Lagai Rate Diff (Reduce)"
                     type="number"
                     inputProps={{ step: '0.01', min: '0' }}
                     value={teen.back_diff}
                     onChange={(e: any) => setTeen({ ...teen, back_diff: e.target.value })}
-                    helperText="Reduces Back: Back - Diff"
+                    helperText="Reduces Lagai: Lagai - Diff"
                   />
                 </Grid>
                 <Grid item xs={12} sm={6}>
                   <TextField
                     fullWidth
-                    label="Lay Rate Diff (Increase)"
+                    label="Khai Rate Diff (Increase)"
                     type="number"
                     inputProps={{ step: '0.01', min: '0' }}
                     value={teen.lay_diff}
                     onChange={(e: any) => setTeen({ ...teen, lay_diff: e.target.value })}
-                    helperText="Increases Lay: Lay + Diff"
+                    helperText="Increases Khai: Khai + Diff"
                   />
                 </Grid>
               </Grid>
@@ -589,11 +589,11 @@ export function CasinoManagementContent() {
                   Live Calculation Preview:
                 </Typography>
                 <Typography variant="body2" color="#4C1D95">
-                  Back <Box component="span" sx={{ fontWeight: 'bold' }}>1.98</Box> ➔ User Back:{' '}
+                  Lagai <Box component="span" sx={{ fontWeight: 'bold' }}>1.98</Box> ➔ User Lagai:{' '}
                   <Box component="span" sx={{ color: '#16A34A', fontWeight: 'bold' }}>
                     {Math.max(0, 1.98 - teenBackDiff).toFixed(2)}
                   </Box>{' '}
-                  | Lay <Box component="span" sx={{ fontWeight: 'bold' }}>2.02</Box> ➔ User Lay:{' '}
+                  | Khai <Box component="span" sx={{ fontWeight: 'bold' }}>2.02</Box> ➔ User Khai:{' '}
                   <Box component="span" sx={{ color: '#E11D48', fontWeight: 'bold' }}>
                     {(2.02 + teenLayDiff).toFixed(2)}
                   </Box>

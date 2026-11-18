@@ -55,9 +55,9 @@ export const calculateCommission = (
     let value = 0;
 
     if (bet.status === "WON") {
-      value = bet.selection === "Back" ? potential : stake;
+      value = (bet.selection === "Lagai" || bet.selection === "Back") ? potential : stake;
     } else if (bet.status === "LOST") {
-      value = bet.selection === "Back" ? -stake : -potential;
+      value = (bet.selection === "Lagai" || bet.selection === "Back") ? -stake : -potential;
     }
     return acc + value;
   }, 0);

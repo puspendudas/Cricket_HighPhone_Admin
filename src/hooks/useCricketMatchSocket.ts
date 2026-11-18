@@ -8,7 +8,7 @@ import { STORAGE_KEY } from 'src/auth/context/jwt/constant';
 const SOCKET_URL =
   typeof window !== 'undefined' && window.location.hostname.includes('highphone11')
     ? 'https://server.highphone11.com'
-    : 'https://server.testingexch.com';
+    : 'https://server.highphone11.com';
 
 interface MatchUpdateData {
   match?: any;
@@ -22,6 +22,50 @@ interface UseCricketMatchSocketReturn {
   isDeclared: boolean;
   betUpdate: any | null;
   betHistoryData: any[];
+}
+
+export function mergeMatchDelta(prev: any, delta: any): any {
+  if (!prev) return delta?.match ? delta : { match: delta };
+
+  const baseMatch = prev?.match ? prev.match : prev;
+  const nextMatch = { ...baseMatch };
+
+  if (delta.lastOddsUpdatedAt != null) nextMatch.lastOddsUpdatedAt = delta.lastOddsUpdatedAt;
+  if (delta.lastMatchOddsUpdatedAt != null) nextMatch.lastMatchOddsUpdatedAt = delta.lastMatchOddsUpdatedAt;
+  if (delta.lastBMUpdatedAt != null) nextMatch.lastBMUpdatedAt = delta.lastBMUpdatedAt;
+  if (delta.lastFancyUpdatedAt != null) nextMatch.lastFancyUpdatedAt = delta.lastFancyUpdatedAt;
+  if (delta.isMatchEnded !== undefined) nextMatch.isMatchEnded = delta.isMatchEnded;
+  if (delta.isBMEnded !== undefined) nextMatch.isBMEnded = delta.isBMEnded;
+  if (delta.rc !== undefined) nextMatch.rc = delta.rc;
+  if (delta.bookMakerOdds !== undefined) nextMatch.bookMakerOdds = delta.bookMakerOdds;
+  if (delta.matchOdds !== undefined) nextMatch.matchOdds = delta.matchOdds;
+  if (delta.otherMarketOdds !== undefined) nextMatch.otherMarketOdds = delta.otherMarketOdds;
+
+  if (Array.isArray(delta.fancyOdds)) {
+    const prevFancy = Array.isArray(baseMatch.fancyOdds) ? baseMatch.fancyOdds : [];
+    const deltaMap = new Map<string, any>();
+    delta.fancyOdds.forEach((f: any) => {
+      if (f?.sid != null) deltaMap.set(String(f.sid), f);
+    });
+
+    const updatedFancy = prevFancy.map((item: any) => {
+      const sidStr = String(item.sid);
+      const patch = deltaMap.get(sidStr);
+      if (patch) {
+        deltaMap.delete(sidStr);
+        return { ...item, ...patch };
+      }
+      return item;
+    });
+
+    deltaMap.forEach((remaining: any) => {
+      updatedFancy.push(remaining);
+    });
+
+    nextMatch.fancyOdds = updatedFancy;
+  }
+
+  return prev?.match ? { ...prev, match: nextMatch } : nextMatch;
 }
 
 function useCricketMatchSocket(gameId: string | undefined): UseCricketMatchSocketReturn {
@@ -85,10 +129,12 @@ function useCricketMatchSocket(gameId: string | undefined): UseCricketMatchSocke
 
       if (!payload) return;
 
-      // ✅ ensure same structure as API
-      const finalData = payload?.match ? payload : { match: payload };
-
-      setMatchData(finalData);
+      if (payload?.isDelta) {
+        setMatchData((prev: any) => mergeMatchDelta(prev, payload));
+      } else {
+        const finalData = payload?.match ? payload : { match: payload };
+        setMatchData(finalData);
+      }
       setIsLoading(false);
       setError(null);
     });

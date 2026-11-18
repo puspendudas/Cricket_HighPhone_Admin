@@ -618,7 +618,7 @@ export default function CasinoGameLiveData({ gtype, title }: CasinoGameLiveDataP
                     width: 60,
                   }}
                 >
-                  Back
+                  Lagai
                 </Box>
                 {gtype !== 'lucky7eu' && gtype !== 'dt20' && (
                   <Box
@@ -630,7 +630,7 @@ export default function CasinoGameLiveData({ gtype, title }: CasinoGameLiveDataP
                       width: 60,
                     }}
                   >
-                    Lay
+                    Khai
                   </Box>
                 )}
               </Box>

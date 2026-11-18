@@ -8,6 +8,8 @@ import {
     Button,
     Collapse,
     Typography,
+    useTheme,
+    useMediaQuery,
 } from '@mui/material';
 
 import useApi from 'src/server/axios/index';
@@ -16,12 +18,44 @@ import { Endpoints } from 'src/server/endpoints_configuration/Endpoints';
 
 const LiveTv = () => {
     const { gameId } = useParams<{ gameId: string }>();
+    const theme = useTheme();
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
     const [isLiveTvExpanded, setIsLiveTvExpanded] = useState(false);
     const [scorecardUrl, setScorecardUrl] = useState<string>('');
-    const [streamProvider, setStreamProvider] = useState<string>('BetFair');
+    const [streamProvider, setStreamProvider] = useState<string>('Diamond');
     const { get } = useApi();
 
     const targetId = gameId || '34154017';
+
+    const defaultScoreboardHeight = isMobile ? 118 : 142;
+    const [scoreboardHeight, setScoreboardHeight] = useState<number>(defaultScoreboardHeight);
+
+    useEffect(() => {
+        setScoreboardHeight(defaultScoreboardHeight);
+    }, [defaultScoreboardHeight]);
+
+    useEffect(() => {
+        const handleScoreboardMessage = (event: MessageEvent) => {
+            if (!event?.data) return;
+            const { data } = event;
+            let newHeight: number | null = null;
+            if (
+                data.type === 'scoreboard:resize' ||
+                data.type === 'SCORECARD_RESIZE' ||
+                data.type === 'scorecard_height'
+            ) {
+                newHeight = Number(data.height);
+            } else if (data.height && !Number.isNaN(Number(data.height))) {
+                newHeight = Number(data.height);
+            }
+            if (newHeight && newHeight >= 80 && newHeight <= 600) {
+                setScoreboardHeight(newHeight);
+            }
+        };
+
+        window.addEventListener('message', handleScoreboardMessage);
+        return () => window.removeEventListener('message', handleScoreboardMessage);
+    }, []);
 
     useEffect(() => {
         const fetchSettings = async () => {
@@ -41,7 +75,11 @@ const LiveTv = () => {
         let isMounted = true;
 
         if (targetId) {
-            const defaultUrl = `https://scorecard.daimond-api.site/?etid=4&gmid=${targetId}`;
+            const scorecardBase =
+                typeof window !== 'undefined' && window.location.hostname.includes('testingexch')
+                    ? 'https://testingexch.com'
+                    : 'https://highphone11.com';
+            const defaultUrl = `${scorecardBase}/scorecard/?etid=4&gmid=${targetId}&v=6&theme=dark`;
             setScorecardUrl(defaultUrl);
 
             const fetchScorecard = async () => {
@@ -142,27 +180,33 @@ const LiveTv = () => {
                 </Box>
 
                 {/* Team Info Section (Only Score Iframe) */}
-                <Box sx={{ backgroundColor: '#1e1e1e', px: 2, py: 2 }}>
+                <Box sx={{ backgroundColor: '#09101c', p: 0 }}>
                     <Box
                         sx={{
                             display: 'flex',
                             justifyContent: 'center',
                             alignItems: 'center',
-                            backgroundColor: '#000',
-                            borderRadius: 2,
+                            backgroundColor: '#09101c',
+                            borderRadius: { xs: 1, md: 2 },
                             overflow: 'hidden',
-                            height: 350,
+                            height: `${scoreboardHeight}px`,
+                            border: '1px solid rgba(255, 255, 255, 0.08)',
+                            transition: 'height 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                         }}
                     >
                         <iframe
-                            src={scorecardUrl || `https://scorecard.daimond-api.site/?etid=4&gmid=${targetId}`}
+                            src={scorecardUrl || `https://${typeof window !== 'undefined' && window.location.hostname.includes('testingexch') ? 'testingexch.com' : 'highphone11.com'}/scorecard/?etid=4&gmid=${targetId}&v=6&theme=dark`}
                             style={{
                                 width: '100%',
-                                height: '100%',
+                                height: `${scoreboardHeight}px`,
                                 border: 'none',
+                                background: 'transparent',
+                                display: 'block',
+                                overflow: 'hidden',
+                                transition: 'height 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                             }}
                             allowFullScreen
-                            loading="lazy"
+                            loading="eager"
                             title="Live Scoreboard"
                         />
                     </Box>
@@ -185,8 +229,12 @@ const LiveTv = () => {
                     >
                         {(() => {
                             const targetStreamId = targetId || gameId;
+                            const streamBase =
+                                typeof window !== 'undefined' && window.location.hostname.includes('testingexch')
+                                    ? 'https://testingexch.com'
+                                    : 'https://highphone11.com';
                             const streamSrc = streamProvider === 'Diamond'
-                                ? `https://stream-s-43.uhdmovies.online/sports-stream?id=${encodeURIComponent(targetStreamId || '')}`
+                                ? `${streamBase}/stream?id=${encodeURIComponent(targetStreamId || '')}`
                                 : `https://video.proexch.in/tv/v4/stream/${encodeURIComponent(gameId || targetStreamId || '')}`;
 
                             return targetStreamId ? (

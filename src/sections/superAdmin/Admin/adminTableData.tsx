@@ -246,7 +246,7 @@ export function AdminTableData() {
                       onClick={() => {
                         if (!selectedMember) return;
 
-                        const loginDetails = `https://cricket.testingexch.com/
+                        const loginDetails = `https://cricket.highphone11.com/
               UserName: ${selectedMember.user}
               Password: ${selectedMember.password}`;
 

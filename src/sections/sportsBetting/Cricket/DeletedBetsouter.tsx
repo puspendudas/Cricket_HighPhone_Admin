@@ -203,7 +203,7 @@ export default function DeletedBetsouter() {
                           borderRadius: '20px',
                           fontWeight: 'bold',
                           color: '#fff',
-                          backgroundColor: row.selection === 'Back' ? '#83c2fc' : '#fda4b4',
+                          backgroundColor: (row.selection === 'Lagai' || row.selection === 'Back') ? '#83c2fc' : '#fda4b4',
                         }}
                       >
                         <Typography
@@ -214,7 +214,7 @@ export default function DeletedBetsouter() {
                             color: '#000',
                           }}
                         >
-                          {row.selection}
+                          {row.selection === 'Back' ? 'Lagai' : (row.selection === 'Lay' ? 'Khai' : row.selection)}
                         </Typography>
                         <Typography
                           variant="body2"

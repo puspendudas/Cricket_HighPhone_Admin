@@ -29,6 +29,7 @@ import {
 } from '@mui/material';
 
 import { formatUTCDateTime12H } from 'src/utils/date';
+import { extractTeamsFromMatchData } from 'src/utils/extractTeams';
 
 import useMeApi from 'src/Api/me/useMeApi';
 import useMatchApi from 'src/Api/matchApi/useMatchApi';
@@ -269,6 +270,48 @@ const DisplayMatch: React.FC = () => {
     return 0;
   };
 
+  const displayTeams = React.useMemo<string[]>(() => {
+    const rawMatch = matchData?.match;
+
+    // Tier 1: Direct match.teams array if populated
+    if (Array.isArray(rawMatch?.teams) && rawMatch.teams.length > 0) {
+      const validTeams = rawMatch.teams
+        .map((t: any) => (typeof t === 'string' ? t.trim() : t?.name || t?.teamName || ''))
+        .filter(Boolean);
+      if (validTeams.length > 0) return validTeams;
+    }
+
+    // Tier 2: Extract using extractTeamsFromMatchData utility
+    const extracted = extractTeamsFromMatchData(rawMatch).map((t) => t.name);
+    if (extracted.length > 0) return extracted;
+
+    // Tier 3: Extract team names from teamWisePotentialPL keys (ignoring numeric session IDs)
+    if (teamWisePotentialPL && Object.keys(teamWisePotentialPL).length > 0) {
+      const seen = new Set<string>();
+      const plTeams = Object.keys(teamWisePotentialPL)
+        .map((k) => k.trim())
+        .filter((clean) => {
+          if (!clean || /^\d+$/.test(clean)) return false;
+          const norm = clean.toLowerCase().replace(/\./g, '');
+          if (seen.has(norm)) return false;
+          seen.add(norm);
+          return true;
+        });
+      if (plTeams.length > 0) return plTeams;
+    }
+
+    // Tier 4: Fallback parse eventName directly
+    if (rawMatch?.eventName && typeof rawMatch.eventName === 'string') {
+      const parts = rawMatch.eventName
+        .split(/\s+(?:vs?|v|\/)\s+/i)
+        .map((p) => p.trim())
+        .filter(Boolean);
+      if (parts.length >= 2) return parts.slice(0, 2);
+    }
+
+    return [];
+  }, [matchData, teamWisePotentialPL]);
+
   const processSummaryData = (matches: any[]): SummaryRow[] => {
     const summaryRows: SummaryRow[] = [];
 
@@ -478,9 +521,9 @@ const DisplayMatch: React.FC = () => {
       user: bet.user.name,
       amount: bet.stake_amount,
       rate: bet.odds_rate,
-      mode: bet.selection === 'Back' ? 'L' : 'K',
+      mode: (bet.selection === 'Lagai' || bet.selection === 'Back') ? 'L' : 'K',
       team: displayTeam,
-      selection: bet.selection,
+      selection: bet.selection === 'Back' ? 'Lagai' : (bet.selection === 'Lay' ? 'Khai' : bet.selection),
       date: formatDateTime(bet.createdAt),
     };
   });
@@ -506,7 +549,7 @@ const DisplayMatch: React.FC = () => {
       rate: bet.odds_rate || '95',
       mode: 'L',
       team: displayTeam,
-      selection: bet.selection || 'Back',
+      selection: (bet.selection === 'Back' || !bet.selection) ? 'Lagai' : bet.selection,
       date: formatDateTime(bet.createdAt),
     };
   });
@@ -558,14 +601,14 @@ const DisplayMatch: React.FC = () => {
                           borderRadius: '20px',
                           fontWeight: 'bold',
                           color: '#000',
-                          backgroundColor: row.selection === 'Back' ? '#83c2fc' : '#fda4b4',
+                          backgroundColor: (row.selection === 'Lagai' || row.selection === 'Back') ? '#83c2fc' : '#fda4b4',
                         }}
                       >
                         <Typography
                           variant="caption"
                           sx={{ fontWeight: 'bold', mr: 0.5, color: '#000', fontSize: '0.72rem' }}
                         >
-                          {row.selection}
+                          {row.selection === 'Back' ? 'Lagai' : (row.selection === 'Lay' ? 'Khai' : row.selection)}
                         </Typography>
                         <Typography
                           variant="caption"
@@ -966,24 +1009,25 @@ const DisplayMatch: React.FC = () => {
           </Typography>
         </Box>
         <Box sx={{ px: { xs: 1.25, sm: 1.5 }, py: 0.5 }}>
-          {teams.map((team, index) => {
-            const teamPL = getTeamPL(team);
-            return (
-              <Box
-                key={index}
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  py: 0.4,
-                  px: 0.75,
-                  borderRadius: 1,
-                  bgcolor: index % 2 === 0 ? 'background.neutral' : 'transparent',
-                }}
-              >
-                <Typography sx={{ fontWeight: 700, fontSize: { xs: '0.82rem', sm: '0.88rem' } }}>
-                  {team}
-                </Typography>
+          {displayTeams.length > 0 ? (
+            displayTeams.map((team, index) => {
+              const teamPL = getTeamPL(team);
+              return (
+                <Box
+                  key={index}
+                  sx={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    py: 0.4,
+                    px: 0.75,
+                    borderRadius: 1,
+                    bgcolor: index % 2 === 0 ? 'background.neutral' : 'transparent',
+                  }}
+                >
+                  <Typography sx={{ fontWeight: 700, fontSize: { xs: '0.82rem', sm: '0.88rem' } }}>
+                    {team}
+                  </Typography>
                   <Typography
                     sx={{
                       fontWeight: 800,
@@ -994,9 +1038,14 @@ const DisplayMatch: React.FC = () => {
                   >
                     {teamPL >= 0 ? `+₹${teamPL.toFixed(2)}` : `-₹${Math.abs(teamPL).toFixed(2)}`}
                   </Typography>
-              </Box>
-            );
-          })}
+                </Box>
+              );
+            })
+          ) : (
+            <Typography sx={{ py: 1, fontSize: '0.82rem', color: 'text.secondary', textAlign: 'center' }}>
+              No team exposure data available
+            </Typography>
+          )}
         </Box>
       </Paper>
 

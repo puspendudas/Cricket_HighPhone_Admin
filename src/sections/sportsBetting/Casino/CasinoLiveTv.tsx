@@ -18,7 +18,11 @@ const CasinoLiveTv: React.FC<CasinoLiveTvProps> = ({ gtype }) => {
         const fetchStream = async () => {
             if (!gtype) return;
             const normalizedGtype = gtype.toLowerCase();
-            const fallbackUrl = `https://stream-s-43.uhdmovies.online/casino-stream?id=${normalizedGtype}`;
+            const streamBase =
+                typeof window !== 'undefined' && window.location.hostname.includes('testingexch')
+                    ? 'https://testingexch.com'
+                    : 'https://highphone11.com';
+            const fallbackUrl = `${streamBase}/stream?type=casino&id=${encodeURIComponent(normalizedGtype)}`;
 
             try {
                 setLoading(true);

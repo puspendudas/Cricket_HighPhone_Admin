@@ -20,6 +20,8 @@ export const Endpoints = {
     DeclareFancyMatch: `${BASE_URL}/match-bets/settle/fancy`,
     CancelMatch: `${BASE_URL}/match-bets/cancel/bookmacker`,
     CancelFancyMatch: `${BASE_URL}/match-bets/cancel/fancy`,
+    VoidFancyMatch: `${BASE_URL}/match-bets/void/fancy`,
+    UnvoidFancyMatch: `${BASE_URL}/match-bets/unvoid/fancy`,
     CancelSingleBetMatch: `${BASE_URL}/match-bets/cancel/single`,
     FancyRollBack: `${BASE_URL}/match-bets/rollback/fancy`,
     MatchRollBack: `${BASE_URL}/match-bets/rollback/bookmacker`,

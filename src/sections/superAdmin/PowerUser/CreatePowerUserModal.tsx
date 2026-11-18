@@ -53,6 +53,8 @@ export function CreatePowerUserModal({ open, onClose, onSubmit }: CreatePowerUse
     cancel_match: false,
     rollback_session: false,
     cancel_session: false,
+    void_session: false,
+    unvoid_session: false,
   });
 
   const resetForm = () => {
@@ -76,6 +78,8 @@ export function CreatePowerUserModal({ open, onClose, onSubmit }: CreatePowerUse
       cancel_match: false,
       rollback_session: false,
       cancel_session: false,
+      void_session: false,
+      unvoid_session: false,
     });
   };
 
@@ -271,6 +275,28 @@ export function CreatePowerUserModal({ open, onClose, onSubmit }: CreatePowerUse
                   />
                 }
                 label="Cancel Session"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={permissions.void_session}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPermissions((p) => ({ ...p, void_session: e.target.checked }))}
+                  />
+                }
+                label="Void Session"
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={permissions.unvoid_session}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPermissions((p) => ({ ...p, unvoid_session: e.target.checked }))}
+                  />
+                }
+                label="Unvoid Session"
               />
             </Grid>
           </Grid>

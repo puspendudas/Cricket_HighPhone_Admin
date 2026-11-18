@@ -253,29 +253,26 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
     ],
   });
 
-  // Old Data - super_admin only (example static months)
-  if (currentRole === 'super_admin') {
-    navData.push({
-      items: [
-        {
-          title: 'Old Data',
-          path: 'https://cricket-oct2026.testingexch.com/',
-          icon: ICONS.data,
-          children: [
-            {
-              title: 'Oct 2026',
-              path: 'https://cricket-oct2026.testingexch.com/',
-            },
-            {
-              title: 'Sep 2026',
-              path: 'https://cricket-sep2026.testingexch.com/',
-            },
-          ],
-        },
-      ],
-    });
-
-  }
+  // Old Data - Accessible to all roles
+  navData.push({
+    items: [
+      {
+        title: 'Old Data',
+        path: 'https://cricket-oct2026.highphone11.com/',
+        icon: ICONS.data,
+        children: [
+          {
+            title: 'Oct 2026',
+            path: 'https://cricket-oct2026.highphone11.com/',
+          },
+          {
+            title: 'Sep 2026',
+            path: 'https://cricket-sep2026.highphone11.com/',
+          },
+        ],
+      },
+    ],
+  });
 
   return navData;
 };

@@ -204,6 +204,46 @@ const SUMMARY_COLUMNS = [
   { id: 'gTotal', label: 'G. Total', width: '8.6%', minWidth: 80, align: 'right' as const },
 ];
 
+function extractActualTeamNames(match: any): [string, string] {
+  let team1 = '';
+  let team2 = '';
+
+  if (Array.isArray(match?.teams) && match.teams.length >= 2) {
+    const t0 = match.teams[0];
+    const t1 = match.teams[1];
+    team1 = typeof t0 === 'string' ? t0.trim() : String(t0?.team_name || t0?.name || '').trim();
+    team2 = typeof t1 === 'string' ? t1.trim() : String(t1?.team_name || t1?.name || '').trim();
+  }
+
+  if (!team1 && match?.runnerName1) team1 = String(match.runnerName1).trim();
+  if (!team2 && match?.runnerName2) team2 = String(match.runnerName2).trim();
+  if (!team1 && match?.team_a) team1 = String(match.team_a).trim();
+  if (!team2 && match?.team_b) team2 = String(match.team_b).trim();
+
+  const eventName = match?.eventName || '';
+  if ((!team1 || !team2) && eventName) {
+    const parts = String(eventName).split(/\s+(?:v|vs|VS|V)\s+/);
+    if (parts.length >= 2) {
+      if (!team1) team1 = parts[0].trim();
+      if (!team2) team2 = parts[1].trim();
+    }
+  }
+
+  const bmOddDatas = match?.bookMakerOdds?.[0]?.bm1?.oddDatas;
+  if ((!team1 || !team2) && Array.isArray(bmOddDatas) && bmOddDatas.length >= 2) {
+    if (!team1 && bmOddDatas[0]?.rname) team1 = String(bmOddDatas[0].rname).replace(/\.+$/, '').trim();
+    if (!team2 && bmOddDatas[1]?.rname) team2 = String(bmOddDatas[1].rname).replace(/\.+$/, '').trim();
+  }
+
+  const moOddDatas = match?.matchOdds?.[0]?.oddDatas;
+  if ((!team1 || !team2) && Array.isArray(moOddDatas) && moOddDatas.length >= 2) {
+    if (!team1 && moOddDatas[0]?.rname) team1 = String(moOddDatas[0].rname).replace(/\.+$/, '').trim();
+    if (!team2 && moOddDatas[1]?.rname) team2 = String(moOddDatas[1].rname).replace(/\.+$/, '').trim();
+  }
+
+  return [team1 || 'Team 1', team2 || 'Team 2'];
+}
+
 export default function CricketMatchLiveData() {
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({});
   const [page, setPage] = useState(0);
@@ -263,12 +303,12 @@ export default function CricketMatchLiveData() {
     }
   }, [betUpdate, queryClient]);
 
-  // REST fallback for match data
+  // REST fallback for match data (only poll if socket is disconnected)
   const { data: restMatchResponse, isLoading: isRestLoading } = useQuery({
     queryKey: ['restMatchData', gameId],
     queryFn: () => (gameId ? FatchUpdateMatchData(gameId) : Promise.reject(new Error('Missing gameId'))),
     enabled: !!gameId,
-    refetchInterval: 5000,
+    refetchInterval: socketMatchData ? false : 10000,
   });
 
   const activeMatch = socketMatchData?.match || restMatchResponse?.match || restMatchResponse?.data;
@@ -277,15 +317,15 @@ export default function CricketMatchLiveData() {
   // Extract current match ID
   const currentMatchId = activeMatch?._id;
 
-  // Fallback for bet history
+  // Fallback for bet history (only poll if socket is disconnected)
   const { data: restBetResponse } = useQuery({
     queryKey: ['restBetHistory', currentMatchId, userId],
     queryFn: () =>
       currentMatchId && userId
         ? fetchBetHistory(currentMatchId, userId)
         : Promise.reject(new Error('Missing match ID or user ID')),
-    enabled: !!currentMatchId && !!userId,
-    refetchInterval: 3000,
+    enabled: !!currentMatchId && !!userId && (!socketBetHistory || socketBetHistory.length === 0),
+    refetchInterval: socketBetHistory && socketBetHistory.length > 0 ? false : 10000,
   });
 
   const betHistoryData =
@@ -703,17 +743,23 @@ export default function CricketMatchLiveData() {
         {last10UndeclaredBets.map((bet: any) => {
           const isFancy = (bet.bet_type || '').toUpperCase() === 'FANCY';
           const isToss = (bet.bet_type || '').toUpperCase() === 'TOSS';
-          const isPositive = bet.selection === 'Yes' || bet.selection === 'Back';
+          const isPositive = bet.selection === 'Yes' || bet.selection === 'Lagai' || bet.selection === 'Back';
 
-          const resolvedTeam = (
-            bet.team_name ||
-            bet.runner_name ||
-            (isToss
-              ? (bet.selection_id === 2501 || String(bet.sid) === '2501'
-                  ? activeMatch?.team_a || 'Team A'
-                  : activeMatch?.team_b || 'Team B')
-              : '-')
-          ).replace(/\.+$/, '').trim();
+          const [matchTeam1, matchTeam2] = extractActualTeamNames(activeMatch);
+          let resolvedTeam = (bet.team_name || bet.runner_name || '').trim();
+          if (
+            !resolvedTeam ||
+            resolvedTeam.toLowerCase().startsWith('team 1') ||
+            resolvedTeam.toLowerCase().startsWith('team 2') ||
+            resolvedTeam.toLowerCase().startsWith('runner 250')
+          ) {
+            if (isToss) {
+              resolvedTeam = (bet.selection_id === 2501 || String(bet.sid) === '2501') ? matchTeam1 : matchTeam2;
+            } else {
+              resolvedTeam = '-';
+            }
+          }
+          resolvedTeam = resolvedTeam.replace(/\.+$/, '').trim();
 
           const clientDisplay = bet.user?.name
             ? `${bet.user?.name} (${bet.user?.user_name})`
@@ -757,7 +803,7 @@ export default function CricketMatchLiveData() {
                   }}
                 >
                   <Typography variant="caption" sx={{ fontWeight: 'bold', mr: 0.5, color: '#000', fontSize: '0.72rem' }}>
-                    {bet.selection || 'Back'}
+                    {bet.selection === 'Back' ? 'Lagai' : (bet.selection === 'Lay' ? 'Khai' : (bet.selection || 'Lagai'))}
                   </Typography>
                   <Typography
                     variant="caption"
@@ -845,9 +891,32 @@ export default function CricketMatchLiveData() {
     ).sort(compareFancySessions)
     : [];
 
-  const tossOdds = Array.isArray(fancyOdds)
+  const [extractedTeam1, extractedTeam2] = extractActualTeamNames(activeMatch);
+  const team1TossName = extractedTeam1.includes('Toss') ? extractedTeam1 : `${extractedTeam1} Will Win Toss`;
+  const team2TossName = extractedTeam2.includes('Toss') ? extractedTeam2 : `${extractedTeam2} Will Win Toss`;
+
+  let rawTossOdds = Array.isArray(fancyOdds)
     ? fancyOdds.filter((item: any) => String(item.sid) === '2501' || String(item.sid) === '2502')
     : [];
+
+  if (activeMatch?.isTossActive === true) {
+    if (rawTossOdds.length === 0) {
+      rawTossOdds = [
+        { sid: '2501', rname: team1TossName, status: '', isDeclared: false, b1: 100, bs1: 100, l1: 100, ls1: 100 },
+        { sid: '2502', rname: team2TossName, status: '', isDeclared: false, b1: 100, bs1: 100, l1: 100, ls1: 100 },
+      ];
+    } else {
+      rawTossOdds = rawTossOdds.map((odd: any) => {
+        const sidStr = String(odd.sid);
+        const r = String(odd.marketName || odd.rname || '').trim();
+        const isGeneric = !r || r.toLowerCase().startsWith('team 1') || r.toLowerCase().startsWith('team 2') || r.toLowerCase().startsWith('runner 250');
+        return isGeneric ? { ...odd, rname: sidStr === '2501' ? team1TossName : team2TossName } : { ...odd, rname: r };
+      });
+    }
+  } else {
+    rawTossOdds = [];
+  }
+  const tossOdds = rawTossOdds;
 
   const fancyCategories: FancyCategory[] = ['Normal', 'Over By Over', 'Ball By Ball'];
   const groupedFancyOdds: Record<FancyCategory, any[]> = {
@@ -882,9 +951,9 @@ export default function CricketMatchLiveData() {
       user: bet.user?.name || 'N/A',
       amount: bet.stake_amount,
       rate: Number(bet.odds_rate).toFixed(2),
-      mode: bet.selection === 'Back' ? 'L' : 'K',
+      mode: (bet.selection === 'Lagai' || bet.selection === 'Back') ? 'L' : 'K',
       team: displayTeam,
-      selection: bet.selection,
+      selection: bet.selection === 'Back' ? 'Lagai' : (bet.selection === 'Lay' ? 'Khai' : bet.selection),
       date: formatDateTime(bet.createdAt),
     };
   });
@@ -919,7 +988,15 @@ export default function CricketMatchLiveData() {
   );
 
   const formattedTossBetHistory = tossBetsRaw.map((bet: BetData) => {
-    const displayTeam = bet.runner_name || bet.team_name || 'N/A';
+    let displayTeam = (bet.runner_name || bet.team_name || '').trim();
+    if (
+      !displayTeam ||
+      displayTeam.toLowerCase().startsWith('team 1') ||
+      displayTeam.toLowerCase().startsWith('team 2') ||
+      displayTeam.toLowerCase().startsWith('runner 250')
+    ) {
+      displayTeam = (bet.selection_id === 2501 || String(bet.sid) === '2501') ? team1TossName : team2TossName;
+    }
 
     return {
       client: bet.user?.user_name || 'N/A',
@@ -927,8 +1004,8 @@ export default function CricketMatchLiveData() {
       amount: bet.stake_amount,
       rate: Number(bet.odds_rate || 95).toFixed(2),
       mode: 'L',
-      team: displayTeam,
-      selection: bet.selection || 'Back',
+      team: displayTeam || 'N/A',
+      selection: (bet.selection === 'Back' || !bet.selection) ? 'Lagai' : bet.selection,
       date: formatDateTime(bet.createdAt),
     };
   });
@@ -1093,14 +1170,14 @@ export default function CricketMatchLiveData() {
                           borderRadius: '20px',
                           fontWeight: 'bold',
                           color: '#fff',
-                          backgroundColor: row.selection === 'Back' ? '#83c2fc' : '#fda4b4',
+                          backgroundColor: (row.selection === 'Lagai' || row.selection === 'Back') ? '#83c2fc' : '#fda4b4',
                         }}
                       >
                         <Typography
                           variant="caption"
                           sx={{ fontWeight: 'bold', mr: 0.5, color: '#000' }}
                         >
-                          {row.selection}
+                          {row.selection === 'Back' ? 'Lagai' : (row.selection === 'Lay' ? 'Khai' : row.selection)}
                         </Typography>
                         <Typography
                           variant="caption"
@@ -1210,7 +1287,7 @@ export default function CricketMatchLiveData() {
               textAlign: 'center',
             }}
           >
-            Back
+            Lagai
           </Box>
           <Box
             sx={{
@@ -1224,7 +1301,7 @@ export default function CricketMatchLiveData() {
               textAlign: 'center',
             }}
           >
-            Lay
+            Khai
           </Box>
         </Stack>
       </Box>
@@ -1235,8 +1312,23 @@ export default function CricketMatchLiveData() {
           bookMakerOdds.length > 0 &&
           (bookMakerOdds as any)[0]?.bm1?.oddDatas?.length > 0 ? (
           (bookMakerOdds as any)[0].bm1.oddDatas.map((row: any, index: number) => {
-            const isBackSusp = Number(row.b1) >= 100 || Number(row.b1) === 0;
-            const isLaySusp = Number(row.l1) >= 100 || Number(row.l1) === 0;
+            const bmMarket = (bookMakerOdds as any)[0]?.bm1;
+            const rawRc =
+              row?.rc ??
+              bmMarket?.rc ??
+              (bookMakerOdds as any)[0]?.rc ??
+              activeMatch?.rc ??
+              bmMarket?.oddDatas?.length;
+            const rc = Number(rawRc) || (Array.isArray(bmMarket?.oddDatas) ? bmMarket.oddDatas.length : 2);
+
+            const isBackSusp =
+              Number(row.b1) === 0 ||
+              (rc === 2 && Number(row.b1) >= 100) ||
+              row.status === 'SUSPENDED';
+            const isLaySusp =
+              Number(row.l1) === 0 ||
+              (rc === 2 && Number(row.l1) >= 100) ||
+              row.status === 'SUSPENDED';
 
             const teamName = String(row.rname || '').trim();
             const teamPL = getTeamPL(row.rname);
@@ -1431,7 +1523,7 @@ export default function CricketMatchLiveData() {
               textAlign: 'center',
             }}
           >
-            Back
+            Lagai
           </Box>
         </Stack>
       </Box>
@@ -1867,7 +1959,7 @@ export default function CricketMatchLiveData() {
         {BookmakerOddsTable}
 
         {/* Toss Odds */}
-        {activeMatch?.isTossActive !== false && !isTossDeclared && TossOddsTable}
+        {activeMatch?.isTossActive === true && tossOdds.length > 0 && !isTossDeclared && TossOddsTable}
 
         {/* Match tab */}
         <Accordion defaultExpanded sx={{ mb: 1.25, borderRadius: '8px !important', overflow: 'hidden', backgroundColor: "#8df1d0ff" }}>
@@ -1883,7 +1975,7 @@ export default function CricketMatchLiveData() {
         </Accordion>
 
         {/* Toss tab */}
-        {activeMatch?.isTossActive !== false && (
+        {activeMatch?.isTossActive === true && tossOdds.length > 0 && (
           <Accordion sx={{ mb: 1.25, borderRadius: '8px !important', overflow: 'hidden', backgroundColor: "#8df1d0ff" }}>
             <AccordionSummary
               expandIcon={<Iconify icon="eva:arrow-ios-downward-fill" width={18} height={18} />}
@@ -2202,7 +2294,7 @@ export default function CricketMatchLiveData() {
         {/* Left: Bookmaker Odds then Toss then Match */}
         <Grid item xs={12} md={6}>
           {BookmakerOddsTable}
-          {activeMatch?.isTossActive !== false && !isTossDeclared && TossOddsTable}
+          {activeMatch?.isTossActive === true && tossOdds.length > 0 && !isTossDeclared && TossOddsTable}
 
           <Card sx={{ borderRadius: 1.5 }}>
             <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
@@ -2214,7 +2306,7 @@ export default function CricketMatchLiveData() {
           </Card>
 
           {/* Toss Card */}
-          {activeMatch?.isTossActive !== false && (
+          {activeMatch?.isTossActive === true && tossOdds.length > 0 && (
             <Card sx={{ borderRadius: 1.5, mt: 1.5 }}>
               <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
                 <Typography variant="subtitle1" mb={1} sx={{ fontWeight: 'bold' }}>

@@ -12,6 +12,8 @@ export type UserType = {
     cancel_match: boolean;
     rollback_session: boolean;
     cancel_session: boolean;
+    void_session: boolean;
+    unvoid_session: boolean;
   };
 } | null;
 

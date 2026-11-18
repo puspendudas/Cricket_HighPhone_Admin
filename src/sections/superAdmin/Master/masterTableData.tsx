@@ -16,6 +16,8 @@ import useSuperAdminApi from 'src/Api/master_api/useMasterApi';
 import { toast } from 'src/components/snackbar';
 import { Iconify } from 'src/components/iconify';
 
+import { decrypt } from 'src/utils/encryption';
+
 import LimitWDModal from './LimitWDModal';
 import { EditAdminModal } from './EditAdminModal';
 import { DeactivateModal } from './DeactivateModal';
@@ -103,21 +105,7 @@ export function MasterTableData() {
 
 
 
-  const decrypt = (text: string, shift: number): string =>
-    encrypt(text, (95 - shift) % 95);
 
-  const encrypt = (text: string, shift: number): string => {
-    let result = '';
-    for (let i = 0; i < text.length; i += 1) {
-      const charCode = text.charCodeAt(i);
-      if (charCode >= 32 && charCode <= 126) {
-        result += String.fromCharCode(((charCode - 32 + shift) % 95) + 32);
-      } else {
-        result += text.charAt(i);
-      }
-    }
-    return result;
-  };
   const handleCreate = async (form: MemberFormData) => {
     try {
       await addMaster({
@@ -265,7 +253,7 @@ export function MasterTableData() {
                         if (!selectedMember) return;
 
                         const loginDetails = `
-https://cricket.testingexch.com/
+https://cricket.highphone11.com/
 UserName: ${selectedMember.user}
 Password: ${selectedMember.password}
     `;

@@ -164,8 +164,8 @@ const MatchLiveData = () =>
                             <TableHead>
                                 <TableRow>
                                     <TableCell sx={{ fontWeight: 'bold', background: '#078DEE', color: '#fff' }}>Team</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold', background: '#078DEE', color: '#fff' }}>Back</TableCell>
-                                    <TableCell sx={{ fontWeight: 'bold', background: '#078DEE', color: '#fff' }}>Lay</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', background: '#078DEE', color: '#fff' }}>Lagai</TableCell>
+                                    <TableCell sx={{ fontWeight: 'bold', background: '#078DEE', color: '#fff' }}>Khai</TableCell>
                                 </TableRow>
                             </TableHead>
                             <TableBody>

@@ -27,6 +27,14 @@ export function useMockedUser() {
     casino_commission: 0,
     wallet: 0,
     password: '',
+    permissions: {
+      rollback_match: false,
+      cancel_match: false,
+      rollback_session: false,
+      cancel_session: false,
+      void_session: false,
+      unvoid_session: false,
+    },
   });
 
   const [loading, setLoading] = useState(true);
@@ -59,6 +67,14 @@ export function useMockedUser() {
             casino_commission: apiUser.casino_commission || 0,
             wallet: apiUser.wallet || 0,
             password: apiUser.password || '',
+            permissions: apiUser.permissions || {
+              rollback_match: false,
+              cancel_match: false,
+              rollback_session: false,
+              cancel_session: false,
+              void_session: false,
+              unvoid_session: false,
+            },
           });
         }
       } catch (err) {

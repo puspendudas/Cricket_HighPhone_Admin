@@ -76,6 +76,8 @@ export function PowerUserTableData() {
           cancel_match: false,
           rollback_session: false,
           cancel_session: false,
+          void_session: false,
+          unvoid_session: false,
         },
       }));
       setMembers(formatted);
@@ -307,7 +309,7 @@ export function PowerUserTableData() {
             if (!selectedMember) return;
 
             const loginDetails = `
-https://cricket.testingexch.com/
+https://cricket.highphone11.com/
 UserName: ${selectedMember.user}
 Password: ${selectedMember.password}
 `;

@@ -30,8 +30,8 @@ export function AutosettingData() {
     { label: 'Auto Session Manually Update', checked: false },
   ]);
 
-  const [scoreboardProvider, setScoreboardProvider] = useState<string>('BetFair');
-  const [streamProvider, setStreamProvider] = useState<string>('BetFair');
+  const [scoreboardProvider, setScoreboardProvider] = useState<string>('Diamond');
+  const [streamProvider, setStreamProvider] = useState<string>('Diamond');
 
   // ✅ Fetch initial settings
   const { data: settingsData, isLoading: isSettingsLoading } = useQuery({

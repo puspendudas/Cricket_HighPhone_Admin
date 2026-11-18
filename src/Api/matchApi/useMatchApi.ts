@@ -168,6 +168,16 @@ const useMatchApi = () => {
 
   );
 
+  const VoidfancyMatch = useCallback(
+    async (id: string, payload: any) => post(`${Endpoints.VoidFancyMatch}/${id}`, payload),
+    [post]
+  );
+
+  const UnvoidfancyMatch = useCallback(
+    async (id: string, payload: any) => post(`${Endpoints.UnvoidFancyMatch}/${id}`, payload),
+    [post]
+  );
+
 
   const fancyRollBack = useCallback(
     async (id: string, payload: any) => {
@@ -563,6 +573,8 @@ const useMatchApi = () => {
     DeclarefancyMatch,
     CancelMatch,
     CancelfancyMatch,
+    VoidfancyMatch,
+    UnvoidfancyMatch,
     fancyRollBack,
     matchRollback,
     toggleToss,
