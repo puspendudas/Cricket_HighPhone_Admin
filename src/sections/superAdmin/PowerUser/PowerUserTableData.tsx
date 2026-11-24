@@ -308,8 +308,9 @@ export function PowerUserTableData() {
           onClick={() => {
             if (!selectedMember) return;
 
+            const adminBaseUrl = (import.meta as any).env?.VITE_ADMIN_URL || 'https://cricket.highphone11.com/';
             const loginDetails = `
-https://cricket.highphone11.com/
+${adminBaseUrl}
 UserName: ${selectedMember.user}
 Password: ${selectedMember.password}
 `;

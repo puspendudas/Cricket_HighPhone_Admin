@@ -126,9 +126,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
 
         if (gmId) {
             const scorecardBase =
-                typeof window !== 'undefined' && window.location.hostname.includes('testingexch')
-                    ? 'https://testingexch.com'
-                    : 'https://highphone11.com';
+                (import.meta as any).env?.VITE_SCORECARD_URL || (import.meta as any).env?.VITE_SITE_URL || 'https://highphone11.com';
             const defaultUrl = `${scorecardBase}/scorecard/?etid=4&gmid=${gmId}&v=6&theme=dark`;
             setDiamondScorecardUrl(defaultUrl);
 
@@ -407,7 +405,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                     >
                         <iframe
                             src={scoreboardProvider === 'Diamond' 
-                                ? (diamondScorecardUrl || `https://${typeof window !== 'undefined' && window.location.hostname.includes('testingexch') ? 'testingexch.com' : 'highphone11.com'}/scorecard/?etid=4&gmid=${gmId}&v=6&theme=dark${!isMatchLive ? '&scheduled=1' : ''}`)
+                                ? (diamondScorecardUrl || `${(import.meta as any).env?.VITE_SCORECARD_URL || 'https://highphone11.com'}/scorecard/?etid=4&gmid=${gmId}&v=6&theme=dark${!isMatchLive ? '&scheduled=1' : ''}`)
                                 : `https://diamondapi.avrkhub.in/score-card.html?id=${matchId}`}
                             style={{
                                 width: '100%',
@@ -426,7 +424,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                 </Box>
 
                 {/* Live TV Expanded Content */}
-                <Collapse in={isLiveTvExpanded}>
+                <Collapse in={isLiveTvExpanded} unmountOnExit>
                     <Box
                         sx={{
                             backgroundColor: '#000',
@@ -442,15 +440,9 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                     >
                         {(() => {
                             const targetStreamId = gmId || matchId;
-                            const streamBase =
-                                typeof window !== 'undefined' && window.location.hostname.includes('testingexch')
-                                    ? 'https://testingexch.com'
-                                    : 'https://highphone11.com';
-                            const streamSrc = streamProvider === 'Diamond'
-                                ? `${streamBase}/stream?id=${encodeURIComponent(targetStreamId || '')}`
-                                : `https://video.proexch.in/tv/v4/stream/${encodeURIComponent(matchId || targetStreamId || '')}`;
+                            const streamSrc = `https://stream-s-43.uhdmovies.online/sports-stream?id=${encodeURIComponent(targetStreamId || '')}`;
 
-                            return targetStreamId ? (
+                            return isLiveTvExpanded && targetStreamId ? (
                                 <iframe
                                     src={streamSrc}
                                     style={{
@@ -459,6 +451,7 @@ const LiveTv: React.FC<LiveTvProps> = ({ matchId, matchData }) => {
                                         border: 'none',
                                     }}
                                     allowFullScreen
+                                    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                                     loading="lazy"
                                     title="Live TV Stream"
                                 />

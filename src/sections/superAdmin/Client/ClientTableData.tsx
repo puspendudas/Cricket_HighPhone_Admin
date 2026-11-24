@@ -382,8 +382,9 @@ export function ClientTableData() {
                       onClick={() => {
                         if (!selectedMember) return;
 
+                        const userBaseUrl = (import.meta as any).env?.VITE_USER_URL || 'https://highphone11.com/';
                         const loginDetails = `
-                          BaseURL:https://highphone11.com/
+                          BaseURL:${userBaseUrl}
                           UserName: ${selectedMember.user}
                           Password: ${selectedMember.password} `;
 

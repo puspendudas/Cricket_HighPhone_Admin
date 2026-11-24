@@ -254,20 +254,21 @@ export const useNavData = (): { subheader?: string; items: NavItem[] }[] => {
   });
 
   // Old Data - Accessible to all roles
+  const mainDomain = (import.meta as any).env?.VITE_MAIN_DOMAIN || 'highphone11.com';
   navData.push({
     items: [
       {
         title: 'Old Data',
-        path: 'https://cricket-oct2026.highphone11.com/',
+        path: `https://cricket-oct2026.${mainDomain}/`,
         icon: ICONS.data,
         children: [
           {
             title: 'Oct 2026',
-            path: 'https://cricket-oct2026.highphone11.com/',
+            path: `https://cricket-oct2026.${mainDomain}/`,
           },
           {
             title: 'Sep 2026',
-            path: 'https://cricket-sep2026.highphone11.com/',
+            path: `https://cricket-sep2026.${mainDomain}/`,
           },
         ],
       },

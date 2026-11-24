@@ -6,9 +6,10 @@ import { useRef, useState, useEffect, useCallback } from 'react';
 import { STORAGE_KEY } from 'src/auth/context/jwt/constant';
 
 const SOCKET_URL =
-  typeof window !== 'undefined' && window.location.hostname.includes('highphone11')
-    ? 'https://server.highphone11.com'
-    : 'https://server.highphone11.com';
+  (import.meta as any).env?.VITE_SOCKET_URL ||
+  ((import.meta as any).env?.VITE_SERVER_URL
+    ? (import.meta as any).env.VITE_SERVER_URL.replace(/\/api\/v1\/?$/, '')
+    : 'https://server.highphone11.com');
 
 interface MatchUpdateData {
   match?: any;

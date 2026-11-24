@@ -11,6 +11,12 @@ export type ConfigValue = {
     assetURL: string;
     basePath: string;
     version: string;
+    socketUrl: string;
+    scorecardUrl: string;
+    streamUrl: string;
+    mainDomain: string;
+    adminUrl: string;
+    userUrl: string;
   };
   auth: {
     method: 'jwt' | 'amplify' | 'firebase' | 'supabase' | 'auth0';
@@ -39,10 +45,16 @@ export type ConfigValue = {
 export const CONFIG: ConfigValue = {
   site: {
     name: 'Minimals',
-    serverUrl: import.meta.env.VITE_SERVER_URL ?? '',
-    assetURL: import.meta.env.VITE_ASSET_URL ?? '',
+    serverUrl: import.meta.env.VITE_SERVER_URL ?? 'https://server.highphone11.com/api/v1',
+    assetURL: import.meta.env.VITE_ASSET_URL ?? 'https://server.highphone11.com/api/v1',
     basePath: import.meta.env.VITE_BASE_PATH ?? '',
     version: packageJson.version,
+    socketUrl: import.meta.env.VITE_SOCKET_URL ?? (import.meta.env.VITE_SERVER_URL ? import.meta.env.VITE_SERVER_URL.replace(/\/api\/v1\/?$/, '') : 'https://server.highphone11.com'),
+    scorecardUrl: import.meta.env.VITE_SCORECARD_URL ?? 'https://highphone11.com',
+    streamUrl: import.meta.env.VITE_STREAM_URL ?? 'https://highphone11.com',
+    mainDomain: import.meta.env.VITE_MAIN_DOMAIN ?? 'highphone11.com',
+    adminUrl: import.meta.env.VITE_ADMIN_URL ?? 'https://cricket.highphone11.com',
+    userUrl: import.meta.env.VITE_USER_URL ?? 'https://highphone11.com',
   },
   /**
    * Auth

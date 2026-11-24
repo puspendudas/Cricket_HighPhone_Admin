@@ -246,7 +246,8 @@ export function AdminTableData() {
                       onClick={() => {
                         if (!selectedMember) return;
 
-                        const loginDetails = `https://cricket.highphone11.com/
+                        const adminBaseUrl = (import.meta as any).env?.VITE_ADMIN_URL || 'https://cricket.highphone11.com/';
+                        const loginDetails = `${adminBaseUrl}
               UserName: ${selectedMember.user}
               Password: ${selectedMember.password}`;
 

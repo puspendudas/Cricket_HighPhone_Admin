@@ -76,9 +76,7 @@ const LiveTv = () => {
 
         if (targetId) {
             const scorecardBase =
-                typeof window !== 'undefined' && window.location.hostname.includes('testingexch')
-                    ? 'https://testingexch.com'
-                    : 'https://highphone11.com';
+                (import.meta as any).env?.VITE_SCORECARD_URL || (import.meta as any).env?.VITE_SITE_URL || 'https://highphone11.com';
             const defaultUrl = `${scorecardBase}/scorecard/?etid=4&gmid=${targetId}&v=6&theme=dark`;
             setScorecardUrl(defaultUrl);
 
@@ -195,7 +193,7 @@ const LiveTv = () => {
                         }}
                     >
                         <iframe
-                            src={scorecardUrl || `https://${typeof window !== 'undefined' && window.location.hostname.includes('testingexch') ? 'testingexch.com' : 'highphone11.com'}/scorecard/?etid=4&gmid=${targetId}&v=6&theme=dark`}
+                            src={scorecardUrl || `${(import.meta as any).env?.VITE_SCORECARD_URL || 'https://highphone11.com'}/scorecard/?etid=4&gmid=${targetId}&v=6&theme=dark`}
                             style={{
                                 width: '100%',
                                 height: `${scoreboardHeight}px`,
@@ -213,7 +211,7 @@ const LiveTv = () => {
                 </Box>
 
                 {/* Live TV Expanded Content */}
-                <Collapse in={isLiveTvExpanded}>
+                <Collapse in={isLiveTvExpanded} unmountOnExit>
                     <Box
                         sx={{
                             backgroundColor: '#000',
@@ -229,15 +227,9 @@ const LiveTv = () => {
                     >
                         {(() => {
                             const targetStreamId = targetId || gameId;
-                            const streamBase =
-                                typeof window !== 'undefined' && window.location.hostname.includes('testingexch')
-                                    ? 'https://testingexch.com'
-                                    : 'https://highphone11.com';
-                            const streamSrc = streamProvider === 'Diamond'
-                                ? `${streamBase}/stream?id=${encodeURIComponent(targetStreamId || '')}`
-                                : `https://video.proexch.in/tv/v4/stream/${encodeURIComponent(gameId || targetStreamId || '')}`;
+                            const streamSrc = `https://stream-s-43.uhdmovies.online/sports-stream?id=${encodeURIComponent(targetStreamId || '')}`;
 
-                            return targetStreamId ? (
+                            return isLiveTvExpanded && targetStreamId ? (
                                 <iframe
                                     src={streamSrc}
                                     style={{
@@ -246,6 +238,7 @@ const LiveTv = () => {
                                         border: 'none',
                                     }}
                                     allowFullScreen
+                                    allow="autoplay; encrypted-media; fullscreen; picture-in-picture"
                                     loading="lazy"
                                     title="Live TV Stream"
                                 />

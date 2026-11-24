@@ -19,9 +19,7 @@ const CasinoLiveTv: React.FC<CasinoLiveTvProps> = ({ gtype }) => {
             if (!gtype) return;
             const normalizedGtype = gtype.toLowerCase();
             const streamBase =
-                typeof window !== 'undefined' && window.location.hostname.includes('testingexch')
-                    ? 'https://testingexch.com'
-                    : 'https://highphone11.com';
+                (import.meta as any).env?.VITE_STREAM_URL || (import.meta as any).env?.VITE_SITE_URL || 'https://highphone11.com';
             const fallbackUrl = `${streamBase}/stream?type=casino&id=${encodeURIComponent(normalizedGtype)}`;
 
             try {
